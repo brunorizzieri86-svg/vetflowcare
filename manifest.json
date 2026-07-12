@@ -1,0 +1,19 @@
+{
+  "name": "VetFlowCare - Carteira de Vacinação",
+  "short_name": "VetFlowCare",
+  "description": "Gerencie a carteira de vacinação dos seus pets com alertas, lembretes e múltiplos perfis de família",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#1e3a5f",
+  "theme_color": "#1e3a5f",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "icons/icon-72x72.png", "sizes": "72x72", "type": "image/png" },
+    { "src": "icons/icon-96x96.png", "sizes": "96x96", "type": "image/png" },
+    { "src": "icons/icon-128x128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "icons/icon-144x144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "icons/icon-152x152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "icons/icon-192x192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
