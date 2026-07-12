@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e3a5f">
+<title>VetFlowCare - Carteira de Vacinação</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0f1b2e;--navy2:#1e3a5f;--navy3:#2a4a73;--teal:#14b8a6;--teal2:#2dd4bf;--teal3:#5eead4;
+  --white:#fff;--off:#f8fafc;--gray1:#e2e8f0;--gray2:#94a3b8;--gray3:#64748b;--gray4:#475569;
+  --red:#ef4444;--green:#22c55e;--orange:#f97316;
+  --bg:var(--off);--card:var(--white);--txt:var(--navy);--txt2:var(--gray4);--bdr:var(--gray1);--shd:rgba(15,27,46,0.06);
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',sans-serif}
+body{background:var(--bg);color:var(--txt)}
+.app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;box-shadow:0 0 40px rgba(0,0,0,0.1);overflow:hidden}
+.sc{display:none;padding:16px;padding-bottom:100px}
+.sc.on{display:block}
+.ab{background:var(--navy2);color:var(--white);padding:16px;display:flex;justify-content:space-between;align-items:center}
+.bn{position:fixed;bottom:0;width:100%;max-width:430px;background:#fff;display:flex;justify-content:space-around;padding:12px;border-top:1px solid #e2e8f0;z-index:100}
+.ni{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;display:flex;flex-direction:column;align-items:center}
+.ni.on{color:var(--teal)}
+.splash{position:fixed;inset:0;background:var(--navy2);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+.splash.hide{display:none}
+.btnp{width:100%;padding:14px;background:var(--teal);color:#fff;border:none;border-radius:12px;font-weight:700;margin-top:10px}
+.fi{width:100%;padding:12px;border:1px solid var(--gray1);border-radius:8px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<div class="app">
+    <div id="splash" class="splash">
+      <h1>VetFlowCare</h1>
+      <button class="btnp" style="width:200px" onclick="enterApp()">Entrar no App</button>
+    </div>
+
+    <div class="ab"><h1>VetFlowCare</h1></div>
+
+    <div id="screen-home" class="sc on">
+        <h2>Bem-vindo, <span id="petNameDisplay">Pet</span>!</h2>
+        <div style="margin-top:20px">
+            <label>Nome do Pet:</label>
+            <input type="text" id="nomePetInput" class="fi" placeholder="Nome do seu pet">
+            <button class="btnp" onclick="salvarNome()">Atualizar Nome</button>
+        </div>
+    </div>
+
+    <div id="screen-vacinas" class="sc">
+        <h2>Carteira de Vacinação</h2>
+        <p>Em breve: histórico completo.</p>
+    </div>
+
+    <div id="screen-perfil" class="sc">
+        <h2>Perfil do Pet</h2>
+        <p>Configurações gerais.</p>
+    </div>
+
+    <nav class="bn">
+        <button class="ni on" onclick="showScreen('home', this)">Início</button>
+        <button class="ni" onclick="showScreen('vacinas', this)">Vacinas</button>
+        <button class="ni" onclick="showScreen('perfil', this)">Perfil</button>
+    </nav>
+</div>
+
+<script>
+    function enterApp() { document.getElementById('splash').classList.add('hide'); }
+    
+    function showScreen(screenId, btn) {
+        document.querySelectorAll('.sc').forEach(s => s.classList.remove('on'));
+        document.querySelectorAll('.ni').forEach(b => b.classList.remove('on'));
+        document.getElementById('screen-' + screenId).classList.add('on');
+        btn.classList.add('on');
+    }
+
+    function salvarNome() {
+        const novoNome = document.getElementById('nomePetInput').value;
+        localStorage.setItem('nomeDoPet', novoNome);
+        document.getElementById('petNameDisplay').innerText = novoNome;
+        alert("Nome salvo!");
+    }
+
+    window.onload = () => {
+        const nome = localStorage.getItem('nomeDoPet');
+        if(nome) {
+            document.getElementById('petNameDisplay').innerText = nome;
+            document.getElementById('nomePetInput').value = nome;
+        }
+    };
+</script>
+</body>
+</html>
