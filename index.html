@@ -598,6 +598,34 @@ if(savedDM){document.documentElement.setAttribute('data-theme','dark');document.
 document.getElementById('vd').valueAsDate=new Date();const nyd=new Date();nyd.setFullYear(nyd.getFullYear()+1);document.getElementById('vnd').valueAsDate=nyd;
 
 lcu();upnb();rd();
+// --- LÓGICA DE NAVEGAÇÃO E DADOS ---
+
+// Função de troca de tela
+function showScreen(screenId, btn) {
+    document.querySelectorAll('.sc').forEach(s => s.classList.remove('on'));
+    document.querySelectorAll('.ni').forEach(b => b.classList.remove('on'));
+    document.getElementById('screen-' + screenId).classList.add('on');
+    btn.classList.add('on');
+}
+
+// Função para salvar nome
+function salvarNome() {
+    const input = document.getElementById('nomePetInput');
+    localStorage.setItem('nomeDoPet', input.value);
+    document.getElementById('petNameDisplay').innerText = input.value;
+    alert("Nome salvo!");
+}
+
+// Carregar ao abrir
+window.onload = () => {
+    const nome = localStorage.getItem('nomeDoPet');
+    if(nome) {
+        document.getElementById('petNameDisplay').innerText = nome;
+        const input = document.getElementById('nomePetInput');
+        if(input) input.value = nome;
+    }
+};
+
 </script>
 </body>
 </html>
