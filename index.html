@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1e3a5f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VetFlowCare">
+<title>VetFlowCare - Carteira de Vacinação</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --navy:#0f1b2e;--navy2:#1e3a5f;--navy3:#2a4a73;--teal:#14b8a6;--teal2:#2dd4bf;--teal3:#5eead4;
+  --white:#fff;--off:#f8fafc;--gray1:#e2e8f0;--gray2:#94a3b8;--gray3:#64748b;--gray4:#475569;
+  --red:#ef4444;--green:#22c55e;--orange:#f97316;
+  --bg:var(--off);--card:var(--white);--txt:var(--navy);--txt2:var(--gray4);--bdr:var(--gray1);--shd:rgba(15,27,46,0.06);
+}
+[data-theme="dark"]{
+  --bg:var(--navy);--card:#1e293b;--txt:var(--white);--txt2:var(--gray2);--bdr:var(--navy3);--shd:rgba(0,0,0,0.3);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif}
+body{background:var(--bg);color:var(--txt);overflow-x:hidden;-webkit-font-smoothing:antialiased;transition:background .3s,color .3s}
+.app{max-width:430px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative;box-shadow:0 0 40px rgba(0,0,0,0.15);transition:background .3s}
+
+/* ===== SPLASH SCREEN ===== */
+.splash{position:fixed;inset:0;z-index:999;background:linear-gradient(180deg,#1e3a5f 0%,#0f1b2e 50%,#0f766e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .6s ease,visibility .6s}
+.splash.hide{opacity:0;visibility:hidden;pointer-events:none}
+.splash-logo{width:200px;height:200px;background:var(--white);border-radius:40px;display:flex;align-items:center;justify-content:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);margin-bottom:32px;overflow:hidden}
+.splash-logo img{width:90%;height:90%;object-fit:contain}
+.splash-brand{text-align:center}
+.splash-brand h1{font-size:48px;font-weight:800;color:var(--white);letter-spacing:-1px}
+.splash-brand h1 span{color:var(--teal2)}
+.splash-brand h2{font-size:32px;font-weight:400;color:var(--teal3);font-style:italic;margin-top:-4px}
+.splash-slogan{color:var(--gray2);font-size:13px;letter-spacing:4px;text-transform:uppercase;margin-top:16px;font-weight:500}
+.splash-btn{width:280px;padding:18px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:var(--white);border:none;border-radius:50px;font-size:18px;font-weight:700;cursor:pointer;margin-top:48px;box-shadow:0 8px 30px rgba(20,184,166,0.4);transition:all .3s}
+.splash-btn:active{transform:scale(.96);box-shadow:0 4px 15px rgba(20,184,166,0.3)}
+.splash-sub{color:var(--gray3);font-size:14px;margin-top:16px}
+
+/* ===== STATUS & APP BAR ===== */
+.sb{background:var(--navy2);color:var(--white);padding:4px 16px;display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600}
+.ab{background:linear-gradient(135deg,var(--navy2),var(--navy3));color:var(--white);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 2px 12px rgba(30,58,95,0.3);position:sticky;top:0;z-index:100}
+.ab h1{font-size:18px;font-weight:700}
+.abact{display:flex;gap:8px;align-items:center}
+.abb{background:none;border:none;color:var(--white);cursor:pointer;padding:6px;border-radius:10px;display:flex;align-items:center;justify-content:center;transition:background .2s}
+.abb:hover{background:rgba(255,255,255,0.12)}
+.nbdg{position:absolute;top:-2px;right:-2px;background:var(--red);color:var(--white);font-size:10px;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700}
+
+/* ===== SCREENS ===== */
+.sc{display:none;animation:fi .3s ease}
+.sc.on{display:block}
+@keyframes fi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.ct{padding:16px;padding-bottom:100px}
+
+/* ===== PET CARD ===== */
+.pc{background:var(--card);border-radius:24px;overflow:hidden;box-shadow:0 4px 20px var(--shd);border:1px solid var(--bdr);margin-bottom:16px;transition:background .3s,border-color .3s}
+.pch{background:linear-gradient(135deg,var(--navy2),var(--teal));padding:24px;color:var(--white);position:relative;overflow:hidden}
+.pch::before{content:"";position:absolute;top:-30px;right:-30px;width:120px;height:120px;background:rgba(255,255,255,0.08);border-radius:50%}
+.pchi{display:flex;align-items:center;gap:16px;position:relative;z-index:1}
+.pa{width:64px;height:64px;background:rgba(255,255,255,0.2);backdrop-filter:blur(10px);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0;border:2px solid rgba(255,255,255,0.3)}
+.pi h2{font-size:24px;font-weight:800}
+.pi p{font-size:13px;opacity:.9;margin-top:2px}
+.peb{margin-left:auto;background:rgba(255,255,255,0.15);border:none;color:var(--white);width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .2s}
+.peb:hover{background:rgba(255,255,255,0.25)}
+.pst{display:grid;grid-template-columns:repeat(3,1fr);padding:20px;gap:8px}
+.ps{text-align:center}
+.psl{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.psv{font-size:16px;font-weight:700;color:var(--txt);margin-top:4px}
+
+/* ===== SECTIONS ===== */
+.sh{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;color:var(--txt);margin:24px 0 12px}
+
+/* ===== ALERT CARDS ===== */
+.ac{border-radius:16px;padding:16px;margin-bottom:10px;display:flex;align-items:flex-start;gap:12px;box-shadow:0 2px 8px var(--shd);border-left:4px solid;transition:transform .15s}
+.ac:active{transform:scale(.98)}
+.ac.o{background:linear-gradient(135deg,#fff7ed,#fef3c7);border-color:var(--orange)}
+.ac.b{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:var(--teal)}
+.ac.g{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-color:var(--green)}
+.ac.r{background:linear-gradient(135deg,#fef2f2,#fee2e2);border-color:var(--red)}
+[data-theme="dark"] .ac.o{background:linear-gradient(135deg,#451a03,#78350f)}
+[data-theme="dark"] .ac.b{background:linear-gradient(135deg,#1e3a5f,#1e40af)}
+[data-theme="dark"] .ac.g{background:linear-gradient(135deg,#064e3b,#065f46)}
+[data-theme="dark"] .ac.r{background:linear-gradient(135deg,#450a0a,#7f1d1d)}
+.ai{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:22px;background:rgba(255,255,255,0.5)}
+.act{flex:1;min-width:0}
+.at{font-weight:700;font-size:15px;color:var(--txt)}
+.as{font-size:13px;color:var(--txt2);margin-top:2px}
+.am{font-size:12px;color:var(--gray3);margin-top:4px}
+.abg{font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.abg.o{background:rgba(249,115,22,0.15);color:#c2410c}
+.abg.b{background:rgba(59,130,246,0.15);color:#1d4ed8}
+.abg.g{background:rgba(34,197,94,0.15);color:#15803d}
+.abg.r{background:rgba(239,68,68,0.15);color:#b91c1c}
+
+/* ===== STATS ===== */
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.sb2{background:var(--card);border-radius:20px;padding:20px;text-align:center;border:1px solid var(--bdr);box-shadow:0 2px 8px var(--shd);transition:background .3s,border-color .3s;position:relative;overflow:hidden}
+.sb2::before{content:"";position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--teal),var(--teal2))}
+.sb2.t::before{background:linear-gradient(90deg,var(--teal),var(--teal2))}
+.sb2.p::before{background:linear-gradient(90deg,var(--navy2),var(--teal))}
+.sn{font-size:32px;font-weight:800;color:var(--navy2)}
+[data-theme="dark"] .sn{color:var(--teal2)}
+.sl{font-size:12px;color:var(--txt2);margin-top:4px;font-weight:500}
+
+/* ===== FORMS ===== */
+.fg{margin-bottom:16px}
+.fl{display:block;font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px}
+.fi,.fs{width:100%;padding:14px 16px;border:2px solid var(--bdr);border-radius:16px;font-size:15px;background:var(--card);color:var(--txt);transition:border-color .2s,box-shadow .2s,background .3s;-webkit-appearance:none;appearance:none}
+.fi:focus,.fs:focus{outline:none;border-color:var(--teal);box-shadow:0 0 0 4px rgba(20,184,166,0.15)}
+.fs{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ===== BUTTONS ===== */
+.btnp{width:100%;padding:16px;background:linear-gradient(135deg,var(--teal),var(--teal2));color:var(--white);border:none;border-radius:16px;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(20,184,166,0.3)}
+.btnp:active{transform:scale(.97)}
+.btns{width:100%;padding:14px;background:var(--card);color:var(--txt);border:2px solid var(--bdr);border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s}
+.btns:active{transform:scale(.97)}
+.btnd{width:100%;padding:14px;background:linear-gradient(135deg,#fef2f2,#fee2e2);color:#dc2626;border:2px solid #fecaca;border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}
+.btnd:active{transform:scale(.97)}
+[data-theme="dark"] .btnd{background:linear-gradient(135deg,#450a0a,#7f1d1d);color:#fca5a5;border-color:#991b1b}
+.btng{width:100%;padding:14px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;border:2px solid #bbf7d0;border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}
+.btng:active{transform:scale(.97)}
+[data-theme="dark"] .btng{background:linear-gradient(135deg,#064e3b,#065f46);color:#86efac;border-color:#059669}
+.btnb{width:100%;padding:14px;background:linear-gradient(135deg,#eff6ff,#dbeafe);color:#1d4ed8;border:2px solid #bfdbfe;border-radius:16px;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;margin-top:8px}
+.btnb:active{transform:scale(.97)}
+
+/* ===== INFO BOX ===== */
+.ib{background:linear-gradient(135deg,#fefce8,#fef9c3);border:1px solid #fde047;border-radius:14px;padding:14px;display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#854d0e;line-height:1.5}
+[data-theme="dark"] .ib{background:linear-gradient(135deg,#422006,#713f12);color:#fde047;border-color:#a16207}
+
+/* ===== BOTTOM NAV ===== */
+.bn{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:rgba(255,255,255,0.95);backdrop-filter:blur(20px);border-top:1px solid var(--bdr);display:flex;justify-content:space-around;align-items:center;padding:6px 0 20px;z-index:100;transition:background .3s,border-color .3s}
+[data-theme="dark"] .bn{background:rgba(30,41,59,0.95)}
+.ni{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 12px;border:none;background:none;cursor:pointer;color:var(--gray3);transition:color .2s;position:relative}
+.ni.on{color:var(--teal)}
+.ni svg{width:24px;height:24px}
+.ni span{font-size:10px;font-weight:600}
+.nf{background:linear-gradient(135deg,var(--teal),var(--teal2));color:var(--white);width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:4px solid var(--bg);box-shadow:0 6px 20px rgba(20,184,166,0.4);margin-top:-28px;cursor:pointer;transition:transform .2s}
+.nf:active{transform:scale(.9)}
+
+/* ===== TOAST ===== */
+.tst{position:fixed;top:60px;left:50%;transform:translateX(-50%) translateY(-20px);background:var(--navy);color:var(--white);padding:14px 28px;border-radius:50px;font-size:14px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,0.25);opacity:0;pointer-events:none;transition:all .3s ease;z-index:200;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.tst.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ===== EMPTY STATE ===== */
+.es{text-align:center;padding:48px 24px;color:var(--txt2)}
+.esi{font-size:64px;margin-bottom:16px}
+.es h3{font-size:20px;color:var(--txt);margin-bottom:8px;font-weight:700}
+.es p{font-size:14px;line-height:1.6}
+
+/* ===== LIST ITEMS ===== */
+.pli{background:var(--card);border-radius:18px;padding:18px;display:flex;align-items:center;gap:16px;margin-bottom:10px;border:1px solid var(--bdr);box-shadow:0 2px 8px var(--shd);cursor:pointer;transition:transform .15s,background .3s,border-color .3s}
+.pli:active{transform:scale(.98)}
+.pla{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal2));display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;box-shadow:0 4px 12px rgba(20,184,166,0.25)}
+.pln{font-weight:700;font-size:16px;color:var(--txt)}
+.pld{font-size:13px;color:var(--txt2);margin-top:2px}
+
+/* ===== NOTIFICATION ITEMS ===== */
+.ni2{background:var(--card);border-radius:18px;padding:16px;display:flex;gap:14px;margin-bottom:10px;border:1px solid var(--bdr);box-shadow:0 2px 8px var(--shd);transition:background .3s}
+.ni2i{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.ni2t{flex:1}
+.ni2t .t{font-weight:700;font-size:14px;color:var(--txt)}
+.ni2t .x{font-size:13px;color:var(--txt2);margin-top:3px;line-height:1.5}
+.ni2t .tm{font-size:11px;color:var(--gray3);margin-top:8px;font-weight:500}
+
+/* ===== INSTALL BANNER ===== */
+.ibn{background:linear-gradient(135deg,var(--navy2),var(--navy3));color:var(--white);padding:14px 16px;display:none;align-items:center;gap:12px;border-radius:0 0 16px 16px}
+.ibn.on{display:flex}
+.ibnt{flex:1;font-size:13px;font-weight:500}
+.ibnb{background:var(--white);color:var(--navy2);border:none;padding:8px 18px;border-radius:12px;font-weight:700;font-size:13px;cursor:pointer}
+
+/* ===== USER CHIP ===== */
+.uc{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.12);padding:6px 12px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;transition:background .2s}
+.uc:hover{background:rgba(255,255,255,0.2)}
+.uas{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal2));color:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+
+/* ===== MODAL / SHARE ===== */
+.mo{position:fixed;inset:0;background:rgba(15,27,46,0.6);display:none;align-items:flex-end;justify-content:center;z-index:150;backdrop-filter:blur(6px)}
+.mo.on{display:flex}
+.ms{background:var(--card);border-radius:28px 28px 0 0;width:100%;max-width:430px;padding:24px;max-height:85vh;overflow-y:auto;animation:su .35s cubic-bezier(.16,1,.3,1);transition:background .3s}
+@keyframes su{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.mt{font-size:22px;font-weight:800;color:var(--txt)}
+.mc{background:none;border:none;font-size:28px;color:var(--gray3);cursor:pointer;width:40px;height:40px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .2s}
+.mc:hover{background:var(--gray1)}
+.srg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:20px}
+.sri{display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer}
+.sric{width:64px;height:64px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--gray1);transition:transform .2s,box-shadow .2s}
+.sri:active .sric{transform:scale(.9)}
+.srl{font-size:12px;color:var(--txt2);font-weight:600}
+
+/* ===== USER LIST ===== */
+.uli{display:flex;align-items:center;gap:14px;padding:16px;background:var(--card);border-radius:18px;margin-bottom:10px;border:2px solid var(--bdr);cursor:pointer;transition:all .2s}
+.uli:hover{border-color:var(--teal)}
+.uli.on{border-color:var(--teal);background:linear-gradient(135deg,var(--teal1,#f0fdfa),var(--card))}
+[data-theme="dark"] .uli.on{background:linear-gradient(135deg,rgba(20,184,166,0.1),var(--card))}
+.ulia{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--teal),var(--teal2));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--white);flex-shrink:0}
+.uln{font-weight:700;font-size:15px;color:var(--txt)}
+.ulm{font-size:12px;color:var(--txt2);margin-top:3px}
+
+/* ===== TOGGLE ===== */
+.tr{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--bdr)}
+.tr:last-child{border-bottom:none}
+.tl{font-size:15px;font-weight:600;color:var(--txt)}
+.ts{position:relative;width:52px;height:30px}
+.ts input{opacity:0;width:0;height:0}
+.tsl{position:absolute;cursor:pointer;inset:0;background:var(--gray1);border-radius:30px;transition:.3s}
+.tsl:before{position:absolute;content:"";height:24px;width:24px;left:3px;bottom:3px;background:var(--white);border-radius:50%;transition:.3s;box-shadow:0 2px 6px rgba(0,0,0,0.15)}
+.ts input:checked+.tsl{background:var(--teal)}
+.ts input:checked+.tsl:before{transform:translateX(22px)}
+
+/* ===== ACTION ROW ===== */
+.ar{display:flex;gap:8px;margin:16px 0}
+.abt{flex:1;padding:12px;border-radius:14px;border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;box-shadow:0 2px 6px var(--shd)}
+.abt:active{transform:scale(.97)}
+.abt:hover{border-color:var(--teal);color:var(--teal)}
+
+/* ===== VACCINE HISTORY ITEM ===== */
+.vhi{background:var(--card);border-radius:16px;padding:16px;margin-bottom:10px;border:1px solid var(--bdr);display:flex;justify-content:space-between;align-items:center;transition:background .3s;box-shadow:0 2px 6px var(--shd)}
+.vhi:active{transform:scale(.99)}
+
+/* ===== LOGO IN APP ===== */
+.app-logo{display:flex;align-items:center;gap:10px}
+.app-logo img{height:36px;width:auto;border-radius:8px}
+.app-logo-text{font-size:20px;font-weight:800;color:var(--white);letter-spacing:-0.5px}
+.app-logo-text span{color:var(--teal2)}
+
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--gray1);border-radius:4px}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SPLASH SCREEN -->
+<div id="splash" class="splash">
+  <div class="splash-logo"><img src="logo.jpg" alt="VetFlowCare Logo"></div>
+  <div class="splash-brand">
+    <h1>Vet<span>Flow</span></h1>
+    <h2>Care</h2>
+  </div>
+  <div class="splash-slogan">Organiza · Conecta · Cuida</div>
+  <button class="splash-btn" onclick="enterApp()">Entrar no App</button>
+  <div class="splash-sub">Gestão de saúde para quem ama seus pets</div>
+</div>
+
+<!-- INSTALL BANNER -->
+<div id="ibn" class="ibn"><span class="ibnt">📲 Instale o VetFlowCare na tela inicial!</span><button class="ibnb" onclick="installPWA()">Instalar</button></div>
+
+<!-- STATUS BAR -->
+<div class="sb"><span id="ck">9:41</span><div style="display:flex;gap:4px;align-items:center"><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zm6-4a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zm6-3a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg><svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/></svg></div></div>
+
+<!-- APP BAR -->
+<div class="ab">
+  <div class="app-logo"><img src="logo.jpg" alt=""><div class="app-logo-text">Vet<span>Flow</span></div></div>
+  <div class="abact">
+    <button class="abb" onclick="showScreen('settings')" title="Configurações"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg></button>
+    <button class="abb" onclick="showNotifications()" style="position:relative" title="Notificações"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span id="nbdg" class="nbdg" style="display:none">0</span></button>
+    <div class="uc" onclick="showScreen('users')" title="Trocar usuário"><div class="uas" id="cua">👤</div><span id="cun" style="max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Eu</span></div>
+  </div>
+</div>
+
+<!-- SCREENS -->
+<div id="mc">
+  <div id="sc-dashboard" class="sc on"><div class="ct"><div id="dc"></div></div></div>
+  <div id="sc-petlist" class="sc"><div class="ct"><div id="plc"></div><button class="btnp" style="margin-top:16px" onclick="showScreen('addpet')">➕ Adicionar Novo Pet</button></div></div>
+  <div id="sc-addpet" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:24px;color:var(--txt)">Cadastrar Pet</h2>
+    <form id="fp" onsubmit="savePet(event)">
+      <div class="fg"><label class="fl">Nome do Pet *</label><input type="text" id="pn" class="fi" placeholder="Ex: Luna" required></div>
+      <div class="fg2"><div class="fg"><label class="fl">Espécie</label><select id="ps" class="fs"><option value="Cachorro">🐕 Cachorro</option><option value="Gato">🐈 Gato</option><option value="Pássaro">🦜 Pássaro</option><option value="Coelho">🐇 Coelho</option><option value="Hamster">🐹 Hamster</option><option value="Peixe">🐠 Peixe</option><option value="Tartaruga">🐢 Tartaruga</option><option value="Outro">🐾 Outro</option></select></div><div class="fg"><label class="fl">Raça</label><input type="text" id="pb" class="fi" placeholder="Ex: SRD"></div></div>
+      <div class="fg2"><div class="fg"><label class="fl">Nascimento *</label><input type="date" id="pbd" class="fi" required></div><div class="fg"><label class="fl">Peso (kg) *</label><input type="number" step="0.1" id="pw" class="fi" placeholder="Ex: 12.5" required></div></div>
+      <div class="fg"><label class="fl">Observações</label><textarea id="pnt" class="fi" rows="3" placeholder="Alergias, condições especiais, etc."></textarea></div>
+      <button type="submit" class="btnp">💾 Salvar Pet</button>
+      <button type="button" class="btns" style="margin-top:10px" onclick="showScreen('dashboard')">Cancelar</button>
+    </form>
+  </div></div>
+  <div id="sc-editpet" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:24px;color:var(--txt)">Editar Pet</h2>
+    <form id="efp" onsubmit="updatePet(event)">
+      <input type="hidden" id="epid">
+      <div class="fg"><label class="fl">Nome do Pet *</label><input type="text" id="epn" class="fi" required></div>
+      <div class="fg2"><div class="fg"><label class="fl">Espécie</label><select id="eps" class="fs"><option value="Cachorro">🐕 Cachorro</option><option value="Gato">🐈 Gato</option><option value="Pássaro">🦜 Pássaro</option><option value="Coelho">🐇 Coelho</option><option value="Hamster">🐹 Hamster</option><option value="Peixe">🐠 Peixe</option><option value="Tartaruga">🐢 Tartaruga</option><option value="Outro">🐾 Outro</option></select></div><div class="fg"><label class="fl">Raça</label><input type="text" id="epb" class="fi"></div></div>
+      <div class="fg2"><div class="fg"><label class="fl">Nascimento *</label><input type="date" id="epbd" class="fi" required></div><div class="fg"><label class="fl">Peso (kg) *</label><input type="number" step="0.1" id="epw" class="fi" required></div></div>
+      <div class="fg"><label class="fl">Observações</label><textarea id="epnt" class="fi" rows="3" placeholder="Alergias, condições especiais, etc."></textarea></div>
+      <button type="submit" class="btnp">✏️ Atualizar Pet</button>
+      <button type="button" class="btng" onclick="sharePet()">📤 Compartilhar Ficha</button>
+      <button type="button" class="btnb" onclick="exportPetPDF()">📄 Exportar PDF</button>
+      <button type="button" class="btnd" onclick="deletePet()">🗑️ Excluir Pet</button>
+      <button type="button" class="btns" style="margin-top:10px" onclick="showScreen('dashboard')">Cancelar</button>
+    </form>
+  </div></div>
+  <div id="sc-vaccine" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:24px;color:var(--txt)">Registrar Vacina</h2>
+    <form id="fv" onsubmit="saveVaccine(event)">
+      <div class="fg"><label class="fl">Pet</label><select id="vpid" class="fs"></select></div>
+      <div class="fg"><label class="fl">Nome da Vacina *</label><input type="text" id="vn" class="fi" placeholder="Ex: V10, Antirrábica" required></div>
+      <div class="fg2"><div class="fg"><label class="fl">Data Aplicada *</label><input type="date" id="vd" class="fi" required></div><div class="fg"><label class="fl">Próxima Dose *</label><input type="date" id="vnd" class="fi" required></div></div>
+      <div class="fg"><label class="fl">Veterinário / Clínica</label><input type="text" id="vv" class="fi" placeholder="Ex: Dr. Silva"></div>
+      <div class="fg"><label class="fl">Lote da Vacina</label><input type="text" id="vbt" class="fi" placeholder="Ex: ABC123456"></div>
+      <div class="ib" style="margin-bottom:16px"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>Um lembrete será criado automaticamente 3 dias antes do vencimento da próxima dose.</span></div>
+      <button type="submit" class="btnp">💉 Registrar Vacina</button>
+      <button type="button" class="btns" style="margin-top:10px" onclick="showScreen('dashboard')">Cancelar</button>
+    </form>
+  </div></div>
+  <div id="sc-notifications" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:20px;color:var(--txt)">Notificações</h2>
+    <div id="nlc"></div>
+    <button class="btns" style="margin-top:16px" onclick="clearAllNotifications()">🧹 Limpar Todas</button>
+  </div></div>
+  <div id="sc-users" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:16px;color:var(--txt)">👨‍👩‍👧‍👦 Família</h2>
+    <p style="font-size:13px;color:var(--txt2);margin-bottom:20px;line-height:1.6">Cada membro da família pode ter seus próprios pets e notificações. Troque de perfil facilmente.</p>
+    <div id="ulc"></div>
+    <button class="btnp" style="margin-top:16px" onclick="showAddUserForm()">➕ Adicionar Membro</button>
+    <div id="auf" style="display:none;margin-top:16px">
+      <div class="fg"><label class="fl">Nome do Membro *</label><input type="text" id="nun" class="fi" placeholder="Ex: Maria, João"></div>
+      <button class="btnp" onclick="addUser()">💾 Criar Perfil</button>
+      <button class="btns" style="margin-top:8px" onclick="hideAddUserForm()">Cancelar</button>
+    </div>
+  </div></div>
+  <div id="sc-settings" class="sc"><div class="ct">
+    <h2 style="font-size:24px;font-weight:800;margin-bottom:24px;color:var(--txt)">⚙️ Configurações</h2>
+    <div style="background:var(--card);border-radius:20px;padding:20px;margin-bottom:16px;border:1px solid var(--bdr);transition:background .3s">
+      <h3 style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px">Aparência</h3>
+      <div class="tr"><span class="tl">🌙 Modo Escuro</span><label class="ts"><input type="checkbox" id="dmt" onchange="toggleDarkMode()"><span class="tsl"></span></label></div>
+    </div>
+    <div style="background:var(--card);border-radius:20px;padding:20px;margin-bottom:16px;border:1px solid var(--bdr);transition:background .3s">
+      <h3 style="font-size:15px;font-weight:700;color:var(--txt);margin-bottom:4px">Dados</h3>
+      <button class="btng" onclick="exportAllData()">📥 Exportar Todos os Dados (JSON)</button>
+      <button class="btns" style="margin-top:8px" onclick="document.getElementById('imf').click()">📤 Importar Dados (JSON)</button>
+      <input type="file" id="imf" accept=".json" style="display:none" onchange="importAllData(this)">
+      <button class="btnd" style="margin-top:8px" onclick="resetAllData()">🗑️ Apagar Todos os Dados</button>
+    </div>
+    <div style="background:var(--card);border-radius:20px;padding:20px;margin-bottom:16px;border:1px solid var(--bdr);transition:background .3s">
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px">
+        <img src="logo.jpg" style="width:64px;height:64px;border-radius:16px;object-fit:cover;box-shadow:0 4px 12px var(--shd)" alt="VetFlowCare">
+        <div><h3 style="font-size:18px;font-weight:800;color:var(--txt)">VetFlow<span style="color:var(--teal)">Care</span></h3><p style="font-size:12px;color:var(--txt2);margin-top:2px">v2.0 · Carteira de Vacinação</p></div>
+      </div>
+      <p style="font-size:13px;color:var(--txt2);line-height:1.7">
+        <strong>Funcionalidades:</strong><br>
+        • Cadastro de múltiplos pets com foto, espécie, raça e observações<br>
+        • Registro completo de vacinas (data, próxima dose, veterinário, lote)<br>
+        • Alertas automáticos de vencimento<br>
+        • Múltiplos perfis de família<br>
+        • Exportação de ficha para PDF<br>
+        • Compartilhamento via WhatsApp, e-mail e mais<br>
+        • Modo escuro para uso noturno<br>
+        • Backup e restauração completa de dados
+      </p>
+      <p style="font-size:12px;color:var(--gray3);margin-top:16px;text-align:center;font-weight:500">ORGANIZA · CONECTA · CUIDA</p>
+    </div>
+  </div></div>
+</div>
+
+<!-- BOTTOM NAV -->
+<div class="bn">
+  <button class="ni on" data-sc="dashboard" onclick="showScreen('dashboard')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg><span>Início</span></button>
+  <button class="ni" data-sc="petlist" onclick="showScreen('petlist')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg><span>Meus Pets</span></button>
+  <div class="nf" onclick="showScreen('addpet')"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg></div>
+  <button class="ni" data-sc="vaccine" onclick="showScreen('vaccine')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg><span>Vacina</span></button>
+  <button class="ni" data-sc="notifications" onclick="showNotifications()"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg><span>Avisos</span></button>
+</div>
+
+<!-- SHARE MODAL -->
+<div id="smo" class="mo" onclick="if(event.target===this)closeShareModal()">
+  <div class="ms">
+    <div class="mh"><span class="mt">📤 Compartilhar Ficha</span><button class="mc" onclick="closeShareModal()">&times;</button></div>
+    <p style="font-size:14px;color:var(--txt2);margin-bottom:8px">Escolha como deseja compartilhar:</p>
+    <div class="srg">
+      <div class="sri" onclick="shareVia('whatsapp')"><div class="sric" style="background:linear-gradient(135deg,#dcfce7,#bbf7d0)">💬</div><span class="srl">WhatsApp</span></div>
+      <div class="sri" onclick="shareVia('copy')"><div class="sric" style="background:linear-gradient(135deg,#eff6ff,#dbeafe)">📋</div><span class="srl">Copiar</span></div>
+      <div class="sri" onclick="shareVia('email')"><div class="sric" style="background:linear-gradient(135deg,#fef2f2,#fee2e2)">📧</div><span class="srl">E-mail</span></div>
+      <div class="sri" onclick="shareVia('native')"><div class="sric" style="background:linear-gradient(135deg,#f5f3ff,#e9d5ff)">📲</div><span class="srl">Nativo</span></div>
+    </div>
+    <div id="spv" style="margin-top:20px;padding:16px;background:var(--gray1);border-radius:14px;font-size:12px;color:var(--txt2);white-space:pre-wrap;max-height:200px;overflow-y:auto;line-height:1.6"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="tst" class="tst"></div>
+
+</div>
+<script>
+const DB={get(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch{return d}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
+let users=DB.get('vfc_users',[]),cuid=DB.get('vfc_cuid',null),pets=[],vacs=[],nots=[],cpid=null;
+const SE={'Cachorro':'🐕','Gato':'🐈','Pássaro':'🦜','Coelho':'🐇','Hamster':'🐹','Peixe':'🐠','Tartaruga':'🐢','Outro':'🐾'};
+function uid(){return Date.now().toString(36)+Math.random().toString(36).substr(2,5)}
+function gud(id){return DB.get('vfc_d_'+id,{pets:[],vacs:[],nots:[],cpid:null})}
+function sud(id,d){DB.set('vfc_d_'+id,d)}
+function lcu(){
+  if(!cuid&&users.length>0)cuid=users[0].id;
+  if(!cuid){const u={id:uid(),name:'Eu',ca:new Date().toISOString()};users.push(u);cuid=u.id;DB.set('vfc_users',users);DB.set('vfc_cuid',cuid)}
+  const d=gud(cuid);pets=d.pets||[];vacs=d.vacs||[];nots=d.nots||[];cpid=d.cpid||null;upu()
+}
+function scu(){sud(cuid,{pets,vacs,nots,cpid})}
+function swu(id){scu();cuid=id;DB.set('vfc_cuid',cuid);lcu();toast('👤 Perfil trocado!');showScreen('dashboard')}
+function upu(){const u=users.find(x=>x.id===cuid);document.getElementById('cun').textContent=u?u.name:'Eu';document.getElementById('cua').textContent=u?u.name.charAt(0).toUpperCase():'👤'}
+function fd(d){if(!d)return'';return new Date(d+'T00:00:00').toLocaleDateString('pt-BR')}
+function ca(bd){const b=new Date(bd+'T00:00:00'),n=new Date();let y=n.getFullYear()-b.getFullYear(),m=n.getMonth()-b.getMonth();if(m<0){y--;m+=12}if(y>0)return y+(y===1?' ano':' anos');return m+(m===1?' mês':' meses')}
+function du(ds){const t=new Date(ds+'T00:00:00'),n=new Date();n.setHours(0,0,0,0);return Math.ceil((t-n)/864e5)}
+function addn(t,x,tp){nots.unshift({id:uid(),t,x,tp:tp||'info',tm:new Date().toISOString(),rd:false});scu();upnb()}
+function upnb(){const u=nots.filter(n=>!n.rd).length;const b=document.getElementById('nbdg');b.textContent=u;b.style.display=u>0?'flex':'none'}
+function toast(m){const t=document.getElementById('tst');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2800)}
+function enterApp(){document.getElementById('splash').classList.add('hide');setTimeout(()=>{document.getElementById('splash').style.display='none'},600)}
+function showScreen(n){
+  document.querySelectorAll('.sc').forEach(s=>s.classList.remove('on'));
+  const sc=document.getElementById('sc-'+n);if(sc)sc.classList.add('on');
+  document.querySelectorAll('.ni').forEach(b=>b.classList.remove('on'));
+  const nb=document.querySelector('.ni[data-sc="'+n+'"]');if(nb)nb.classList.add('on');
+  const ts={dashboard:'Meus Pets',petlist:'Todos os Pets',addpet:'Novo Pet',editpet:'Editar Pet',vaccine:'Registrar Vacina',notifications:'Notificações',users:'Família',settings:'Configurações'};
+  document.getElementById('pt').textContent=ts[n]||'VetFlowCare';
+  if(n==='dashboard')rd();if(n==='petlist')rpl();if(n==='vaccine')pps();if(n==='notifications')rnt();if(n==='users')rus();if(n==='settings')rst();
+  window.scrollTo(0,0)
+}
+function showNotifications(){nots.forEach(n=>n.rd=true);scu();upnb();showScreen('notifications')}
+
+function rd(){
+  const c=document.getElementById('dc');
+  if(pets.length===0){c.innerHTML='<div class="es"><div class="esi">🐾</div><h3>Nenhum pet cadastrado</h3><p>Adicione seu primeiro pet para começar a acompanhar as vacinas.</p></div><button class="btnp" style="margin-top:20px" onclick="showScreen('addpet')">➕ Adicionar Pet</button>';return}
+  const p=pets.find(x=>x.id===cpid)||pets[0];cpid=p.id;
+  const pv=vacs.filter(v=>v.pid===p.id).sort((a,b)=>new Date(a.nd)-new Date(b.nd));
+  const up=pv.filter(v=>du(v.nd)<=30);const tv=vacs.filter(v=>v.pid===p.id).length;
+  let h='';
+  h+='<div class="pc"><div class="pch"><div class="pchi"><div class="pa">'+(SE[p.sp]||'🐾')+'</div><div class="pi"><h2>'+p.n+'</h2><p>'+(p.br||'SRD')+' • '+ca(p.bd)+' • '+p.w+' kg</p></div><button class="peb" onclick="oep(''+p.id+'')"><svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg></button></div></div><div class="pst"><div class="ps"><div class="psl">Espécie</div><div class="psv">'+p.sp+'</div></div><div class="ps"><div class="psl">Nascimento</div><div class="psv">'+fd(p.bd)+'</div></div><div class="ps"><div class="psl">Vacinas</div><div class="psv">'+tv+'</div></div></div></div>';
+  if(pets.length>1){h+='<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:8px">';pets.forEach(x=>{const a=x.id===p.id?'background:linear-gradient(135deg,var(--navy2),var(--teal));color:#fff;border-color:transparent':'background:var(--card);color:var(--txt)';h+='<button onclick="sp(''+x.id+'')" style="flex-shrink:0;padding:8px 16px;border-radius:20px;border:2px solid var(--bdr);font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;'+a+'">'+(SE[x.sp]||'🐾')+' '+x.n+'</button>'});h+='</div>'}
+  h+='<div class="ar"><button class="abt" onclick="showScreen('vaccine')">💉 Nova Vacina</button><button class="abt" onclick="oep(''+p.id+'')">✏️ Editar</button><button class="abt" onclick="spf2(''+p.id+'')">📤 Compartilhar</button></div>';
+  h+='<div class="sh"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--orange)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>Próximos Alertas</div>';
+  if(up.length===0){h+='<div style="background:var(--card);border-radius:16px;padding:24px;text-align:center;color:var(--txt2);border:1px solid var(--bdr)"><div style="font-size:40px;margin-bottom:12px">✅</div><p style="font-weight:700;color:var(--txt);font-size:16px">Tudo em dia!</p><p style="font-size:13px;margin-top:6px">Nenhuma vacina vencendo nos próximos 30 dias.</p></div>'}
+  else{up.forEach(v=>{const d=du(v.nd);let cl='g',bl='g',bt='Em '+d+' dias';if(d<=3){cl='r';bl='r';bt=d<=0?'VENCEU!':'Em '+d+' dias'}else if(d<=14){cl='o';bl='o'}else if(d<=30){cl='b';bl='b'}h+='<div class="ac '+cl+'"><div class="ai">💉</div><div class="act"><div class="at">Vacina '+v.n+'</div><div class="as">Próxima dose: <strong>'+fd(v.nd)+'</strong></div><div class="am">Última aplicação: '+fd(v.d)+'</div></div><span class="abg '+bl+'">'+bt+'</span></div>'})}
+  if(pv.length>0){h+='<div class="sh"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--teal)"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>Histórico de Vacinas</div>';pv.forEach(v=>{const d=du(v.nd);const sc=d<=0?'color:var(--red)':d<=14?'color:var(--orange)':'color:var(--txt2)';h+='<div class="vhi"><div><div style="font-weight:700;font-size:15px;color:var(--txt)">'+v.n+'</div><div style="font-size:12px;color:var(--txt2);margin-top:3px">Aplicada em '+fd(v.d)+'</div></div><div style="text-align:right"><div style="font-size:12px;font-weight:700;'+sc+'">'+fd(v.nd)+'</div><div style="font-size:11px;color:var(--gray3);margin-top:2px">'+(d<=0?'Vencida':d+' dias')+'</div></div></div>'})}
+  h+='<div class="sh"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="color:var(--teal)"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Resumo</div><div class="sg"><div class="sb2 t"><div class="sn">'+tv+'</div><div class="sl">Vacinas registradas</div></div><div class="sb2 p"><div class="sn">'+pets.length+'</div><div class="sl">Pets cadastrados</div></div></div>';
+  c.innerHTML=h
+}
+function sp(id){cpid=id;scu();rd()}
+function rpl(){
+  const c=document.getElementById('plc');
+  if(pets.length===0){c.innerHTML='<div class="es"><div class="esi">🐾</div><h3>Nenhum pet cadastrado</h3><p>Clique em "Adicionar Novo Pet" para começar.</p></div>';return}
+  c.innerHTML=pets.map(p=>{const vc=vacs.filter(v=>v.pid===p.id).length;return'<div class="pli" onclick="spf2(''+p.id+'')"><div class="pla">'+(SE[p.sp]||'🐾')+'</div><div style="flex:1;min-width:0"><div class="pln">'+p.n+'</div><div class="pld">'+p.sp+' • '+(p.br||'SRD')+' • '+vc+' vacinas</div></div><svg style="color:var(--gray3);flex-shrink:0" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg></div>'}).join('')
+}
+function spf2(id){cpid=id;scu();showScreen('dashboard')}
+function savePet(e){
+  e.preventDefault();
+  const p={id:uid(),n:document.getElementById('pn').value.trim(),sp:document.getElementById('ps').value,br:document.getElementById('pb').value.trim(),bd:document.getElementById('pbd').value,w:parseFloat(document.getElementById('pw').value),nt:document.getElementById('pnt').value.trim(),ca:new Date().toISOString()};
+  pets.push(p);cpid=p.id;scu();document.getElementById('fp').reset();toast('🐕 Pet cadastrado com sucesso!');setTimeout(()=>showScreen('dashboard'),600)
+}
+function oep(id){
+  const p=pets.find(x=>x.id===id);if(!p)return;
+  document.getElementById('epid').value=p.id;document.getElementById('epn').value=p.n;document.getElementById('eps').value=p.sp;document.getElementById('epb').value=p.br||'';document.getElementById('epbd').value=p.bd;document.getElementById('epw').value=p.w;document.getElementById('epnt').value=p.nt||'';showScreen('editpet')
+}
+function updatePet(e){
+  e.preventDefault();const id=document.getElementById('epid').value;const i=pets.findIndex(x=>x.id===id);if(i===-1)return;
+  pets[i]={...pets[i],n:document.getElementById('epn').value.trim(),sp:document.getElementById('eps').value,br:document.getElementById('epb').value.trim(),bd:document.getElementById('epbd').value,w:parseFloat(document.getElementById('epw').value),nt:document.getElementById('epnt').value.trim()};
+  scu();toast('✏️ Pet atualizado!');setTimeout(()=>showScreen('dashboard'),600)
+}
+function deletePet(){
+  const id=document.getElementById('epid').value;
+  if(!confirm('Tem certeza que deseja excluir este pet? Todas as vacinas associadas também serão removidas.'))return;
+  pets=pets.filter(p=>p.id!==id);vacs=vacs.filter(v=>v.pid!==id);scu();
+  if(cpid===id){cpid=pets.length>0?pets[0].id:null;scu()}
+  toast('🗑️ Pet removido');setTimeout(()=>showScreen('dashboard'),600)
+}
+function pps(){
+  const s=document.getElementById('vpid');s.innerHTML=pets.map(p=>'<option value="'+p.id+'">'+(SE[p.sp]||'🐾')+' '+p.n+'</option>').join('');if(cpid)s.value=cpid
+}
+function saveVaccine(e){
+  e.preventDefault();
+  const pid=document.getElementById('vpid').value,n=document.getElementById('vn').value.trim(),d=document.getElementById('vd').value,nd=document.getElementById('vnd').value,vet=document.getElementById('vv').value.trim(),bt=document.getElementById('vbt').value.trim();
+  const v={id:uid(),pid,n,d,nd,vet,bt,ca:new Date().toISOString()};vacs.push(v);scu();
+  const p=pets.find(x=>x.id===pid);const ds=du(nd);
+  addn('Vacina Registrada','A vacina '+n+' de '+(p?p.n:'seu pet')+' foi registrada. Próxima dose em '+fd(nd)+'.','success');
+  if(ds>3){const rd=new Date(nd+'T00:00:00');rd.setDate(rd.getDate()-3);addn('Lembrete Agendado','Você receberá um aviso em '+fd(rd.toISOString().split('T')[0])+' sobre a vacina '+n+'.','info')}
+  document.getElementById('fv').reset();document.getElementById('vd').valueAsDate=new Date();const nx=new Date();nx.setFullYear(nx.getFullYear()+1);document.getElementById('vnd').valueAsDate=nx;pps();
+  toast('💉 Vacina registrada!');setTimeout(()=>showScreen('dashboard'),800)
+}
+function rnt(){
+  const c=document.getElementById('nlc');
+  if(nots.length===0){c.innerHTML='<div class="es"><div class="esi">🔔</div><h3>Sem notificações</h3><p>As notificações aparecerão aqui quando você registrar vacinas.</p></div>';return}
+  c.innerHTML=nots.map(n=>{
+    const t=new Date(n.tm);const ts=t.toLocaleDateString('pt-BR')+' '+t.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    const im={info:'🔔',success:'✅',warning:'⚠️',error:'❌'};const bm={info:'#eff6ff',success:'#f0fdf4',warning:'#fffbeb',error:'#fef2f2'};
+    return'<div class="ni2" style="background:'+(bm[n.tp]||'white')+'"><div class="ni2i" style="background:rgba(255,255,255,0.8)">'+(im[n.tp]||'🔔')+'</div><div class="ni2t"><div class="t">'+n.t+'</div><div class="x">'+n.x+'</div><div class="tm">'+ts+'</div></div></div>'
+  }).join('')
+}
+function clearAllNotifications(){if(!confirm('Limpar todas as notificações?'))return;nots=[];scu();rnt();upnb();toast('🧹 Notificações limpas')}
+function rus(){
+  const c=document.getElementById('ulc');
+  c.innerHTML=users.map(u=>{
+    const d=gud(u.id);const pc=(d.pets||[]).length,vc=(d.vacs||[]).length;
+    const a=u.id===cuid?' on':'';
+    return'<div class="uli'+a+'" onclick="swu(''+u.id+'')"><div class="ulia">'+u.name.charAt(0).toUpperCase()+'</div><div style="flex:1"><div class="uln">'+u.name+(u.id===cuid?' <span style="color:var(--teal);font-size:12px">(você)</span>':'')+'</div><div class="ulm">'+pc+' pets • '+vc+' vacinas</div></div>'+(u.id===cuid?'<svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="color:var(--teal);flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>':'')+'</div>'
+  }).join('')
+}
+function showAddUserForm(){document.getElementById('auf').style.display='block'}
+function hideAddUserForm(){document.getElementById('auf').style.display='none';document.getElementById('nun').value=''}
+function addUser(){
+  const n=document.getElementById('nun').value.trim();if(!n){toast('❌ Digite um nome');return}
+  const u={id:uid(),name:n,ca:new Date().toISOString()};users.push(u);DB.set('vfc_users',users);hideAddUserForm();toast('👤 Membro adicionado!');rus()
+}
+function rst(){const dm=DB.get('vfc_dm',false);document.getElementById('dmt').checked=dm}
+function toggleDarkMode(){
+  const on=document.getElementById('dmt').checked;
+  document.documentElement.setAttribute('data-theme',on?'dark':'light');
+  DB.set('vfc_dm',on);
+}
+function exportAllData(){
+  const data={users,exportDate:new Date().toISOString(),version:'2.0'};
+  users.forEach(u=>{data['data_'+u.id]=gud(u.id)});
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='vetflowcare-backup-'+new Date().toISOString().split('T')[0]+'.json';a.click();URL.revokeObjectURL(url);
+  toast('📥 Backup exportado!')
+}
+function importAllData(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=function(e){
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!d.users||!Array.isArray(d.users)){toast('❌ Arquivo inválido');return}
+      if(!confirm('Isso substituirá TODOS os dados atuais. Continuar?'))return;
+      users=d.users;DB.set('vfc_users',users);
+      users.forEach(u=>{if(d['data_'+u.id])DB.set('vfc_d_'+u.id,d['data_'+u.id])});
+      lcu();toast('📤 Dados importados!');showScreen('dashboard');
+    }catch(err){toast('❌ Erro ao importar: '+err.message)}
+  };
+  r.readAsText(f);input.value=''
+}
+function resetAllData(){if(!confirm('⚠️ TODOS os dados serão apagados permanentemente. Tem certeza?'))return;if(!confirm('Última chance! Isso não pode ser desfeito.'))return;localStorage.clear();location.reload()}
+function getShareText(id){
+  const p=pets.find(x=>x.id===id);if(!p)return'';
+  const pv=vacs.filter(v=>v.pid===p.id).sort((a,b)=>new Date(a.nd)-new Date(b.nd));
+  let t='🐾 *FICHA DO PET: '+p.n.toUpperCase()+'* 🐾\n\n';
+  t+='📋 *Dados Gerais*\n';
+  t+='Nome: '+p.n+'\n';
+  t+='Espécie: '+p.sp+'\n';
+  t+='Raça: '+(p.br||'SRD')+'\n';
+  t+='Nascimento: '+fd(p.bd)+' ('+ca(p.bd)+')\n';
+  t+='Peso: '+p.w+' kg\n';
+  if(p.nt)t+='Observações: '+p.nt+'\n';
+  t+='\n💉 *Vacinas ('+pv.length+')*\n';
+  if(pv.length===0)t+='Nenhuma vacina registrada.\n';
+  else{pv.forEach((v,i)=>{t+=(i+1)+'. '+v.n+'\n   Aplicada: '+fd(v.d)+'\n   Próxima: '+fd(v.nd);if(v.vet)t+='\n   Vet: '+v.vet;if(v.bt)t+='\n   Lote: '+v.bt;t+='\n\n'})}
+  t+='\n_📱 Gerado pelo VetFlowCare_';
+  return t
+}
+function sharePet(){const id=document.getElementById('epid').value;openShareModal(id)}
+function spf2(id){openShareModal(id)}
+function openShareModal(id){
+  const t=getShareText(id);document.getElementById('spv').textContent=t;document.getElementById('smo').classList.add('on');
+  window._sid=id;window._st=t
+}
+function closeShareModal(){document.getElementById('smo').classList.remove('on')}
+function shareVia(m){
+  const t=window._st||'';
+  if(m==='whatsapp'){window.open('https://wa.me/?text='+encodeURIComponent(t),'_blank');toast('💬 Abrindo WhatsApp...')}
+  else if(m==='copy'){navigator.clipboard.writeText(t).then(()=>toast('📋 Copiado!')).catch(()=>toast('❌ Erro ao copiar'))}
+  else if(m==='email'){window.open('mailto:?subject=Ficha do Pet - VetFlowCare&body='+encodeURIComponent(t),'_blank');toast('📧 Abrindo e-mail...')}
+  else if(m==='native'){if(navigator.share){navigator.share({title:'Ficha do Pet - VetFlowCare',text:t}).catch(()=>{})}else{toast('❌ Compartilhamento nativo não disponível')}}
+  closeShareModal()
+}
+function exportPetPDF(){
+  const id=document.getElementById('epid').value;const p=pets.find(x=>x.id===id);if(!p)return;
+  const pv=vacs.filter(v=>v.pid===p.id).sort((a,b)=>new Date(a.nd)-new Date(b.nd));
+  const {jsPDF}=window.jspdf;const doc=new jsPDF();
+  doc.setFillColor(30,58,95);doc.rect(0,0,210,45,'F');
+  doc.setTextColor(255,255,255);doc.setFontSize(22);doc.text('VetFlowCare',105,20,{align:'center'});
+  doc.setFontSize(12);doc.text('Carteira de Vacinação Digital',105,30,{align:'center'});
+  doc.setFontSize(10);doc.setTextColor(150,150,150);doc.text('ORGANIZA · CONECTA · CUIDA',105,38,{align:'center'});
+  doc.setTextColor(0,0,0);doc.setFontSize(18);doc.setFont(undefined,'bold');doc.text('Ficha do Pet: '+p.n,14,58);
+  doc.setFontSize(11);doc.setFont(undefined,'normal');doc.setTextColor(100,100,100);
+  doc.text('Espécie: '+p.sp,14,68);doc.text('Raça: '+(p.br||'SRD'),14,75);
+  doc.text('Nascimento: '+fd(p.bd)+' ('+ca(p.bd)+')',14,82);doc.text('Peso: '+p.w+' kg',14,89);
+  if(p.nt)doc.text('Observações: '+p.nt,14,96);
+  doc.setFontSize(14);doc.setTextColor(30,58,95);doc.setFont(undefined,'bold');doc.text('Vacinas Registradas',14,112);
+  doc.setDrawColor(30,58,95);doc.line(14,115,196,115);
+  let y=124;doc.setFontSize(10);doc.setTextColor(0,0,0);doc.setFont(undefined,'normal');
+  if(pv.length===0){doc.text('Nenhuma vacina registrada.',14,y)}
+  else{pv.forEach((v,i)=>{if(y>270){doc.addPage();y=20}doc.setFont(undefined,'bold');doc.text((i+1)+'. '+v.n,14,y);doc.setFont(undefined,'normal');doc.text('   Aplicada: '+fd(v.d)+'  |  Próxima: '+fd(v.nd),14,y+6);if(v.vet)doc.text('   Veterinário: '+v.vet,14,y+12);if(v.bt)doc.text('   Lote: '+v.bt,14,y+(v.vet?18:12));y+=24})}
+  doc.setFontSize(9);doc.setTextColor(150,150,150);doc.text('Gerado pelo VetFlowCare em '+new Date().toLocaleDateString('pt-BR'),105,285,{align:'center'});
+  doc.save('ficha-'+p.n.toLowerCase().replace(/\s+/g,'-')+'.pdf');toast('📄 PDF gerado!')
+}
+function updateClock(){document.getElementById('ck').textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+setInterval(updateClock,1000);updateClock();
+let dp=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;document.getElementById('ibn').classList.add('on')});
+function installPWA(){if(dp){dp.prompt();dp.userChoice.then(()=>{dp=null})}document.getElementById('ibn').classList.remove('on')}
+window.addEventListener('appinstalled',()=>{document.getElementById('ibn').classList.remove('on');dp=null});
+
+// Seed demo data
+if(pets.length===0){
+  const dp={id:uid(),n:'Jack',sp:'Cachorro',br:'SRD',bd:'2021-05-10',w:15.5,nt:'Muito brincalhão. Não gosta de chuva.',ca:new Date().toISOString()};
+  pets.push(dp);cpid=dp.id;
+  const ny=new Date();ny.setFullYear(ny.getFullYear()+1);
+  const dv={id:uid(),pid:dp.id,n:'V10',d:'2025-08-15',nd:ny.toISOString().split('T')[0],vet:'Dr. Carlos Silva',bt:'ABC123456',ca:new Date().toISOString()};
+  vacs.push(dv);
+  const dv2={id:uid(),pid:dp.id,n:'Antirrábica',d:'2025-03-10',nd:'2026-03-10',vet:'Clínica PetVet',bt:'XYZ789012',ca:new Date().toISOString()};
+  vacs.push(dv2);
+  scu();addn('Bem-vindo ao VetFlowCare!','Seu app de carteira de vacinação está pronto. Adicione seus pets e acompanhe as vacinas.','success')
+}
+
+// Init dark mode
+const savedDM=DB.get('vfc_dm',false);
+if(savedDM){document.documentElement.setAttribute('data-theme','dark');document.getElementById('dmt').checked=true}
+
+// Init dates
+document.getElementById('vd').valueAsDate=new Date();const nyd=new Date();nyd.setFullYear(nyd.getFullYear()+1);document.getElementById('vnd').valueAsDate=nyd;
+
+lcu();upnb();rd();
+</script>
+</body>
+</html>
