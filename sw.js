@@ -3,7 +3,7 @@ const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './manifest.json',
-  './logo.jpg',
+  './icon-384x384.png',
   'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
 ];
