@@ -1491,6 +1491,76 @@ function calcularProximaData(dataInicial, tipo) {
     data.setDate(data.getDate() + diasAdicionais);
     return data.toLocaleDateString('pt-BR');
 }
+  // ═══════════ INIT ═══════════
+applyDark();
+scheduleLocalCheck();
+if(localStorage.getItem('vfc_entered')){
+  document.getElementById('splash').classList.add('hidden');
+  document.getElementById('appHeader').classList.remove('hidden');
+  
+  // --- ADICIONE ESTA LINHA ---
+  verificarPerfilVet(); 
+  // ---------------------------
+}
+  function verificarPerfilVet() {
+    // Se não encontrar os dados no localStorage, abre o modal
+    if (!localStorage.getItem('vet_profile')) {
+        document.getElementById('modalCadastroVet').classList.remove('hidden');
+    }
+}
+
+function salvarPerfilVet() {
+    const profile = {
+        nome: document.getElementById('vetNome').value,
+        crmv: document.getElementById('vetCrmv').value,
+        mapa: document.getElementById('vetMapa').value
+    };
+    localStorage.setItem('vet_profile', JSON.stringify(profile));
+    document.getElementById('modalCadastroVet').classList.add('hidden');
+    alert("Dados salvos com sucesso!");
+}
+  <div id="modalCadastroVet" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:10px; width:80%;">
+        <h3>Configuração Inicial</h3>
+        <input type="text" id="vetNome" placeholder="Seu Nome Completo" style="width:100%; margin-bottom:10px;">
+        <input type="text" id="vetCrmv" placeholder="CRMV" style="width:100%; margin-bottom:10px;">
+        <input type="text" id="vetMapa" placeholder="SIPEAGRO/MAPA" style="width:100%; margin-bottom:10px;">
+        <button onclick="salvarPerfilVet()" style="width:100%; padding:10px; background:#2DC0AE; color:white; border:none;">Salvar e Começar</button>
+    </div>
+</div>
+  // Função para verificar se o perfil do Vet existe
+function verificarPerfilVet() {
+    if (!localStorage.getItem('vet_profile')) {
+        document.getElementById('modalCadastroVet').classList.remove('hidden');
+    }
+}
+
+// Salvar dados
+function salvarPerfilVet() {
+    const profile = {
+        nome: document.getElementById('vetNome').value,
+        crmv: document.getElementById('vetCrmv').value,
+        mapa: document.getElementById('vetMapa').value
+    };
+    localStorage.setItem('vet_profile', JSON.stringify(profile));
+    document.getElementById('modalCadastroVet').classList.add('hidden');
+}
+
+// Chame esta função no início do seu script de inicialização
+window.addEventListener('DOMContentLoaded', verificarPerfilVet);
+
+  
+</script>
+<div id="modalCadastroVet" class="modal hidden">
+    <div class="modal-content">
+        <h3>Bem-vindo! Configure seus dados</h3>
+        <input type="text" id="vetNome" placeholder="Nome Completo">
+        <input type="text" id="vetCrmv" placeholder="CRMV">
+        <input type="text" id="vetMapa" placeholder="SIPEAGRO/MAPA">
+        <button onclick="salvarPerfilVet()">Salvar e Começar</button>
+    </div>
+</div>
+    
 </script>
 </body>
 </html>
