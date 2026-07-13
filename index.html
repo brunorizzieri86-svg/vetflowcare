@@ -408,7 +408,7 @@ function ringSVG(score, size, onDark){
 const TYPE_CFG = {
   vaccine:    {emo:'💉', label:'Vacina',    c:'var(--vac)', bg:'var(--vacbg)'},
   medication: {emo:'💊', label:'Medicação', c:'var(--med)', bg:'var(--medbg)'},
-  vet:        {emo:'🩺', label:'Consulta',  c:'var(--vet)', bg:'var(--vetbg)'}
+  vet:        {emo:'🩺', label:'Atendimento',  c:'var(--vet)', bg:'var(--vetbg)'}
 };
 const PRI_CLR = {overdue:'var(--danger)', today:'var(--warning)', high:'var(--accent)', medium:'var(--primary)', low:'var(--muted)'};
 
@@ -453,7 +453,36 @@ function enterApp(){
   document.getElementById('mainNav').classList.remove('hidden');
   requestNotifPermission();
   render();
-  if(!DB.vet.name){ setTimeout(()=>{ toast('👨‍⚕️ Preencha seus dados profissionais em Ajustes'); }, 800); }
+  if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
+}
+
+// Modal obrigatório de primeiro acesso — dados do profissional
+function openVetSetup(){
+  const ufOpts = UFS.map(u=>`<option ${DB.vet.crmvUf===u?'selected':''}>${u}</option>`).join('');
+  showSheet('👨‍⚕️ Bem-vinda! Seus dados', `
+    <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac);margin-bottom:4px">
+      Esses dados aparecem nos receituários e prontuários impressos. Você pode editá-los depois em Ajustes.</div>
+    <label>Nome completo *</label><input id="sName" value="${esc(DB.vet.name)}" placeholder="Ex: Dra. Linda Rizzieri">
+    <label>CRMV *</label>
+    <div style="display:flex;gap:8px">
+      <select id="sUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
+      <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 37972">
+    </div>
+    <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: 00087206/2021">
+    <label>E-mail</label><input id="sEmail" type="email" value="${esc(DB.vet.email)}" placeholder="contato@clinica.com.br">
+    <div style="color:var(--muted);font-size:11px;margin-top:12px">💡 O upload do logo e da assinatura eletrônica fica em <b>Ajustes → Dados do Profissional</b>.</div>`,
+    `<button class="btn gray" onclick="closeSheet()">Depois</button>
+     <button class="btn" onclick="saveVetSetup()">💾 Salvar e começar</button>`);
+}
+function saveVetSetup(){
+  const name = val('sName');
+  if(!name){ toast('⚠ Informe seu nome completo'); return; }
+  DB.vet.name = name;
+  DB.vet.crmvUf = document.getElementById('sUf').value;
+  DB.vet.crmvNum = val('sNum');
+  DB.vet.sipeagro = val('sSipe');
+  DB.vet.email = val('sEmail');
+  save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vinda ao VetFlowCare');
 }
 function goTab(tab){
   currentTab = tab; currentPetId = null; currentTutorId = null;
@@ -708,7 +737,13 @@ function saveTutorForm(tutorId){
   } else {
     const t = normalizeTutor(fields);
     DB.tutors.push(t);
-    currentTutorId = t.id; tutorTab = 'animais';
+    if(window._linkPet){
+      const p = DB.pets.find(x=>x.id===window._linkPet);
+      if(p) p.tutorId = t.id;
+      window._linkPet = null;
+    } else {
+      currentTutorId = t.id; tutorTab = 'animais';
+    }
   }
   save(); closeSheet(); render(); toast(tutorId?'✏️ Tutor atualizado!':'👤 Tutor cadastrado!');
 }
@@ -901,7 +936,7 @@ function renderPetRx(pet){
       <span style="font-size:12px">Nome, CRMV e assinatura são usados na impressão do receituário. Vá em Ajustes.</span></div></div>`:''}
     ${pet.prescriptions.length ? pet.prescriptions.map(rx=>`<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><b style="font-size:14px">Receituário</b>
+        <div><b style="font-size:14px">${rx.type==='controle'?'Receita Controle Especial':'Receita Simples'}</b>
         <div style="color:var(--muted);font-size:11px">${fmtDate(rx.date)}</div></div>
         <span style="display:flex;gap:6px">
         <button style="background:none;font-size:15px" onclick="printRx('${pet.id}','${rx.id}')" title="Imprimir">🖨️</button>
@@ -915,13 +950,38 @@ function renderPetRx(pet){
 
 // ── Aba Arquivos ──
 function renderPetDocs(pet){
-  return `<div class="sec"><div class="sec-h"><span>Exames e Documentos</span></div>
+  const t = tutorOf(pet);
+  const tutorCard = t
+    ? `<div class="card">
+        <div class="irow"><span class="k">Nome completo</span><span class="v">${esc(t.name)}</span></div>
+        <div class="irow"><span class="k">CPF</span><span class="v">${esc(t.cpf||'—')}</span></div>
+        <div class="irow"><span class="k">Telefone</span><span class="v">${esc(t.phone||'—')}</span></div>
+        <div class="irow"><span class="k">CEP</span><span class="v">${esc(t.cep||'—')}</span></div>
+        <div class="irow"><span class="k">Endereço</span><span class="v">${esc(t.address||'—')}</span></div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn sm outline" onclick="openTutorForm('${t.id}')">✏️ Editar dados</button>
+          <button class="btn sm gray" onclick="openTutor('${t.id}')">👤 Ver perfil</button>
+        </div></div>`
+    : `<div class="card">
+        <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Nenhum tutor vinculado a este animal. Os dados do tutor saem na receita impressa.</div>
+        ${DB.tutors.length?`<select id="linkTutorSel" style="margin-bottom:10px">
+          <option value="">Selecione um tutor…</option>
+          ${DB.tutors.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        <button class="btn sm" onclick="linkTutorToPet('${pet.id}')">🔗 Vincular tutor</button>`:''}
+        <button class="btn sm outline" style="margin-top:8px" onclick="window._linkPet='${pet.id}';openTutorForm()">➕ Cadastrar novo tutor</button></div>`;
+
+  return `<div class="sec"><div class="sec-h"><span>👤 Tutor / Responsável</span></div>${tutorCard}</div>
+  <div class="sec"><div class="sec-h"><span>Exames e Documentos</span></div>
     <div class="card"><div class="doc-up">
       <div style="font-size:28px">📤</div>
       <div style="font-size:13px;margin:6px 0 2px">Envie fotos de exames e laudos</div>
       <div style="font-size:11px;margin-bottom:12px">JPG ou PNG · armazenado no dispositivo</div>
+      <input type="file" accept="image/*" capture="environment" id="docCam" class="hidden" onchange="uploadDoc('${pet.id}',this)">
       <input type="file" accept="image/*" id="docFile" class="hidden" onchange="uploadDoc('${pet.id}',this)">
-      <button class="btn sm" onclick="document.getElementById('docFile').click()">📎 Selecionar Arquivo</button>
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button class="btn sm" onclick="document.getElementById('docCam').click()">📷 Tirar Foto</button>
+        <button class="btn sm outline" onclick="document.getElementById('docFile').click()">🖼️ Galeria</button>
+      </div>
     </div></div>
     ${pet.documents.map(d=>`<div class="card docrow">
       <div class="di" style="background:var(--vacbg)">🖼️</div>
@@ -931,6 +991,13 @@ function renderPetDocs(pet){
       <button style="background:none;font-size:15px" onclick="viewDoc('${pet.id}','${d.id}')">👁️</button>
       <button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','documents','${d.id}')">🗑</button></div>`).join('')}
     ${!pet.documents.length?'<div class="empty" style="padding-top:14px">Nenhum arquivo enviado</div>':''}</div>`;
+}
+
+function linkTutorToPet(petId){
+  const sel = document.getElementById('linkTutorSel');
+  if(!sel || !sel.value){ toast('⚠ Selecione um tutor'); return; }
+  DB.pets.find(p=>p.id===petId).tutorId = sel.value;
+  save(); render(); toast('🔗 Tutor vinculado!');
 }
 
 function uploadDoc(petId, input){
@@ -957,6 +1024,7 @@ function viewDoc(petId, docId){
   const d = DB.pets.find(p=>p.id===petId)?.documents.find(x=>x.id===docId);
   if(!d) return;
   const w = window.open('');
+  if(!w){ toast('⚠ Permita pop-ups para visualizar'); return; }
   w.document.write(`<title>${esc(d.name)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${d.data}" style="max-width:100%;max-height:100vh"></body>`);
 }
 function delRecord(petId, coll, id){
@@ -1007,7 +1075,7 @@ function renderCalendar(){
       <div class="legend">
         <span><i style="background:var(--vac)"></i>Vacina</span>
         <span><i style="background:var(--med)"></i>Medicação</span>
-        <span><i style="background:var(--vet)"></i>Consulta</span>
+        <span><i style="background:var(--vet)"></i>Atendimento</span>
         <span><i style="background:var(--danger)"></i>Vencido</span></div>
     </div>
     <div class="sec" style="margin-top:16px"><div class="sec-h">
@@ -1091,7 +1159,7 @@ function renderSettings(){
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>🔔 Notificações por Tipo</span></div>
-    <div class="card">${sw('nVac','💉 Vacinas')}${sw('nMed','💊 Medicações')}${sw('nVet','🩺 Consultas')}</div></div>
+    <div class="card">${sw('nVac','💉 Vacinas')}${sw('nMed','💊 Medicações')}${sw('nVet','🩺 Atendimentos')}</div></div>
 
   <div class="sec"><div class="sec-h"><span>⏰ Antecedência dos Alertas</span></div>
     <div class="card">${sw('alert7','7 dias antes')}${sw('alert3','3 dias antes')}${sw('alert1','1 dia antes')}</div></div>
@@ -1200,10 +1268,15 @@ function openPetForm(petId){
 
   showSheet(pet?'Editar Paciente':'Cadastrar Paciente', `
     <div style="text-align:center;margin-bottom:8px">
+      <input type="file" accept="image/*" capture="environment" id="fPhotoCam" class="hidden" onchange="previewPhoto(this)">
       <input type="file" accept="image/*" id="fPhoto" class="hidden" onchange="previewPhoto(this)">
       <div id="photoPreview" onclick="document.getElementById('fPhoto').click()"
         style="width:90px;height:90px;border-radius:50%;background:var(--bg);border:2px dashed var(--border);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);cursor:pointer;overflow:hidden">
-        ${pet?.photo?`<img src="${pet.photo}" style="width:100%;height:100%;object-fit:cover">`:'📷 Foto'}</div></div>
+        ${pet?.photo?`<img src="${pet.photo}" style="width:100%;height:100%;object-fit:cover">`:'📷 Foto'}</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:8px">
+        <button type="button" class="btn sm" onclick="document.getElementById('fPhotoCam').click()">📷 Câmera</button>
+        <button type="button" class="btn sm outline" onclick="document.getElementById('fPhoto').click()">🖼️ Galeria</button>
+      </div></div>
     <label>Espécie *</label><div class="chips" id="fSpecies">${
       ['Cão','Gato','Ave'].map(s=>`<button class="chip ${(pet?.species||'Cão')===s?'on':''}" data-v="${s}"
       onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${SPECIES_EMOJI[s]} ${s}</button>`).join('')}</div>
@@ -1437,6 +1510,11 @@ function openRxForm(petId, rxId){
   showSheet(rx?'Editar Receituário':'Novo Receituário', `
     <div style="background:var(--rxbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--rx);margin-bottom:4px">
       Paciente: <b>${esc(pet.name)}</b> · ${esc(pet.species)} · ${pet.weight}kg${tutorName(pet)?' · Tutor: '+esc(tutorName(pet)):''}</div>
+    <label>Tipo de receita *</label>
+    <select id="fRxType">
+      <option value="simples" ${(!rx||rx.type!=='controle')?'selected':''}>Receita Simples</option>
+      <option value="controle" ${rx?.type==='controle'?'selected':''}>Receita de Controle Especial (2 vias)</option>
+    </select>
     <label>Data</label><input id="fRxDate" type="date" value="${rx?.date||todayISO()}">
     <label>Prescrição *</label>
     <textarea id="fRxContent" rows="10" placeholder="Ex:&#10;1) Amoxicilina 250mg — 1 comprimido a cada 12h por 7 dias&#10;2) Dipirona gotas — 15 gotas a cada 8h se dor&#10;&#10;Uso contínuo:&#10;...">${esc(rx?.content||'')}</textarea>
@@ -1452,8 +1530,10 @@ function saveRx(petId, rxId){
   if(rxId){
     const rx = pet.prescriptions.find(x=>x.id===rxId);
     rx.date = val('fRxDate')||todayISO(); rx.content = content; rx.notes = val('fRxNotes');
+    rx.type = document.getElementById('fRxType').value;
   } else {
-    pet.prescriptions.unshift({id:uid(), date:val('fRxDate')||todayISO(), content, notes:val('fRxNotes')});
+    pet.prescriptions.unshift({id:uid(), date:val('fRxDate')||todayISO(), content, notes:val('fRxNotes'),
+      type: document.getElementById('fRxType').value});
   }
   save(); closeSheet(); render(); toast('📝 Receituário salvo!');
 }
@@ -1487,28 +1567,98 @@ function signatureHTML(dateISO){
     <div style="font-size:12px;color:#6B7A8D">${crmvFull()||''}</div></div>`;
 }
 function printShell(title, inner){
-  const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>
+  const html = `<!DOCTYPE html><html><head><title>${title}</title><style>
     body{font-family:-apple-system,'Segoe UI',sans-serif;padding:36px;color:#1A2F5A;max-width:720px;margin:0 auto}
     @media print{body{padding:20px}}
     .doctitle{text-align:center;font-size:17px;font-weight:900;letter-spacing:3px;color:#1E3A6E;margin-bottom:18px}
-    .content{white-space:pre-wrap;font-size:14px;line-height:1.8;min-height:220px}
+    .content{white-space:pre-wrap;font-size:14px;line-height:1.8;min-height:180px}
     .foot{margin-top:36px;text-align:center;color:#6B7A8D;font-size:10px;letter-spacing:2px}
+    .box{border:1.5px solid #1A2F5A;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px}
+    .box b.bt{display:block;font-size:10px;letter-spacing:1px;color:#6B7A8D;margin-bottom:6px}
+    .fill{display:inline-block;border-bottom:1px solid #999;min-width:180px}
+    .via{page-break-after:always}
+    .via:last-child{page-break-after:auto}
+    .vialbl{text-align:right;font-size:10px;font-weight:800;color:#6B7A8D;letter-spacing:1px;margin-bottom:8px}
   </style></head><body>${inner}
-  <div class="foot">ORGANIZA · CONECTA · CUIDA — VetFlowCare</div>
-  <script>window.onload=()=>window.print()<\/script></body></html>`);
-  w.document.close();
+  <div class="foot">ORGANIZA · CONECTA · CUIDA — VetFlowCare</div></body></html>`;
+  // Impressão via iframe oculto (funciona mesmo com pop-ups bloqueados)
+  document.getElementById('printFrame')?.remove();
+  const f = document.createElement('iframe');
+  f.id = 'printFrame';
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
+  document.body.appendChild(f);
+  const d = f.contentDocument || f.contentWindow.document;
+  d.open(); d.write(html); d.close();
+  setTimeout(() => {
+    try { f.contentWindow.focus(); f.contentWindow.print(); }
+    catch(e){ toast('⚠ Impressão não suportada neste navegador'); }
+  }, 450);
+}
+
+// Bloco resumido do tutor + animal (modelo da receita)
+function rxHeaderBlockHTML(pet){
+  const t = tutorOf(pet);
+  return `<div class="box">
+    <b class="bt">TUTOR E ANIMAL</b>
+    <b>Tutor:</b> ${esc(t?.name || tutorName(pet) || '')}<span class="fill" style="min-width:40px"></span><br>
+    <b>Endereço:</b> ${esc(t?.address || '')}${t?.cep ? ' · CEP '+esc(t.cep) : ''}<br>
+    <b>Animal:</b> ${esc(pet.name)} &nbsp;·&nbsp; <b>Idade:</b> ${calcAge(pet.birth)} &nbsp;·&nbsp; <b>Peso:</b> ${pet.weight} kg<br>
+    <b>Espécie:</b> ${esc(pet.species)} &nbsp;·&nbsp; <b>Sexo:</b> ${esc(pet.gender)}${pet.fertility?' ('+esc(pet.fertility)+')':''}
+  </div>`;
+}
+// Dados do veterinário no FINAL do documento (modelo da Linda)
+function vetFooterHTML(dateISO){
+  const v = DB.vet;
+  return `<div style="margin-top:50px;text-align:center">
+    ${v.signature?`<img src="${v.signature}" style="height:56px;object-fit:contain;margin-bottom:-6px">`:''}
+    <div style="border-top:1.5px solid #1A2F5A;width:300px;margin:8px auto 6px"></div>
+    <div style="font-size:12px;line-height:1.8;color:#1A2F5A">
+      <b>Data:</b> ${fmtDate(dateISO)}<br>
+      <b>Nome:</b> ${esc(v.name||'________________')}<br>
+      <b>CRMV:</b> ${crmvFull()||'____________'}<br>
+      <b>SIPEAGRO/MAPA:</b> ${esc(v.sipeagro||'____________')}
+    </div></div>`;
 }
 function printRx(petId, rxId){
   const pet = DB.pets.find(p=>p.id===petId);
   const rx = pet.prescriptions.find(x=>x.id===rxId);
   if(!DB.vet.name) toast('⚠ Complete os dados profissionais em Ajustes');
+
+  if(rx.type === 'controle'){
+    // Receita de Controle Especial — 2 vias
+    const via = lbl => `<div class="via">
+      <div class="vialbl">${lbl}</div>
+      <div class="box"><b class="bt">IDENTIFICAÇÃO DO EMITENTE</b>
+        <b>Nome:</b> ${esc(DB.vet.name||'')}<br>
+        <b>CRMV:</b> ${crmvFull()||''} &nbsp;·&nbsp; <b>SIPEAGRO/MAPA:</b> ${esc(DB.vet.sipeagro||'')}<br>
+        ${DB.vet.email?`<b>E-mail:</b> ${esc(DB.vet.email)}`:''}</div>
+      <div class="doctitle" style="font-size:14px">RECEITUÁRIO DE CONTROLE ESPECIAL</div>
+      ${rxHeaderBlockHTML(pet)}
+      <div class="content" style="min-height:130px">${esc(rx.content)}</div>
+      <div class="box"><b class="bt">IDENTIFICAÇÃO DO COMPRADOR</b>
+        Nome: <span class="fill"></span> RG: <span class="fill" style="min-width:100px"></span><br><br>
+        Endereço: <span class="fill" style="min-width:300px"></span><br><br>
+        Cidade/UF: <span class="fill"></span> Telefone: <span class="fill" style="min-width:120px"></span></div>
+      <div class="box"><b class="bt">IDENTIFICAÇÃO DO FORNECEDOR</b>
+        <br><span class="fill" style="min-width:100%"></span><br><br>
+        Assinatura do farmacêutico: <span class="fill"></span> Data: <span class="fill" style="min-width:90px"></span></div>
+      <div style="text-align:center;margin-top:20px">
+        ${DB.vet.signature?`<img src="${DB.vet.signature}" style="height:48px;object-fit:contain;margin-bottom:-6px">`:''}
+        <div style="border-top:1.5px solid #1A2F5A;width:260px;margin:6px auto 4px"></div>
+        <div style="font-size:11px">${esc(DB.vet.name||'')} · ${crmvFull()||''} · ${fmtDate(rx.date)}</div></div>
+    </div>`;
+    printShell('Receita Controle Especial — '+pet.name,
+      via('1ª VIA — RETENÇÃO DA FARMÁCIA') + via('2ª VIA — ORIENTAÇÃO AO PACIENTE'));
+    return;
+  }
+
+  // Receita Simples — tutor/animal resumidos no topo, dados do veterinário no final
   printShell('Receituário — '+pet.name,
     letterheadHTML() +
     `<div class="doctitle">RECEITUÁRIO</div>` +
-    patientBlockHTML(pet) +
+    rxHeaderBlockHTML(pet) +
     `<div class="content">${esc(rx.content)}</div>` +
-    signatureHTML(rx.date));
+    vetFooterHTML(rx.date));
 }
 function printRecord(petId, apptId){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -1669,6 +1819,7 @@ if(localStorage.getItem('vfc_entered')){
   document.getElementById('appHeader').classList.remove('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
   render();
+  if(!DB.vet.name) setTimeout(openVetSetup, 500);
 }
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
