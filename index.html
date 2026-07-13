@@ -1491,6 +1491,81 @@ function calcularProximaData(dataInicial, tipo) {
     data.setDate(data.getDate() + diasAdicionais);
     return data.toLocaleDateString('pt-BR');
 }
+  <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VetFlowCare Pro</title>
+    <style>
+        /* Estilos base */
+        body { font-family: sans-serif; margin: 0; padding: 20px; }
+        .hidden { display: none !important; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; }
+        input { width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background: #2DC0AE; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="appHeader"><h1>VetFlowCare Pro</h1></div>
+
+    <div id="appContent">
+        <button>Atendimento</button>
+    </div>
+
+    <div id="modalCadastroVet" class="modal hidden">
+        <div class="modal-content">
+            <h3>Configuração Inicial</h3>
+            <input type="text" id="vetNome" placeholder="Seu Nome Completo">
+            <input type="text" id="vetCrmv" placeholder="CRMV">
+            <input type="text" id="vetMapa" placeholder="SIPEAGRO/MAPA">
+            <button onclick="salvarPerfilVet()">Salvar e Começar</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. Lógica de Inicialização e Verificação
+        window.addEventListener('DOMContentLoaded', () => {
+            verificarPerfilVet();
+        });
+
+        function verificarPerfilVet() {
+            if (!localStorage.getItem('vet_profile')) {
+                document.getElementById('modalCadastroVet').classList.remove('hidden');
+            }
+        }
+
+        function salvarPerfilVet() {
+            const profile = {
+                nome: document.getElementById('vetNome').value,
+                crmv: document.getElementById('vetCrmv').value,
+                mapa: document.getElementById('vetMapa').value
+            };
+            localStorage.setItem('vet_profile', JSON.stringify(profile));
+            document.getElementById('modalCadastroVet').classList.add('hidden');
+            location.reload(); // Recarrega para aplicar mudanças
+        }
+
+        // 2. Lógica da Câmera (Input File com Captura)
+        // No seu HTML de upload, use: <input type="file" accept="image/*" capture="environment" onchange="processarFoto(event)">
+        function processarFoto(event) {
+            const file = event.target.files[0];
+            if (file) {
+                console.log("Foto capturada/selecionada:", file.name);
+                // Adicione aqui a sua lógica de processamento de imagem existente
+            }
+        }
+
+        // 3. Lógica de Dados do Tutor (Exemplo para salvar)
+        function salvarDadosTutor() {
+            const tutorData = {
+                nome: document.getElementById('tutorNome').value,
+                cpf: document.getElementById('tutorCpf').value,
+                tel: document.getElementById('tutorTel').value,
+                end: document.getElementById('tutorEnd').value
+            };
+            localStorage.setItem('tutor_data', JSON.stringify(tutorData));
+            alert("Dados do tutor salvos!");
+        }
 </script>
 </body>
 </html>
