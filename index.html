@@ -248,6 +248,7 @@ function defaultDB(){
     vet: { name:'', crmvUf:'', crmvNum:'', sipeagro:'', email:'', logo:null, signature:null },
     tutors: [],
     pets: [],
+    license: { pro:false, code:'', activatedAt:null },
     settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true }
   };
 }
@@ -274,6 +275,7 @@ function migrate(d){
   d = Object.assign(base, d);
   d.vet = Object.assign(defaultDB().vet, d.vet||{});
   d.settings = Object.assign(defaultDB().settings, d.settings||{});
+  d.license = Object.assign(defaultDB().license, d.license||{});
   d.pets = (d.pets||[]).map(normalizePet);
   d.tutors = (d.tutors||[]).map(normalizeTutor);
   // Converte campo antigo "tutor" (texto livre) em cadastro de tutor
@@ -425,6 +427,49 @@ function addDays(iso, n){
   return d.toISOString().slice(0,10);
 }
 
+// ═══ LICENCIAMENTO FREE / PRO ═══
+const FREE_PET_LIMIT = 5;
+function isPro(){ return !!(DB.license && DB.license.pro); }
+function vfcChecksum(seed){
+  let h = 7;
+  const s = seed + 'ORGANIZACONECTACUIDA';
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
+  return String(1000 + (h % 9000));
+}
+function vfcCheck(code){
+  const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
+  return !!m && vfcChecksum(m[1]) === m[2];
+}
+function openProModal(reason){
+  showSheet('✨ VetFlowCare Pro', `
+    ${reason?`<div style="background:rgba(240,165,0,.1);border:1.5px solid var(--warning);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--warning);margin-bottom:12px">🔒 ${reason}</div>`:''}
+    <div style="font-size:14px;font-weight:800;margin-bottom:8px">Desbloqueie tudo com o Pro:</div>
+    <div style="font-size:13px;line-height:2;color:var(--text)">
+      ✅ Pacientes <b>ilimitados</b> (grátis: até ${FREE_PET_LIMIT})<br>
+      ✅ <b>Receita de Controle Especial</b> (2 vias)<br>
+      ✅ Impressões <b>sem marca-d'água</b><br>
+      ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
+      ✅ Todas as futuras atualizações Pro</div>
+    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:14px;font-size:12px;color:var(--muted)">
+      💬 Para adquirir seu código de ativação, entre em contato com o desenvolvedor.</div>
+    <label>Já tem um código? Digite aqui</label>
+    <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700">`,
+    `<button class="btn gray" onclick="closeSheet()">Agora não</button>
+     <button class="btn" style="background:var(--rx)" onclick="activatePro()">✨ Ativar Pro</button>`);
+}
+function activatePro(){
+  const code = val('proCode');
+  if(!vfcCheck(code)){ toast('⚠ Código inválido — confira e tente novamente'); return; }
+  DB.license = { pro:true, code:code.toUpperCase().trim(), activatedAt:todayISO() };
+  save(); closeSheet(); render();
+  toast('✨ VetFlowCare Pro ativado! Obrigado!');
+}
+function deactivatePro(){
+  if(!confirm('Desativar o Pro neste aparelho?')) return;
+  DB.license = { pro:false, code:'', activatedAt:null };
+  save(); render(); toast('Pro desativado');
+}
+
 function allEvents(){
   const evts = [];
   for(const pet of DB.pets){
@@ -453,7 +498,8 @@ function enterApp(){
   document.getElementById('mainNav').classList.remove('hidden');
   requestNotifPermission();
   render();
-  if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
+  if(!localStorage.getItem('vfc_tut_done')){ setTimeout(()=>openTutorial(0), 500); }
+  else if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
 }
 
 // Modal obrigatório de primeiro acesso — dados do profissional
@@ -483,6 +529,58 @@ function saveVetSetup(){
   DB.vet.sipeagro = val('sSipe');
   DB.vet.email = val('sEmail');
   save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vinda ao VetFlowCare');
+}
+
+// ═══ TUTORIAL GUIADO ═══
+const TUT_STEPS = [
+  {emo:'🐾', title:'Bem-vinda ao VetFlowCare!',
+   body:`Seu app de gestão veterinária: <b>Organiza · Conecta · Cuida</b>.<br><br>
+   ✅ Funciona <b>offline</b> — os dados ficam salvos no seu aparelho<br>
+   ✅ Instale na tela inicial para usar como aplicativo<br>
+   ✅ Faça backups em <b>Ajustes → Exportar Dados</b><br><br>
+   Vamos conhecer cada botão? Leva 1 minuto. 😉`},
+  {emo:'🏠', title:'Início — seu painel do dia',
+   body:`A primeira aba mostra tudo que importa <b>hoje</b>:<br><br>
+   • <b>Índice de saúde</b> geral dos pacientes (anel colorido)<br>
+   • <b>📅 Próximos 7 dias</b>: vacinas e atendimentos chegando<br>
+   • <b>💊 Medicações de Hoje</b> com botão <b>"Dado"</b> — toque após administrar para evitar dose dupla<br>
+   • Banner vermelho quando algo está <b>vencido</b>`},
+  {emo:'🐾', title:'Pacientes — Animais e Tutores',
+   body:`Duas sub-abas no topo:<br><br>
+   👤 <b>Tutores</b>: cadastre primeiro o responsável (nome, CPF, telefone, endereço). No perfil dele há o botão verde do <b>WhatsApp</b> e a aba <b>Animais</b> com o botão "Adicionar animal" já vinculado.<br><br>
+   🐾 <b>Animais</b>: a ficha completa de cada paciente. Use a <b>busca</b> por nome, raça ou tutor.`},
+  {emo:'📋', title:'A Ficha do Animal',
+   body:`Dentro de cada paciente, 4 abas:<br><br>
+   • <b>Ficha</b>: dados + gráfico de evolução de peso<br>
+   • <b>Saúde</b>: 💉 vacinas com <b>protocolos</b> (anual, primovacinação 21d, Librela 45d, Cytopoint 60d) — o app calcula a próxima dose e cria a "Programada"; 🩺 atendimentos em <b>linha do tempo</b> com prontuário e retorno automático<br>
+   • <b>Receituário</b>: Receita Simples ou Controle Especial, com impressão timbrada<br>
+   • <b>Arquivos</b>: dados do tutor + fotos de exames (📷 câmera ou galeria)`},
+  {emo:'🔔', title:'Agenda e Alertas',
+   body:`📅 <b>Agenda</b>: calendário mensal — os pontinhos marcam os eventos de cada dia (vermelho = vencido). Toque num dia para ver os detalhes.<br><br>
+   🔔 <b>Alertas</b>: tudo que vence, avisado com <b>7, 3 e 1 dia</b> de antecedência (configurável). O número vermelho no sininho mostra os itens vencidos.`},
+  {emo:'⚙️', title:'Ajustes — seu perfil profissional',
+   body:`Em Ajustes você encontra:<br><br>
+   • <b>👨‍⚕️ Dados do Profissional</b>: nome, CRMV, SIPEAGRO/MAPA, e-mail + upload do <b>logo</b> e da <b>assinatura</b> (saem nos documentos impressos)<br>
+   • <b>💾 Dados</b>: backup completo (JSON), lista de tutores (TXT) e importação<br>
+   • <b>✨ VetFlowCare Pro</b>: ative seu código para liberar tudo<br><br>
+   Pronto! Qualquer dúvida, reveja este tutorial em <b>Ajustes → Ajuda</b>. 🐾`}
+];
+function openTutorial(step = 0){
+  const s = TUT_STEPS[step];
+  const last = step === TUT_STEPS.length - 1;
+  const dots = TUT_STEPS.map((_,i)=>
+    `<span style="width:8px;height:8px;border-radius:50%;display:inline-block;margin:0 3px;background:${i===step?'var(--primary)':'var(--border)'}"></span>`).join('');
+  showSheet(`${s.emo} ${s.title}`, `
+    <div style="font-size:14px;line-height:1.75;color:var(--text)">${s.body}</div>
+    <div style="text-align:center;margin-top:18px">${dots}</div>
+    <div style="text-align:center;color:var(--muted);font-size:11px;margin-top:6px">${step+1} de ${TUT_STEPS.length}</div>`,
+    `${step>0?`<button class="btn gray" onclick="openTutorial(${step-1})">‹ Anterior</button>`:`<button class="btn gray" onclick="finishTutorial()">Pular</button>`}
+     <button class="btn" onclick="${last?'finishTutorial()':`openTutorial(${step+1})`}">${last?'✓ Começar!':'Próximo ›'}</button>`);
+}
+function finishTutorial(){
+  localStorage.setItem('vfc_tut_done','1');
+  closeSheet();
+  if(!DB.vet.name) setTimeout(openVetSetup, 300);
 }
 function goTab(tab){
   currentTab = tab; currentPetId = null; currentTutorId = null;
@@ -536,7 +634,7 @@ function renderScorecard(){
     <div class="row">${ringSVG(avg, 64, true)}
       <div><div class="big">${pets.length} ${pets.length===1?'paciente':'pacientes'}</div>
       <div class="sub">${od>0?`⚠ ${od} ${od===1?'item vencido':'itens vencidos'}`:'✓ Tudo em ordem!'}</div>
-      ${crmvFull()?`<div class="sub" style="opacity:.7">${esc(DB.vet.name)} · ${crmvFull()}</div>`:''}</div>
+      ${crmvFull()?`<div class="sub" style="opacity:.7">${esc(DB.vet.name)} · ${crmvFull()}${isPro()?' · ✨ Pro':''}</div>`:''}</div>
     </div>
     <div class="tag">ORGANIZA · CONECTA · CUIDA</div>`;
 }
@@ -861,30 +959,44 @@ function statusBadge(due){
 // ── Aba Saúde: Vacinas, Medicações, Consultas(prontuário) ──
 function renderPetHealth(pet){
   let h = '';
-  const sortedVac = [...pet.vaccines].sort((a,b)=>{
-    if(a.status!==b.status) return a.status==='programada' ? -1 : 1;
-    return a.status==='programada' ? a.due.localeCompare(b.due) : (b.applied||'').localeCompare(a.applied||'');
+  // Agrupa por nome da vacina: histórico de doses + próxima no mesmo card
+  const vgroups = {};
+  pet.vaccines.forEach(v => { (vgroups[v.name] = vgroups[v.name] || []).push(v); });
+  const gArr = Object.entries(vgroups).map(([name, doses]) => {
+    const applied = doses.filter(d=>d.status==='aplicada')
+      .sort((a,b)=>(b.applied||'').localeCompare(a.applied||''));
+    const next = doses.filter(d=>d.status==='programada')
+      .sort((a,b)=>a.due.localeCompare(b.due))[0] || null;
+    return {name, applied, next, protocol: doses[doses.length-1].protocol};
+  }).sort((a,b)=>{
+    const da = a.next ? daysUntil(a.next.due) : 99999;
+    const db2 = b.next ? daysUntil(b.next.due) : 99999;
+    return da - db2;
   });
+
   h += secBlock('💉 Vacinas e Protocolos', `openVaccineForm('${pet.id}')`,
-    sortedVac.map(v=>{
-      const prog = v.status==='programada';
-      const late = prog && daysUntil(v.due)<0;
+    gArr.map(g=>{
+      const late = g.next && daysUntil(g.next.due) < 0;
       return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div><b style="font-size:14px">${esc(v.name)}</b>
-        <div style="color:var(--muted);font-size:11px;margin-top:1px">${PROTOCOLS[v.protocol]?.label||''}</div></div>
+        <div><b style="font-size:14px">${esc(g.name)}</b>
+        <div style="color:var(--muted);font-size:11px;margin-top:1px">${PROTOCOLS[g.protocol]?.label||''}</div></div>
         <span style="display:flex;gap:6px;align-items:center">
-        ${prog ? (late?'<span class="st bad">⚠ Atrasada</span>':'<span class="st prog">📅 Programada</span>')
-               : '<span class="st ok">✓ Aplicada</span>'}
-        <button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','vaccines','${v.id}')">🗑</button></span></div>
-      <div class="dcells">
-        ${prog
-          ? `<div class="dc"><div class="l">Aplicar em</div><div class="v ${late?'red':'teal'}">${fmtDate(v.due)}</div></div>`
-          : `<div class="dc"><div class="l">Aplicada</div><div class="v">${fmtDate(v.applied)}</div></div>
-             <div class="dc"><div class="l">Lote</div><div class="v">${esc(v.lot||'—')}</div></div>`}
-      </div>
-      ${prog?`<button class="btn sm success" style="margin-top:10px" onclick="markVaccineApplied('${pet.id}','${v.id}')">✓ Marcar como Aplicada</button>`:''}
-      ${v.vet?`<div style="color:var(--muted);font-size:11px;margin-top:7px">🩺 ${esc(v.vet)}</div>`:''}</div>`;}),
+        ${g.next ? (late?'<span class="st bad">⚠ Atrasada</span>':'<span class="st prog">📅 Programada</span>') : '<span class="st ok">✓ Em dia</span>'}
+        <button style="background:none;color:var(--muted)" onclick="delVaccineGroup('${pet.id}','${esc(g.name)}')">🗑</button></span></div>
+
+      ${g.applied.length ? `<div style="margin-top:9px;border-top:1px solid var(--border)">
+        ${g.applied.map(d=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <span style="color:var(--success);font-weight:700">✓ ${fmtDate(d.applied)}</span>
+          <span style="color:var(--muted)">Lote: <b style="color:var(--text)">${esc(d.lot||'—')}</b></span>
+        </div>`).join('')}</div>` : ''}
+
+      ${g.next ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;background:${late?'rgba(224,82,82,.07)':'var(--vacbg)'};border-radius:10px;padding:9px 12px">
+        <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Próxima dose</div>
+        <b style="font-size:13px;color:${late?'var(--danger)':'var(--vac)'}">${fmtDate(g.next.due)}</b></div>
+        <button class="btn sm success" onclick="openApplyVaccineForm('${pet.id}','${g.next.id}')">✓ Aplicar</button>
+      </div>` : ''}
+      </div>`;}),
     'Nenhuma vacina registrada');
 
   h += secBlock('💊 Medicações', `openMedForm('${pet.id}')`,
@@ -978,13 +1090,15 @@ function renderPetDocs(pet){
       <div style="font-size:11px;margin-bottom:12px">JPG ou PNG · armazenado no dispositivo</div>
       <input type="file" accept="image/*" capture="environment" id="docCam" class="hidden" onchange="uploadDoc('${pet.id}',this)">
       <input type="file" accept="image/*" id="docFile" class="hidden" onchange="uploadDoc('${pet.id}',this)">
-      <div style="display:flex;gap:8px;justify-content:center">
+      <input type="file" accept="application/pdf" id="docPdf" class="hidden" onchange="uploadDoc('${pet.id}',this)">
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="btn sm" onclick="document.getElementById('docCam').click()">📷 Tirar Foto</button>
         <button class="btn sm outline" onclick="document.getElementById('docFile').click()">🖼️ Galeria</button>
+        <button class="btn sm outline" onclick="document.getElementById('docPdf').click()">📄 Enviar PDF</button>
       </div>
     </div></div>
     ${pet.documents.map(d=>`<div class="card docrow">
-      <div class="di" style="background:var(--vacbg)">🖼️</div>
+      <div class="di" style="background:${d.kind==='pdf'?'var(--vetbg)':'var(--vacbg)'}">${d.kind==='pdf'?'📄':'🖼️'}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.name)}</div>
         <div style="color:var(--muted);font-size:11px">${fmtDate(d.date)}</div></div>
@@ -1003,6 +1117,18 @@ function linkTutorToPet(petId){
 function uploadDoc(petId, input){
   const file = input.files[0]; if(!file) return;
   if(file.size > 2_000_000){ toast('⚠ Arquivo muito grande (máx 2MB)'); return; }
+  // PDF: salva direto, sem redimensionar
+  if(file.type === 'application/pdf'){
+    const r = new FileReader();
+    r.onload = e => {
+      const pet = DB.pets.find(p=>p.id===petId);
+      pet.documents.unshift({id:uid(), name:file.name, date:todayISO(), kind:'pdf', data:e.target.result});
+      try{ save(); toast('📄 PDF salvo!'); render(); }
+      catch(err){ pet.documents.shift(); toast('⚠ Armazenamento cheio — remova arquivos antigos'); }
+    };
+    r.readAsDataURL(file);
+    return;
+  }
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
@@ -1023,6 +1149,19 @@ function uploadDoc(petId, input){
 function viewDoc(petId, docId){
   const d = DB.pets.find(p=>p.id===petId)?.documents.find(x=>x.id===docId);
   if(!d) return;
+  if(d.kind === 'pdf'){
+    // Converte para Blob (data: URL é bloqueada em novas abas)
+    const b64 = d.data.split(',')[1];
+    const bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) arr[i] = bytes.charCodeAt(i);
+    const url = URL.createObjectURL(new Blob([arr], {type:'application/pdf'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = d.name;
+    a.click();
+    toast('📄 PDF baixado — abra pela notificação ou pasta Downloads');
+    return;
+  }
   const w = window.open('');
   if(!w){ toast('⚠ Permita pop-ups para visualizar'); return; }
   w.document.write(`<title>${esc(d.name)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${d.data}" style="max-width:100%;max-height:100vh"></body>`);
@@ -1044,6 +1183,20 @@ function confirmDeletePet(id){
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 function calShift(n){ calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+n, 1); calSelDay=null; render(); }
 function calSelect(d){ calSelDay = calSelDay===d ? null : d; render(); }
+
+function openApptPicker(presetDate){
+  if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); goTab('pets'); return; }
+  window._presetDate = presetDate || null;
+  if(DB.pets.length === 1){ openApptForm(DB.pets[0].id); return; }
+  showSheet('Novo Atendimento — escolha o paciente', `
+    ${DB.pets.map(p=>`<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer"
+      onclick="closeSheet();openApptForm('${p.id}')">
+      <span style="font-size:24px">${petEmoji(p)}</span>
+      <div style="flex:1"><b>${esc(p.name)}</b>
+      <div style="color:var(--muted);font-size:12px">${esc(p.breed||p.species)}${tutorName(p)?' · '+esc(tutorName(p)):''}</div></div>
+      <span style="color:var(--muted)">›</span></div>`).join('')}`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>`);
+}
 
 function renderCalendar(){
   const y = calMonth.getFullYear(), m = calMonth.getMonth();
@@ -1078,6 +1231,8 @@ function renderCalendar(){
         <span><i style="background:var(--vet)"></i>Atendimento</span>
         <span><i style="background:var(--danger)"></i>Vencido</span></div>
     </div>
+    <button class="btn" style="margin-top:14px" onclick="openApptPicker(${calSelDay?`'${y}-${String(m+1).padStart(2,'0')}-${String(calSelDay).padStart(2,'0')}'`:'null'})">
+      ➕ Novo Atendimento${calSelDay?` em ${String(calSelDay).padStart(2,'0')}/${String(m+1).padStart(2,'0')}`:''}</button>
     <div class="sec" style="margin-top:16px"><div class="sec-h">
       <span>${calSelDay?`Dia ${calSelDay} de ${MONTHS[m]}`:'Próximos eventos'}</span></div>
       ${sel.length?sel.map(evtRow).join(''):'<div class="card empty">✅ Nenhum evento neste dia</div>'}</div>`;
@@ -1164,11 +1319,28 @@ function renderSettings(){
   <div class="sec"><div class="sec-h"><span>⏰ Antecedência dos Alertas</span></div>
     <div class="card">${sw('alert7','7 dias antes')}${sw('alert3','3 dias antes')}${sw('alert1','1 dia antes')}</div></div>
 
+  <div class="sec"><div class="sec-h"><span>✨ VetFlowCare Pro</span></div>
+    <div class="card">
+      ${isPro()
+        ? `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:44px;height:44px;border-radius:12px;background:var(--rxbg);display:flex;align-items:center;justify-content:center;font-size:22px">✨</div>
+            <div style="flex:1"><b style="color:var(--rx)">Pro ativo</b>
+            <div style="color:var(--muted);font-size:12px">Ativado em ${fmtDate(DB.license.activatedAt)} · ${esc(DB.license.code)}</div></div></div>
+          <button class="btn sm dangero" style="margin-top:10px" onclick="deactivatePro()">Desativar neste aparelho</button>`
+        : `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">Versão gratuita: até ${FREE_PET_LIMIT} pacientes · sem Receita de Controle Especial · impressões com marca-d'água</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Pacientes: <b style="color:${DB.pets.length>=FREE_PET_LIMIT?'var(--danger)':'var(--text)'}">${DB.pets.length} / ${FREE_PET_LIMIT}</b></div>
+          <button class="btn" style="background:var(--rx)" onclick="openProModal()">✨ Conhecer o Pro / Ativar código</button>`}
+    </div></div>
+
   <div class="sec"><div class="sec-h"><span>🎨 Aparência</span></div>
     <div class="card">${sw('dark','🌙 Modo Escuro')}</div></div>
 
+  <div class="sec"><div class="sec-h"><span>❓ Ajuda</span></div>
+    <div class="card"><button class="btn outline" onclick="openTutorial(0)">📖 Ver Tutorial do App</button></div></div>
+
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn outline" onclick="exportTutoresTXT()">📄 Exportar Lista de Tutores (TXT)</button>
       <button class="btn outline" onclick="exportJSON()">📥 Exportar Todos os Dados (JSON)</button>
       <input type="file" accept=".json" id="importFile" class="hidden" onchange="importJSON(this)">
       <button class="btn outline" onclick="document.getElementById('importFile').click()">📤 Importar Dados (JSON)</button>
@@ -1179,9 +1351,19 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v6.0 Pro · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v7.0 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v6.0 Pro:</b><br>
+      <b>Novidades da v7.0:</b><br>
+      • Tutorial guiado no primeiro acesso (reveja em Ajustes → Ajuda)<br>
+      • Exportação da lista de tutores e animais em TXT<br>
+      • Vacinas agrupadas por tipo: histórico de doses com data e lote + próxima dose no mesmo card<br>
+      • Ao aplicar dose: informe data e lote — a seguinte é agendada sozinha<br>
+      • Novo atendimento direto pela Agenda (toque no dia) e data digitável DD/MM/AAAA<br>
+      • Upload de PDF nos arquivos do animal<br>
+      • Sistema Free / Pro com código de ativação<br>
+      • Free: até 5 pacientes, marca-d'água nas impressões<br>
+      • Pro: ilimitado, controle especial, logo e assinatura<br>
+      <br><b>Da v6.0:</b><br>
       • Receita Simples e Receita de Controle Especial (2 vias)<br>
       • Dados do veterinário solicitados no primeiro acesso<br>
       • Tutor completo na aba Arquivos do animal<br>
@@ -1208,6 +1390,11 @@ function saveVetProfile(){
 }
 
 function uploadVetImg(field, input){
+  if(!isPro()){
+    input.value = '';
+    openProModal('Logo e assinatura eletrônica nos documentos são recursos Pro.');
+    return;
+  }
   const file = input.files[0]; if(!file) return;
   const reader = new FileReader();
   reader.onload = e => {
@@ -1227,6 +1414,54 @@ function uploadVetImg(field, input){
 }
 
 function applyDark(){ document.body.classList.toggle('dark', DB.settings.dark); }
+function exportTutoresTXT(){
+  const L = [];
+  const line = '─'.repeat(46);
+  L.push('RELATÓRIO DE TUTORES E ANIMAIS — VetFlowCare');
+  L.push('Gerado em ' + fmtDate(todayISO()) +
+    (DB.vet.name ? ' · ' + DB.vet.name + (crmvFull() ? ' · ' + crmvFull() : '') : ''));
+  L.push('Total: ' + DB.tutors.length + ' tutores · ' + DB.pets.length + ' animais');
+  L.push(line);
+
+  DB.tutors.forEach((t, i) => {
+    const animals = DB.pets.filter(p => p.tutorId === t.id);
+    L.push('');
+    L.push((i+1) + '. ' + t.name.toUpperCase());
+    L.push('   Telefone: ' + (t.phone || '—'));
+    L.push('   E-mail:   ' + (t.email || '—'));
+    if(t.cpf)     L.push('   CPF:      ' + t.cpf);
+    if(t.address) L.push('   Endereço: ' + t.address + (t.cep ? ' · CEP ' + t.cep : ''));
+    L.push('   Animais (' + animals.length + '):');
+    if(!animals.length) L.push('   • (nenhum animal vinculado)');
+    animals.forEach(p => {
+      L.push('   • ' + p.name + ' — ' + p.species + ', ' + (p.breed||'SRD') + ', ' +
+        p.gender + (p.fertility ? ' (' + p.fertility + ')' : '') +
+        ', ' + calcAge(p.birth) + ', ' + p.weight + ' kg');
+    });
+    L.push(line);
+  });
+
+  const orphans = DB.pets.filter(p => !p.tutorId || !DB.tutors.find(t=>t.id===p.tutorId));
+  if(orphans.length){
+    L.push('');
+    L.push('ANIMAIS SEM TUTOR VINCULADO (' + orphans.length + '):');
+    orphans.forEach(p => {
+      L.push('   • ' + p.name + ' — ' + p.species + ', ' + (p.breed||'SRD') + ', ' +
+        p.gender + ', ' + calcAge(p.birth) + ', ' + p.weight + ' kg');
+    });
+    L.push(line);
+  }
+  L.push('');
+  L.push('ORGANIZA · CONECTA · CUIDA — VetFlowCare');
+
+  const blob = new Blob([L.join('\n')], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tutores_vetflowcare_' + todayISO() + '.txt';
+  a.click();
+  toast('📄 Lista de tutores exportada!');
+}
+
 function exportJSON(){
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -1267,6 +1502,10 @@ const val = id => document.getElementById(id)?.value.trim() || '';
 
 // ── Paciente (novo/editar) ──
 function openPetForm(petId){
+  if(!petId && !isPro() && DB.pets.length >= FREE_PET_LIMIT){
+    openProModal(`A versão gratuita permite até ${FREE_PET_LIMIT} pacientes. Ative o Pro para cadastrar sem limites.`);
+    return;
+  }
   const pet = petId ? DB.pets.find(p=>p.id===petId) : null;
   const chipRow = (id, opts, current) => opts.map(o =>
     `<button class="chip ${current===o?'on':''}" data-v="${o}"
@@ -1419,20 +1658,37 @@ function saveVaccine(petId){
   save(); closeSheet(); render();
   toast(days>0 ? `💉 Registrada! Próxima: ${fmtDate(addDays(applied,days))}` : '💉 Vacina registrada!');
 }
-function markVaccineApplied(petId, vid){
+function openApplyVaccineForm(petId, vid){
+  const v = DB.pets.find(p=>p.id===petId).vaccines.find(x=>x.id===vid);
+  showSheet('✓ Aplicar — '+esc(v.name), `
+    <label>Data da aplicação *</label><input id="fAVDate" type="date" value="${todayISO()}">
+    <label>Lote da vacina</label><input id="fAVLot" placeholder="Ex: 019/24">
+    <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac);margin-top:12px">
+      A próxima dose será agendada automaticamente pelo protocolo (${PROTOCOLS[v.protocol]?.label||''}).</div>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn success" onclick="saveApplyVaccine('${petId}','${vid}')">✓ Confirmar Aplicação</button>`);
+}
+function saveApplyVaccine(petId, vid){
   const pet = DB.pets.find(p=>p.id===petId);
   const v = pet.vaccines.find(x=>x.id===vid);
   if(!v) return;
-  v.status = 'aplicada'; v.applied = todayISO(); v.due = todayISO();
+  const dt = val('fAVDate') || todayISO();
+  v.status = 'aplicada'; v.applied = dt; v.due = dt; v.lot = val('fAVLot');
   // Primovacinação: após a 2ª dose, o reforço passa a ser anual
   const nextProt = v.protocol === 'primo' ? 'anual' : v.protocol;
   const days = PROTOCOLS[nextProt].days;
   if(days > 0){
     pet.vaccines.push({id:uid(), name:v.name, protocol:nextProt, applied:null,
-      due:addDays(todayISO(), days), status:'programada', lot:'', vet:v.vet||''});
+      due:addDays(dt, days), status:'programada', lot:'', vet:v.vet||''});
   }
-  save(); render();
-  toast(days>0 ? `✓ Aplicada! Próxima: ${fmtDate(addDays(todayISO(),days))}` : '✓ Vacina aplicada!');
+  save(); closeSheet(); render();
+  toast(days>0 ? `✓ Aplicada! Próxima: ${fmtDate(addDays(dt,days))}` : '✓ Vacina aplicada!');
+}
+function delVaccineGroup(petId, name){
+  if(!confirm(`Remover a vacina "${name}" e todo o histórico de doses?`)) return;
+  const pet = DB.pets.find(p=>p.id===petId);
+  pet.vaccines = pet.vaccines.filter(v => v.name !== name);
+  save(); render(); toast('Vacina removida');
 }
 
 // ── Medicação ──
@@ -1462,7 +1718,12 @@ function openApptForm(petId){
   showSheet('Novo Atendimento', `
     <label>Tipo do atendimento *</label><select id="fPTitle">${types.map(t=>`<option>${t}</option>`).join('')}</select>
     <label>Resumo</label><input id="fPResumo" placeholder="Ex: Claudicação membro posterior direito">
-    <label>Data *</label><input id="fPDate" type="date" value="${todayISO()}">
+    <label>Data *</label><input id="fPDate" type="date" value="${window._presetDate||todayISO()}">
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+      <span style="color:var(--muted);font-size:12px;flex-shrink:0">ou digite:</span>
+      <input id="fPDateTxt" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+        oninput="this.value=this.value.replace(/\D/g,'').replace(/(\d{2})(\d)/,'$1/$2').replace(/(\d{2}\/\d{2})(\d)/,'$1/$2')">
+    </div>
     <label>Horário *</label><input id="fPTime" type="time" value="10:00">
     <label>Local / Clínica</label><input id="fPClinic" placeholder="Opcional">
     <label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
@@ -1475,7 +1736,16 @@ function openApptForm(petId){
      <button class="btn" onclick="saveAppt('${petId}')">💾 Salvar</button>`);
 }
 function saveAppt(petId){
-  const title = val('fPTitle'), date = val('fPDate');
+  const title = val('fPTitle');
+  let date = val('fPDate');
+  // Data digitada tem prioridade (DD/MM/AAAA → ISO)
+  const txt = val('fPDateTxt');
+  if(txt){
+    const m2 = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt);
+    if(!m2){ toast('⚠ Data digitada inválida — use DD/MM/AAAA'); return; }
+    date = `${m2[3]}-${m2[2]}-${m2[1]}`;
+  }
+  window._presetDate = null;
   if(!title || !date){ toast('⚠ Preencha tipo e data'); return; }
   const pet = DB.pets.find(p=>p.id===petId);
   pet.appointments.push({
@@ -1519,7 +1789,7 @@ function openRxForm(petId, rxId){
     <label>Tipo de receita *</label>
     <select id="fRxType">
       <option value="simples" ${(!rx||rx.type!=='controle')?'selected':''}>Receita Simples</option>
-      <option value="controle" ${rx?.type==='controle'?'selected':''}>Receita de Controle Especial (2 vias)</option>
+      <option value="controle" ${rx?.type==='controle'?'selected':''}>Receita de Controle Especial (2 vias)${isPro()?'':' — ✨ Pro'}</option>
     </select>
     <label>Data</label><input id="fRxDate" type="date" value="${rx?.date||todayISO()}">
     <label>Prescrição *</label>
@@ -1532,6 +1802,9 @@ function openRxForm(petId, rxId){
 function saveRx(petId, rxId){
   const content = val('fRxContent');
   if(!content){ toast('⚠ Escreva a prescrição'); return; }
+  if(document.getElementById('fRxType').value === 'controle' && !isPro()){
+    closeSheet(); openProModal('A Receita de Controle Especial é um recurso Pro.'); return;
+  }
   const pet = DB.pets.find(p=>p.id===petId);
   if(rxId){
     const rx = pet.prescriptions.find(x=>x.id===rxId);
@@ -1585,8 +1858,10 @@ function printShell(title, inner){
     .via{page-break-after:always}
     .via:last-child{page-break-after:auto}
     .vialbl{text-align:right;font-size:10px;font-weight:800;color:#6B7A8D;letter-spacing:1px;margin-bottom:8px}
+    .wmfree{position:fixed;top:42%;left:0;right:0;text-align:center;font-size:40px;font-weight:900;color:rgba(224,82,82,.10);transform:rotate(-24deg);letter-spacing:5px;pointer-events:none;z-index:99}
   </style></head><body>${inner}
-  <div class="foot">ORGANIZA · CONECTA · CUIDA — VetFlowCare</div></body></html>`;
+  ${isPro()?'':'<div class="wmfree">VERSÃO GRATUITA</div>'}
+  <div class="foot">ORGANIZA · CONECTA · CUIDA — VetFlowCare${isPro()?'':' · Versão gratuita'}</div></body></html>`;
   // Impressão via iframe oculto (funciona mesmo com pop-ups bloqueados)
   document.getElementById('printFrame')?.remove();
   const f = document.createElement('iframe');
@@ -1630,6 +1905,9 @@ function printRx(petId, rxId){
   const rx = pet.prescriptions.find(x=>x.id===rxId);
   if(!DB.vet.name) toast('⚠ Complete os dados profissionais em Ajustes');
 
+  if(rx.type === 'controle' && !isPro()){
+    openProModal('A Receita de Controle Especial é um recurso Pro.'); return;
+  }
   if(rx.type === 'controle'){
     // Receita de Controle Especial — 2 vias
     const via = lbl => `<div class="via">
@@ -1825,7 +2103,8 @@ if(localStorage.getItem('vfc_entered')){
   document.getElementById('appHeader').classList.remove('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
   render();
-  if(!DB.vet.name) setTimeout(openVetSetup, 500);
+  if(!localStorage.getItem('vfc_tut_done')) setTimeout(()=>openTutorial(0), 500);
+  else if(!DB.vet.name) setTimeout(openVetSetup, 500);
 }
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
