@@ -1491,24 +1491,6 @@ function calcularProximaData(dataInicial, tipo) {
     data.setDate(data.getDate() + diasAdicionais);
     return data.toLocaleDateString('pt-BR');
 }
-
-}
-
-// Chame esta função no início do seu script de inicialização
-window.addEventListener('DOMContentLoaded', verificarPerfilVet);
-
-  
-<div id="modalCadastroVet" class="modal hidden">
-    <div class="modal-content">
-        <h3>Bem-vindo! Configure seus dados</h3>
-        <input type="text" id="vetNome" placeholder="Nome Completo">
-        <input type="text" id="vetCrmv" placeholder="CRMV">
-        <input type="text" id="vetMapa" placeholder="SIPEAGRO/MAPA">
-        <button onclick="salvarPerfilVet()">Salvar e Começar</button>
-    </div>
-</div>
-  }
-  
 </script>
 </body>
 </html>
