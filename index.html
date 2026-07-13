@@ -1425,6 +1425,35 @@ if(localStorage.getItem('vfc_entered')){
 }
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
+// ═══════════ INIT E PERFIL VET ═══════════
+window.addEventListener('DOMContentLoaded', () => {
+    // 1. Verifica se é o primeiro acesso e pede dados do Vet
+    if (!localStorage.getItem('vet_profile')) {
+        document.getElementById('modalCadastroVet').classList.remove('hidden');
+    }
+
+    // 2. Carrega as funções originais do app
+    applyDark();
+    scheduleLocalCheck();
+    
+    // 3. Inicia o app
+    if(localStorage.getItem('vfc_entered')){
+        document.getElementById('splash').classList.add('hidden');
+        document.getElementById('appHeader').classList.remove('hidden');
+    }
+});
+
+// Função para salvar o perfil do Vet
+function salvarPerfilVet() {
+    const profile = {
+        nome: document.getElementById('vetNome').value,
+        crmv: document.getElementById('vetCrmv').value,
+        mapa: document.getElementById('vetMapa').value
+    };
+    localStorage.setItem('vet_profile', JSON.stringify(profile));
+    location.reload(); // Recarrega para entrar no app
+                                                     }
+
 </script>
 </body>
 </html>
