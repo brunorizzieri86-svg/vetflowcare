@@ -1425,6 +1425,72 @@ if(localStorage.getItem('vfc_entered')){
 }
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
+
+<!-- Aba Unificada -->
+<div class="card-tutor">
+    <div class="info-tutor">
+        <h3>${tutor.nome}</h3>
+        <p>${tutor.cpf} | ${tutor.telefone}</p>
+        <p>${tutor.endereco} - ${tutor.cep}</p>
+    </div>
+
+    <!-- Abas -->
+    <div class="tabs">
+        <button onclick="mostrarTab('info')">Responsável</button>
+        <button onclick="mostrarTab('animais')">Animais</button>
+    </div>
+
+    <div id="tab-animais" class="tab-content">
+        <!-- Loop para listar animais do tutor -->
+        <ul class="lista-animais">
+            ${tutor.animais.map(animal => `
+                <li>
+                    <a href="/ficha-animal/${animal.id}">${animal.nome} - ${animal.especie}</a>
+                </li>
+            `).join('')}
+        </ul>
+        <button class="btn-add">Adicionar Animal</button>
+    </div>
+</div>
+
+function gerarTemplateReceita(tipo, tutor, animal, vet) {
+    const cabecalho = `
+        <div class="receita-header">
+            <h3>Receita ${tipo === 'controlada' ? 'Controlada' : 'Simples'}</h3>
+            <p><strong>Tutor:</strong> ${tutor.nome} | <strong>Endereço:</strong> ${tutor.endereco}</p>
+            <p><strong>Animal:</strong> ${animal.nome} | <strong>Espécie:</strong> ${animal.especie} | <strong>Idade:</strong> ${animal.idade} | <strong>Peso:</strong> ${animal.peso}kg | <strong>Sexo:</strong> ${animal.sexo}</p>
+        </div>
+    `;
+
+    const rodape = `
+        <div class="receita-footer">
+            <p>Data: ${new Date().toLocaleDateString('pt-BR')}</p>
+            <p><strong>${vet.nome}</strong><br>CRMV: ${vet.crmv} | SIPEAGRO/MAPA: ${vet.mapa}</p>
+        </div>
+    `;
+
+    return cabecalho + rodape;
+}
+
+// Configuração dos protocolos
+const PROTOCOLOS = {
+    'anual': 365,
+    'primovacinação': 21,
+    'librela': 45,
+    'cytopoint': 60
+};
+
+/**
+ * Calcula a próxima data de vacinação
+ * @param {string} dataInicial - Data no formato YYYY-MM-DD
+ * @param {string} tipo - 'anual', 'primovacinação', 'librela', 'cytopoint'
+ */
+function calcularProximaData(dataInicial, tipo) {
+    const data = new Date(dataInicial);
+    const diasAdicionais = PROTOCOLOS[tipo] || 0;
+    data.setDate(data.getDate() + diasAdicionais);
+    return data.toLocaleDateString('pt-BR');
+}
 </script>
 </body>
 </html>
