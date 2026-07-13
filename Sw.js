@@ -1,5 +1,5 @@
 // VetFlowCare Pro v4 — Service Worker (funcionamento offline)
-const CACHE = 'vetflowcare-v5';
+const CACHE = 'vetflowcare-v6';
 const ASSETS = ['./', './index.html', './logo.jpg', './manifest.json'];
 
 self.addEventListener('install', e => {
