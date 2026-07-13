@@ -1,15 +1,1 @@
-{
-  "name": "VetFlowCare",
-  "short_name": "VetFlow",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#14b8a6",
-  "icons": [
-    {
-      "src": "icon-384x384.png",
-      "sizes": "384x384",
-      "type": "image/png"
-    }
-  ]
-}
+self.addEventListener('fetch', () => {});
