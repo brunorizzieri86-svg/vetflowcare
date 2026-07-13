@@ -105,7 +105,7 @@ main{padding:16px}
 .chip{background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:18px;padding:7px 13px;font-size:12px;font-weight:600}
 .chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
 .ptabs{display:flex;gap:3px;background:rgba(0,0,0,.15);border-radius:12px;padding:4px;margin-top:12px}
-.ptabs button{flex:1;padding:9px 0;border-radius:10px;font-size:12px;font-weight:700;background:transparent;color:rgba(255,255,255,.8)}
+.ptabs button{flex:1;padding:9px 0;border-radius:10px;font-size:11px;font-weight:700;background:transparent;color:rgba(255,255,255,.8)}
 .ptabs button.on{background:#fff;color:var(--dark)}
 .irow{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
 .irow:last-child{border-bottom:none}
@@ -186,7 +186,7 @@ canvas{width:100%!important}
   <div class="care">Care</div>
   <div class="pro">PROFISSIONAL</div>
   <div class="tag">ORGANIZA · CONECTA · CUIDA</div>
-  <button onclick="enterApp()">Entrar no App</button>
+  <button onclick="startEntry()">Criar Conta / Entrar</button>
   <div class="sub">Gestão veterinária completa</div>
 </div>
 
@@ -240,23 +240,35 @@ let calSelDay = null;
 let currentTutorId = null;
 let pplView = 'animais';
 let tutorTab = 'resp';
+let showFinance = false;
+let finFilter = 'todos';
 let deferredPrompt = null;
 
 function defaultDB(){
   return {
     version: 5,
-    vet: { name:'', crmvUf:'', crmvNum:'', sipeagro:'', email:'', logo:null, signature:null },
+    vet: { name:'', crmvUf:'', crmvNum:'', sipeagro:'', email:'', logo:null, signature:null, city:'', certInfo:'' },
     tutors: [],
     pets: [],
     license: { pro:false, code:'', activatedAt:null },
+    charges: [],
     settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true }
   };
 }
 
+const LS_AUTH = 'vetflowcare_auth';
 function loadDB(){
   try{
     const raw = localStorage.getItem(LS_KEY);
-    if(raw) return migrate(JSON.parse(raw));
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && parsed.__enc){ 
+        // Dados criptografados detectados - login removido, resetando para dados limpos
+        console.warn('Dados criptografados ignorados - login/senha removido');
+        return defaultDB(); 
+      }
+      return migrate(parsed);
+    }
     // Migra da v3 (família) ou v2
     const v4 = localStorage.getItem('vetflowcare_v4');
     if(v4){ try{ return migrate(JSON.parse(v4)); }catch(e){} }
@@ -276,6 +288,7 @@ function migrate(d){
   d.vet = Object.assign(defaultDB().vet, d.vet||{});
   d.settings = Object.assign(defaultDB().settings, d.settings||{});
   d.license = Object.assign(defaultDB().license, d.license||{});
+  d.charges = d.charges || [];
   d.pets = (d.pets||[]).map(normalizePet);
   d.tutors = (d.tutors||[]).map(normalizeTutor);
   // Converte campo antigo "tutor" (texto livre) em cadastro de tutor
@@ -341,7 +354,69 @@ function normalizePet(p){
 function tutorOf(pet){ return DB.tutors.find(t => t.id === pet.tutorId) || null; }
 function tutorName(pet){ const t = tutorOf(pet); return t ? t.name : (pet.tutor||''); }
 
-function save(){ localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+// Persistência (com suporte a criptografia — ver módulo Segurança)
+let _saveTimer = null;
+function save(){ clearTimeout(_saveTimer); _saveTimer = setTimeout(persistDB, 80); }
+async function persistDB(){
+  try{
+    if(window._cryptoKey){
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, window._cryptoKey,
+        new TextEncoder().encode(JSON.stringify(DB)));
+      localStorage.setItem(LS_KEY, JSON.stringify({__enc:1, iv:b64e(iv), ct:b64e(new Uint8Array(ct))}));
+    } else {
+      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+    }
+  }catch(e){ console.warn('persist', e); toast('⚠ Erro ao salvar — armazenamento cheio?'); }
+}
+function b64e(u8){ let s=''; u8.forEach(b=>s+=String.fromCharCode(b)); return btoa(s); }
+function b64d(str){ const s=atob(str); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i); return u; }
+
+// ═══ IndexedDB — arquivos grandes (fotos/PDFs até 20MB) ═══
+let _idb = null;
+function idbOpen(){
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('vetflowcare', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('docs');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbPut(id, data){
+  _idb = _idb || await idbOpen();
+  return new Promise((res, rej) => {
+    const t = _idb.transaction('docs', 'readwrite');
+    t.objectStore('docs').put(data, id);
+    t.oncomplete = res; t.onerror = () => rej(t.error);
+  });
+}
+async function idbGet(id){
+  _idb = _idb || await idbOpen();
+  return new Promise((res, rej) => {
+    const t = _idb.transaction('docs', 'readonly');
+    const q = t.objectStore('docs').get(id);
+    q.onsuccess = () => res(q.result || null);
+    q.onerror = () => rej(q.error);
+  });
+}
+async function idbDel(id){
+  _idb = _idb || await idbOpen();
+  return new Promise((res) => {
+    const t = _idb.transaction('docs', 'readwrite');
+    t.objectStore('docs').delete(id);
+    t.oncomplete = res; t.onerror = res;
+  });
+}
+// Migra documentos antigos (base64 no localStorage) para o IndexedDB
+async function migrateDocsToIDB(){
+  let moved = 0;
+  for(const pet of DB.pets){
+    for(const d of pet.documents){
+      if(d.data){ try{ await idbPut(d.id, d.data); delete d.data; moved++; }catch(e){} }
+    }
+  }
+  if(moved){ save(); console.log('Docs migrados p/ IndexedDB:', moved); }
+}
 
 // ── Utils ──────────────────────────────────────
 const SPECIES_EMOJI = {'Cão':'🐕','Gato':'🐈','Ave':'🦜'};
@@ -410,7 +485,8 @@ function ringSVG(score, size, onDark){
 const TYPE_CFG = {
   vaccine:    {emo:'💉', label:'Vacina',    c:'var(--vac)', bg:'var(--vacbg)'},
   medication: {emo:'💊', label:'Medicação', c:'var(--med)', bg:'var(--medbg)'},
-  vet:        {emo:'🩺', label:'Atendimento',  c:'var(--vet)', bg:'var(--vetbg)'}
+  vet:        {emo:'🩺', label:'Atendimento',  c:'var(--vet)', bg:'var(--vetbg)'},
+  pay:        {emo:'💰', label:'Pagamento',    c:'var(--warning)', bg:'rgba(240,165,0,.12)'}
 };
 const PRI_CLR = {overdue:'var(--danger)', today:'var(--warning)', high:'var(--accent)', medium:'var(--primary)', low:'var(--muted)'};
 
@@ -425,6 +501,308 @@ const PROTOCOLS = {
 function addDays(iso, n){
   const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n);
   return d.toISOString().slice(0,10);
+}
+
+// ═══ SEGURANÇA: LOGIN + CRIPTOGRAFIA AES-256 ═══
+function getAuth(){ try{ return JSON.parse(localStorage.getItem(LS_AUTH)||'null'); }catch(e){ return null; } }
+async function deriveKey(pass, saltU8){
+  const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt:saltU8, iterations:150000, hash:'SHA-256'},
+    km, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function makeCheck(key){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, new TextEncoder().encode('vfc-ok'));
+  return {iv:b64e(iv), ct:b64e(new Uint8Array(ct))};
+}
+async function verifyKey(key, check){
+  try{
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(check.iv)}, key, b64d(check.ct));
+    return new TextDecoder().decode(pt) === 'vfc-ok';
+  }catch(e){ return false; }
+}
+
+// ═══ SEGURANÇA: LOGIN + CRIPTOGRAFIA AES-256 ═══
+// Funções de login/senha removidas - app entra direto sem autenticação
+// As funções de criptografia permanecem no código mas não são mais obrigatórias
+
+function getAuth(){ 
+  // Login removido - sempre retorna null
+  return null; 
+}
+
+// Criar / alterar / remover senha (Ajustes → Segurança)
+function openSecuritySetup(){
+  if(!crypto.subtle){ toast('⚠ Criptografia não suportada neste navegador'); return; }
+  showSheet('🔐 Criar Login e Senha', `
+    <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac)">
+      Seus dados (tutores, CPFs, telefones, prontuários) passam a ser gravados com <b>criptografia AES-256</b>. A senha será pedida ao abrir o app.</div>
+    <label>E-mail *</label><input id="secEmail" type="email" value="${esc(DB.vet.email||'')}" placeholder="seu@email.com">
+    <label>Senha * (mínimo 6 caracteres)</label><input id="secPass" type="password" autocomplete="new-password">
+    <label>Confirmar senha *</label><input id="secPass2" type="password" autocomplete="new-password">
+    <div style="background:rgba(224,82,82,.08);border:1.5px solid var(--danger);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:12px">
+      ⚠ <b>Importante:</b> se esquecer a senha, os dados não podem ser recuperados. Faça backups (Ajustes → Exportar JSON) regularmente!</div>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="doSecuritySetup()">🔐 Ativar Proteção</button>`);
+}
+async function createAccountCore(email, p1, p2){
+  if(!email || !email.includes('@')){ toast('⚠ Informe um e-mail válido'); return false; }
+  if(p1.length < 6){ toast('⚠ Senha muito curta (mín. 6)'); return false; }
+  if(p1 !== p2){ toast('⚠ As senhas não conferem'); return false; }
+  if(!crypto.subtle){ toast('⚠ Criptografia não suportada neste navegador'); return false; }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(p1, salt);
+  const check = await makeCheck(key);
+  localStorage.setItem(LS_AUTH, JSON.stringify({email, salt:b64e(salt), check, createdAt:todayISO()}));
+  localStorage.removeItem('vfc_skip_lock');
+  window._cryptoKey = key;
+  await persistDB();
+  return true;
+}
+async function doSecuritySetup(){
+  const ok = await createAccountCore(val('secEmail'),
+    document.getElementById('secPass').value, document.getElementById('secPass2').value);
+  if(!ok) return;
+  closeSheet(); render();
+  toast('🔐 Proteção ativada! Dados criptografados.');
+}
+
+// ═══ CADASTRO OBRIGATÓRIO NO PRIMEIRO ACESSO ═══
+function startEntry(){
+  // Login/senha removido - entra direto no app
+  enterApp();
+}
+function openRegisterGate(){
+  showSheet('👤 Crie sua conta', `
+    <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac)">
+      Seu acesso ao VetFlowCare. Os dados ficam <b>criptografados (AES-256)</b> no aparelho e a senha será pedida sempre que abrir o app.</div>
+    <label>E-mail *</label>
+    <input id="secEmail" type="email" placeholder="seu@email.com" autocomplete="email">
+    <label>Senha * (mínimo 6 caracteres)</label>
+    <input id="secPass" type="password" autocomplete="new-password">
+    <label>Confirmar senha *</label>
+    <input id="secPass2" type="password" autocomplete="new-password">
+    <div style="background:rgba(224,82,82,.08);border:1.5px solid var(--danger);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:12px">
+      ⚠ <b>Guarde bem sua senha!</b> Se esquecê-la, os dados criptografados não podem ser recuperados. Faça backups regularmente em Ajustes → Exportar JSON.</div>`,
+    `<button class="btn" onclick="doRegisterEntry()">✓ Criar conta e entrar</button>`);
+}
+async function doRegisterEntry(){
+  const ok = await createAccountCore(val('secEmail'),
+    document.getElementById('secPass').value, document.getElementById('secPass2').value);
+  if(!ok) return;
+  closeSheet();
+  toast('✅ Conta criada! Bem-vinda ao VetFlowCare');
+  enterApp();
+}
+function openChangePass(){
+  showSheet('🔑 Alterar Senha', `
+    <label>Senha atual *</label><input id="cpOld" type="password">
+    <label>Nova senha * (mín. 6)</label><input id="cpNew" type="password">
+    <label>Confirmar nova senha *</label><input id="cpNew2" type="password">`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="doChangePass()">💾 Alterar</button>`);
+}
+async function doChangePass(){
+  const auth = getAuth();
+  const oldK = await deriveKey(document.getElementById('cpOld').value, b64d(auth.salt));
+  if(!(await verifyKey(oldK, auth.check))){ toast('⚠ Senha atual incorreta'); return; }
+  const n1 = document.getElementById('cpNew').value, n2 = document.getElementById('cpNew2').value;
+  if(n1.length < 6){ toast('⚠ Nova senha muito curta'); return; }
+  if(n1 !== n2){ toast('⚠ As senhas não conferem'); return; }
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(n1, salt);
+  const check = await makeCheck(key);
+  localStorage.setItem(LS_AUTH, JSON.stringify({...auth, salt:b64e(salt), check}));
+  window._cryptoKey = key;
+  await persistDB();
+  closeSheet(); toast('🔑 Senha alterada!');
+}
+async function openRemovePass(){
+  const pass = prompt('Digite sua senha atual para remover a proteção:');
+  if(pass === null) return;
+  const auth = getAuth();
+  const key = await deriveKey(pass, b64d(auth.salt));
+  if(!(await verifyKey(key, auth.check))){ toast('⚠ Senha incorreta'); return; }
+  if(!confirm('Remover a senha? Os dados voltarão a ser gravados SEM criptografia.')) return;
+  localStorage.removeItem(LS_AUTH);
+  localStorage.setItem('vfc_skip_lock','1');
+  window._cryptoKey = null;
+  await persistDB();
+  render(); toast('Proteção removida');
+}
+
+// ═══ FINANCEIRO ═══
+function fmtBRL(v){ return 'R$ ' + (v||0).toFixed(2).replace('.', ','); }
+// Unifica atendimentos com valor + cobranças avulsas
+function allReceivables(){
+  const out = [];
+  DB.pets.forEach(pet => {
+    pet.appointments.forEach(a => {
+      if(a.valor > 0 && a.payStatus){
+        out.push({kind:'atend', id:a.id, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
+          desc:a.title + (a.resumo?' · '+a.resumo:''), valor:a.valor,
+          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null});
+      }
+    });
+  });
+  DB.charges.forEach(c => {
+    const pet = DB.pets.find(p=>p.id===c.petId);
+    out.push({kind:'avulso', id:c.id, petId:c.petId,
+      petName: pet ? pet.name : '(paciente removido)', emo: pet ? petEmoji(pet) : '🐾',
+      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null});
+  });
+  return out;
+}
+function goFinance(){ showFinance = true; currentPetId = null; currentTutorId = null; finFilter='todos'; render(); }
+
+function renderFinance(){
+  const all = allReceivables();
+  const pend = all.filter(r=>r.status==='pendente');
+  const tot = pend.reduce((s,r)=>s+r.valor,0);
+  const lateArr = pend.filter(r=>daysUntil(r.due)<0);
+  const lateTot = lateArr.reduce((s,r)=>s+r.valor,0);
+  // Resumo do mês (Pro)
+  const ym = todayISO().slice(0,7);
+  const paidMonth = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym))
+    .reduce((s,r)=>s+r.valor,0);
+  const monthName = MONTHS[new Date().getMonth()];
+
+  const filters = [
+    ['atrasados','🔴 Atrasados', r=>r.status==='pendente' && daysUntil(r.due)<0],
+    ['hoje','🟡 Hoje', r=>r.status==='pendente' && daysUntil(r.due)===0],
+    ['prox','🔵 Próx. 7 dias', r=>r.status==='pendente' && daysUntil(r.due)>0 && daysUntil(r.due)<=7],
+    ['todos','📋 A receber', r=>r.status==='pendente'],
+    ['pagos','✅ Pagos', r=>r.status==='pago']
+  ];
+  const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
+  const list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+
+  let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+    <button class="btn sm gray" onclick="showFinance=false;render()">‹</button>
+    <h2 style="flex:1">💰 Financeiro</h2>
+    <button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button></div>`;
+
+  // Totais
+  h += `<div style="display:flex;gap:10px;margin-bottom:12px">
+    <div class="card" style="flex:1;text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">A receber</div>
+      <div style="font-size:18px;font-weight:900;color:var(--warning)">${fmtBRL(tot)}</div>
+      <div style="font-size:11px;color:var(--muted)">${pend.length} ${pend.length===1?'item':'itens'}</div></div>
+    <div class="card" style="flex:1;text-align:center;${lateArr.length?'border-color:var(--danger)':''}">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Atrasado</div>
+      <div style="font-size:18px;font-weight:900;color:${lateArr.length?'var(--danger)':'var(--success)'}">${fmtBRL(lateTot)}</div>
+      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item':'itens'}</div></div></div>`;
+
+  // Resumo do mês (Pro)
+  h += isPro()
+    ? `<div class="card" style="margin-bottom:12px;background:var(--rxbg);border-color:var(--rx)">
+        <div style="font-size:11px;font-weight:700;color:var(--rx);text-transform:uppercase">✨ Resumo de ${monthName}</div>
+        <div style="font-size:14px;margin-top:4px">Recebido no mês: <b style="color:var(--success)">${fmtBRL(paidMonth)}</b> · A receber: <b style="color:var(--warning)">${fmtBRL(tot)}</b></div></div>`
+    : `<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openProModal('O resumo financeiro mensal é um recurso Pro.')">
+        <div style="font-size:13px;color:var(--muted)">🔒 <b>Resumo mensal</b> (recebido no mês, totais) — disponível no <b style="color:var(--rx)">✨ Pro</b></div></div>`;
+
+  // Filtros
+  h += `<div class="filters">${filters.map(([k,l,fn])=>{
+    const n = all.filter(fn).length;
+    return `<button class="chip ${finFilter===k?'on':''}" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+  }).join('')}</div>`;
+
+  if(!list.length){
+    h += `<div class="card empty"><div class="big">${finFilter==='pagos'?'💸':'🎉'}</div>${finFilter==='pagos'?'Nenhum pagamento registrado ainda':'Nada por aqui!'}</div>`;
+    return h;
+  }
+
+  list.forEach(r => {
+    const d = daysUntil(r.due);
+    const late = r.status==='pendente' && d<0;
+    const pago = r.status==='pago';
+    const dueLbl = pago ? `✓ Pago em ${fmtDate(r.paidAt)}` :
+      late ? `⚠ Venceu em ${fmtDate(r.due)} (${Math.abs(d)}d)` :
+      d===0 ? `🟡 Vence hoje` : `📅 Vence em ${fmtDate(r.due)} (${d}d)`;
+    h += `<div class="card" style="${late?'border-left:4px solid var(--danger)':pago?'opacity:.75':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <b style="font-size:14px">${r.emo} ${esc(r.petName)}</b>
+          <div style="color:var(--muted);font-size:12px;margin-top:1px">${esc(r.desc)}${r.kind==='avulso'?' · avulso':''}</div>
+          <div style="font-size:12px;font-weight:700;margin-top:4px;color:${pago?'var(--success)':late?'var(--danger)':d===0?'var(--warning)':'var(--muted)'}">${dueLbl}</div></div>
+        <b style="font-size:16px;color:${pago?'var(--success)':'var(--text)'};white-space:nowrap">${fmtBRL(r.valor)}</b></div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        ${pago
+          ? `<button class="btn sm gray" onclick="undoPaid('${r.kind}','${r.id}')">↩ Desfazer</button>`
+          : `<button class="btn sm success" onclick="markPaid('${r.kind}','${r.id}')">✓ Recebido</button>
+             <button class="btn sm" style="background:${isPro()?'#25D366':'var(--border)'};color:${isPro()?'#fff':'var(--muted)'}" onclick="cobrarWhats('${r.kind}','${r.id}')">💬 Cobrar${isPro()?'':' 🔒'}</button>`}
+        ${r.kind==='avulso'?`<button class="btn sm dangero" onclick="delChargeItem('${r.id}')">🗑</button>`:''}
+      </div></div>`;
+  });
+  return h;
+}
+
+function findRec(kind, id){
+  if(kind==='avulso') return DB.charges.find(c=>c.id===id);
+  for(const pet of DB.pets){
+    const a = pet.appointments.find(x=>x.id===id);
+    if(a) return a;
+  }
+  return null;
+}
+function markPaid(kind, id){
+  const r = findRec(kind, id); if(!r) return;
+  if(kind==='avulso'){ r.status='pago'; } else { r.payStatus='pago'; }
+  r.paidAt = todayISO();
+  save(); render(); toast('✅ Pagamento recebido!');
+}
+function undoPaid(kind, id){
+  const r = findRec(kind, id); if(!r) return;
+  if(kind==='avulso'){ r.status='pendente'; } else { r.payStatus='pendente'; }
+  r.paidAt = null;
+  save(); render(); toast('↩ Voltou para pendente');
+}
+function delChargeItem(id){
+  if(!confirm('Remover esta cobrança?')) return;
+  DB.charges = DB.charges.filter(c=>c.id!==id);
+  save(); render(); toast('Cobrança removida');
+}
+function cobrarWhats(kind, id){
+  if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
+  const list = allReceivables();
+  const r = list.find(x=>x.kind===kind && x.id===id); if(!r) return;
+  const pet = DB.pets.find(p=>p.id===r.petId);
+  const t = pet ? tutorOf(pet) : null;
+  const phone = (t?.phone||'').replace(/\D/g,'');
+  if(!phone){ toast('⚠ Tutor sem telefone cadastrado'); return; }
+  const first = (t.name||'').split(' ')[0];
+  const msg = `Olá, ${first}! 😊 Tudo bem?\n\nLembrete do atendimento do(a) ${r.petName}: ${fmtBRL(r.valor)} com vencimento em ${fmtDate(r.due)}.\n\nQualquer dúvida estou à disposição!\n${DB.vet.name||''} 🐾`;
+  window.open('https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg));
+}
+
+// Cobrança avulsa (venda, banho, medicamento…)
+function openChargeForm(){
+  if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); return; }
+  showSheet('➕ Nova Cobrança', `
+    <label>Paciente *</label>
+    <select id="fCPet">${DB.pets.map(p=>`<option value="${p.id}">${petEmoji(p)} ${esc(p.name)}${tutorName(p)?' — '+esc(tutorName(p)):''}</option>`).join('')}</select>
+    <label>Descrição *</label>
+    <input id="fCDesc" placeholder="Ex: Venda de vermífugo · Banho e tosa">
+    <label>Valor (R$) *</label>
+    <input id="fCValor" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 80.00">
+    <label>Situação</label>
+    <div class="chips" id="fCPay">
+      <button class="chip" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">✓ Pago</button>
+      <button class="chip on" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">📅 A receber</button>
+    </div>
+    <label>Vencimento</label>
+    <input id="fCDue" type="date" value="${todayISO()}">`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="saveCharge()">💾 Salvar</button>`);
+}
+function saveCharge(){
+  const desc = val('fCDesc'), valor = parseFloat(val('fCValor'));
+  if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
+  const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
+  DB.charges.push({id:uid(), petId:document.getElementById('fCPet').value,
+    desc, valor, due:val('fCDue')||todayISO(), status,
+    paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
+  save(); closeSheet(); render(); toast('💰 Cobrança registrada!');
 }
 
 // ═══ LICENCIAMENTO FREE / PRO ═══
@@ -449,6 +827,7 @@ function openProModal(reason){
       ✅ <b>Receita de Controle Especial</b> (2 vias)<br>
       ✅ Impressões <b>sem marca-d'água</b><br>
       ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
+      ✅ <b>Cobrança pelo WhatsApp</b> e resumo financeiro mensal<br>
       ✅ Todas as futuras atualizações Pro</div>
     <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:14px;font-size:12px;color:var(--muted)">
       💬 Para adquirir seu código de ativação, entre em contato com o desenvolvedor.</div>
@@ -487,18 +866,28 @@ function allEvents(){
       evts.push({...base, id:'a-'+a.id, type:'vet', title:a.title, due:a.date, daysLeft:d, priority:priorityOf(d)});
     });
   }
+  // Pagamentos pendentes
+  allReceivables().filter(r => r.status === 'pendente' && r.due).forEach(r => {
+    const d = daysUntil(r.due);
+    evts.push({petId:r.petId, pet:r.petName, emo:r.emo, id:'pay-'+r.id, type:'pay',
+      title:`${fmtBRL(r.valor)} — ${r.desc}`, due:r.due, daysLeft:d, priority:priorityOf(d)});
+  });
   return evts.sort((a,b)=>a.daysLeft-b.daysLeft);
 }
 const overdueEvents = () => allEvents().filter(e => e.priority==='overdue');
 
 // ═══════════ NAVEGAÇÃO / RENDER ═══════════
 function enterApp(){
+  // Limpar dados de auth antigos para evitar conflitos
+  localStorage.removeItem('vetflowcare_auth');
+  localStorage.removeItem('vfc_skip_lock');
+  localStorage.removeItem('vfc_sec_prompted');
   document.getElementById('splash').classList.add('hidden');
   document.getElementById('appHeader').classList.remove('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
   requestNotifPermission();
   render();
-  if(!localStorage.getItem('vfc_tut_done')){ setTimeout(()=>openTutorial(0), 500); }
+  if(!localStorage.getItem('vfc_tut_done')){ setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500); }
   else if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
 }
 
@@ -508,13 +897,13 @@ function openVetSetup(){
   showSheet('👨‍⚕️ Bem-vinda! Seus dados', `
     <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac);margin-bottom:4px">
       Esses dados aparecem nos receituários e prontuários impressos. Você pode editá-los depois em Ajustes.</div>
-    <label>Nome completo *</label><input id="sName" value="${esc(DB.vet.name)}" placeholder="Ex: Dra. Linda Rizzieri">
+    <label>Nome completo *</label><input id="sName" value="${esc(DB.vet.name)}" placeholder="Ex: Dra. Gabriela">
     <label>CRMV *</label>
     <div style="display:flex;gap:8px">
       <select id="sUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
-      <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 37972">
+      <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 12345">
     </div>
-    <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: 00087206/2021">
+    <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: 12345678/2020">
     <label>E-mail</label><input id="sEmail" type="email" value="${esc(DB.vet.email)}" placeholder="contato@clinica.com.br">
     <div style="color:var(--muted);font-size:11px;margin-top:12px">💡 O upload do logo e da assinatura eletrônica fica em <b>Ajustes → Dados do Profissional</b>.</div>`,
     `<button class="btn gray" onclick="closeSheet()">Depois</button>
@@ -529,65 +918,59 @@ function saveVetSetup(){
   DB.vet.sipeagro = val('sSipe');
   DB.vet.email = val('sEmail');
   save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vinda ao VetFlowCare');
+  // Prompt de segurança removido - login/senha não é mais obrigatório
 }
 
 // ═══ TUTORIAL GUIADO ═══
 const TUT_STEPS = [
   {emo:'🐾', title:'Bem-vinda ao VetFlowCare!',
-   body:`Seu app de gestão veterinária: <b>Organiza · Conecta · Cuida</b>.<br><br>
-   ✅ Funciona <b>offline</b> — os dados ficam salvos no seu aparelho<br>
-   ✅ Instale na tela inicial para usar como aplicativo<br>
-   ✅ Faça backups em <b>Ajustes → Exportar Dados</b><br><br>
-   Vamos conhecer cada botão? Leva 1 minuto. 😉`},
-  {emo:'🏠', title:'Início — seu painel do dia',
-   body:`A primeira aba mostra tudo que importa <b>hoje</b>:<br><br>
-   • <b>Índice de saúde</b> geral dos pacientes (anel colorido)<br>
-   • <b>📅 Próximos 7 dias</b>: vacinas e atendimentos chegando<br>
-   • <b>💊 Medicações de Hoje</b> com botão <b>"Dado"</b> — toque após administrar para evitar dose dupla<br>
-   • Banner vermelho quando algo está <b>vencido</b>`},
-  {emo:'🐾', title:'Pacientes — Animais e Tutores',
-   body:`Duas sub-abas no topo:<br><br>
-   👤 <b>Tutores</b>: cadastre primeiro o responsável (nome, CPF, telefone, endereço). No perfil dele há o botão verde do <b>WhatsApp</b> e a aba <b>Animais</b> com o botão "Adicionar animal" já vinculado.<br><br>
-   🐾 <b>Animais</b>: a ficha completa de cada paciente. Use a <b>busca</b> por nome, raça ou tutor.`},
-  {emo:'📋', title:'A Ficha do Animal',
-   body:`Dentro de cada paciente, 4 abas:<br><br>
-   • <b>Ficha</b>: dados + gráfico de evolução de peso<br>
-   • <b>Saúde</b>: 💉 vacinas com <b>protocolos</b> (anual, primovacinação 21d, Librela 45d, Cytopoint 60d) — o app calcula a próxima dose e cria a "Programada"; 🩺 atendimentos em <b>linha do tempo</b> com prontuário e retorno automático<br>
-   • <b>Receituário</b>: Receita Simples ou Controle Especial, com impressão timbrada<br>
-   • <b>Arquivos</b>: dados do tutor + fotos de exames (📷 câmera ou galeria)`},
-  {emo:'🔔', title:'Agenda e Alertas',
-   body:`📅 <b>Agenda</b>: calendário mensal — os pontinhos marcam os eventos de cada dia (vermelho = vencido). Toque num dia para ver os detalhes.<br><br>
-   🔔 <b>Alertas</b>: tudo que vence, avisado com <b>7, 3 e 1 dia</b> de antecedência (configurável). O número vermelho no sininho mostra os itens vencidos.`},
-  {emo:'⚙️', title:'Ajustes — seu perfil profissional',
-   body:`Em Ajustes você encontra:<br><br>
-   • <b>👨‍⚕️ Dados do Profissional</b>: nome, CRMV, SIPEAGRO/MAPA, e-mail + upload do <b>logo</b> e da <b>assinatura</b> (saem nos documentos impressos)<br>
-   • <b>💾 Dados</b>: backup completo (JSON), lista de tutores (TXT) e importação<br>
-   • <b>✨ VetFlowCare Pro</b>: ative seu código para liberar tudo<br><br>
-   Pronto! Qualquer dúvida, reveja este tutorial em <b>Ajustes → Ajuda</b>. 🐾`}
+   body:`Sua clínica no bolso: <b>Organiza · Conecta · Cuida</b>.<br><br>
+   Funciona <b>offline</b>, instala na tela inicial e seus dados ficam <b>no seu aparelho</b>.<br><br>
+   Um tour de 1 minuto e você já sai usando. 😉`},
+  {emo:'🏠', title:'Seu dia em um relance',
+   body:`Na aba <b>Início</b>: quem precisa de vacina, medicações para dar agora, pagamentos a receber e alertas de atraso.<br><br>Nada passa despercebido.`},
+  {emo:'👤', title:'Tutores e Animais conectados',
+   body:`Cadastre o <b>tutor</b> uma vez — telefone com WhatsApp, CPF e endereço entram sozinhos em receitas e termos.<br><br>Os animais dele ficam vinculados, a um toque da ficha.`,
+   action:{label:'🐾 Cadastrar meu primeiro paciente', fn:'startFirstPatient()'}},
+  {emo:'💉', title:'Vacinas que se agendam sozinhas',
+   body:`Escolha o protocolo (anual, primo 21d, Librela 45d, Cytopoint 60d) e o app calcula a próxima dose.<br><br>Aplicou? Um toque em <b>✓ Aplicar</b> e a seguinte já entra na agenda.`},
+  {emo:'📋', title:'Prontuário, receitas e termos',
+   body:`Atendimentos em linha do tempo, receituário timbrado (Simples ou Controle Especial) e termos prontos para imprimir — tudo com seu logo e assinatura.`},
+  {emo:'⚙️', title:'Deixe com a sua cara',
+   body:`Em <b>Ajustes</b>: seus dados (CRMV, logo, assinatura), backup, senha com criptografia e o <b>✨ Pro</b>.<br><br>Reveja este tour em Ajustes → Ajuda. Bom trabalho! 🐾`}
 ];
+function startFirstPatient(){
+  finishTutorial(true);
+  goTab('pets'); pplView = 'tutores';
+  setTimeout(openTutorForm, 250);
+}
 function openTutorial(step = 0){
+  step = Math.min(step, TUT_STEPS.length - 1);
+  localStorage.setItem('vfc_tut_step', step);
   const s = TUT_STEPS[step];
   const last = step === TUT_STEPS.length - 1;
   const dots = TUT_STEPS.map((_,i)=>
     `<span style="width:8px;height:8px;border-radius:50%;display:inline-block;margin:0 3px;background:${i===step?'var(--primary)':'var(--border)'}"></span>`).join('');
   showSheet(`${s.emo} ${s.title}`, `
-    <div style="font-size:14px;line-height:1.75;color:var(--text)">${s.body}</div>
-    <div style="text-align:center;margin-top:18px">${dots}</div>
+    <div style="font-size:14px;line-height:1.7;color:var(--text)">${s.body}</div>
+    ${s.action?`<button class="btn" style="margin-top:14px" onclick="${s.action.fn}">${s.action.label}</button>`:''}
+    <div style="text-align:center;margin-top:16px">${dots}</div>
     <div style="text-align:center;color:var(--muted);font-size:11px;margin-top:6px">${step+1} de ${TUT_STEPS.length}</div>`,
     `${step>0?`<button class="btn gray" onclick="openTutorial(${step-1})">‹ Anterior</button>`:`<button class="btn gray" onclick="finishTutorial()">Pular</button>`}
      <button class="btn" onclick="${last?'finishTutorial()':`openTutorial(${step+1})`}">${last?'✓ Começar!':'Próximo ›'}</button>`);
 }
-function finishTutorial(){
+function finishTutorial(skipNext){
   localStorage.setItem('vfc_tut_done','1');
+  localStorage.removeItem('vfc_tut_step');
   closeSheet();
-  if(!DB.vet.name) setTimeout(openVetSetup, 300);
+  if(!skipNext && !DB.vet.name) setTimeout(openVetSetup, 300);
 }
 function goTab(tab){
-  currentTab = tab; currentPetId = null; currentTutorId = null;
+  currentTab = tab; currentPetId = null; currentTutorId = null; showFinance = false;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
   render();
 }
-function openPet(id){ currentPetId = id; currentTutorId = null; currentPetTab = 'info'; render(); }
+function openPet(id){ currentPetId = id; currentTutorId = null; showFinance = false; currentPetTab = 'info'; render(); }
 function openTutor(id){ currentTutorId = id; currentPetId = null; tutorTab = 'resp'; render(); }
 
 function render(){
@@ -605,6 +988,11 @@ function render(){
     return;
   }
   hero.classList.add('hidden');
+  if(showFinance){
+    hdr.classList.add('hidden');
+    main.innerHTML = renderFinance();
+    return;
+  }
   if(currentTutorId){
     hdr.classList.add('hidden');
     main.innerHTML = renderTutorProfile();
@@ -642,7 +1030,7 @@ function renderScorecard(){
 function evtRow(e){
   const t = TYPE_CFG[e.type], pc = PRI_CLR[e.priority];
   const lbl = e.daysLeft<0?`${Math.abs(e.daysLeft)}d atraso`:e.daysLeft===0?'Hoje':`${e.daysLeft}d`;
-  return `<div class="evt" style="border-left-color:${pc}" onclick="openPet('${e.petId}')">
+  return `<div class="evt" style="border-left-color:${pc}" onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"')"}">
     <div class="ic" style="background:${t.bg}">${t.emo}</div>
     <div class="tx"><div class="t1">${e.emo} ${esc(e.pet)} — ${esc(e.title)}</div>
     <div class="t2">${e.due===todayISO()&&e.type==='medication'?'Hoje':fmtDate(e.due)}</div></div>
@@ -661,6 +1049,19 @@ function renderHome(){
     <span style="font-size:20px">⚠️</span>
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
+
+  const recPend = allReceivables().filter(r=>r.status==='pendente');
+  const recTot = recPend.reduce((s,r)=>s+r.valor,0);
+  const recLate = recPend.filter(r=>daysUntil(r.due)<0);
+  const recLateTot = recLate.reduce((s,r)=>s+r.valor,0);
+  h += `<div class="sec"><div class="sec-h"><span>💰 Financeiro</span>
+    <button onclick="goFinance()">Abrir →</button></div>
+    <div class="card" style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="goFinance()">
+      <div style="width:44px;height:44px;border-radius:13px;background:rgba(240,165,0,.12);display:flex;align-items:center;justify-content:center;font-size:21px">💰</div>
+      <div style="flex:1">
+        <div style="font-weight:800;font-size:15px">${fmtBRL(recTot)} a receber</div>
+        <div style="font-size:12px;color:${recLate.length?'var(--danger)':'var(--muted)'}">${recLate.length?`⚠ ${recLate.length} ${recLate.length===1?'atrasado':'atrasados'} (${fmtBRL(recLateTot)})`:recPend.length?`${recPend.length} ${recPend.length===1?'pendente':'pendentes'} em dia`:'Nenhuma pendência 🎉'}</div>
+      </div><span style="color:var(--muted)">›</span></div></div>`;
 
   h += `<div class="sec"><div class="sec-h"><span>Pacientes</span>
     <button onclick="goTab('pets')">Ver todos →</button></div><div class="pets-row">`;
@@ -881,7 +1282,8 @@ function renderPetHero(pet){
     <div class="ptabs">
       <button class="${currentPetTab==='info'?'on':''}" onclick="currentPetTab='info';render()">Ficha</button>
       <button class="${currentPetTab==='health'?'on':''}" onclick="currentPetTab='health';render()">Saúde</button>
-      <button class="${currentPetTab==='rx'?'on':''}" onclick="currentPetTab='rx';render()">Receituário</button>
+      <button class="${currentPetTab==='rx'?'on':''}" onclick="currentPetTab='rx';render()">Receita</button>
+      <button class="${currentPetTab==='termos'?'on':''}" onclick="currentPetTab='termos';render()">Termos</button>
       <button class="${currentPetTab==='docs'?'on':''}" onclick="currentPetTab='docs';render()">Arquivos</button>
     </div>
   </div>`;
@@ -891,6 +1293,7 @@ function renderPetTab(pet){
   if(currentPetTab==='info')   return renderPetInfo(pet);
   if(currentPetTab==='health') return renderPetHealth(pet);
   if(currentPetTab==='rx')     return renderPetRx(pet);
+  if(currentPetTab==='termos') return renderPetTerms(pet);
   return renderPetDocs(pet);
 }
 
@@ -1060,6 +1463,148 @@ function renderPetRx(pet){
   </div>`;
 }
 
+// ── Aba Termos e Documentos ──
+const TERMS = {
+  atestado: {emo:'✈️', name:'Atestado Sanitário',
+    desc:'Viagem de avião/ônibus — inclui vacinação antirrábica'},
+  anestesico: {emo:'💉', name:'Termo de Consentimento Anestésico',
+    desc:'Autorização para procedimentos anestésicos'},
+  cirurgia: {emo:'🏥', name:'Termo de Consentimento Cirúrgico',
+    desc:'Autorização para procedimento cirúrgico'},
+  recusa: {emo:'🚫', name:'Termo de Recusa de Tratamento',
+    desc:'Registro de recusa do tutor ao tratamento indicado'}
+};
+function renderPetTerms(pet){
+  return `<div class="sec"><div class="sec-h"><span>📄 Termos e Atestados</span></div>
+    <div class="card" style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      Documentos com preenchimento automático dos dados do tutor e do animal, no padrão timbrado do receituário (logo + assinatura). Gere, imprima em PDF e envie ao tutor.</div>
+    ${Object.entries(TERMS).map(([k,t])=>`<div class="card" style="display:flex;align-items:center;gap:12px">
+      <div style="width:44px;height:44px;border-radius:13px;background:var(--rxbg);display:flex;align-items:center;justify-content:center;font-size:21px">${t.emo}</div>
+      <div style="flex:1;min-width:0"><b style="font-size:14px">${t.name}</b>
+      <div style="color:var(--muted);font-size:11px">${t.desc}</div></div>
+      <button class="btn sm rx" onclick="openTermForm('${pet.id}','${k}')">Gerar</button></div>`).join('')}
+  </div>`;
+}
+
+function openTermForm(petId, type){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const t = TERMS[type];
+  // Seleção de tutor (caso haja mais de um)
+  const tutorSel = `<label>Tutor / Responsável ${DB.tutors.length>1?'(selecione)':''}</label>
+    <select id="fTTutor">${DB.tutors.length
+      ? DB.tutors.map(x=>`<option value="${x.id}" ${x.id===pet.tutorId?'selected':''}>${esc(x.name)}</option>`).join('')
+      : '<option value="">— nenhum tutor cadastrado —</option>'}</select>`;
+  const cidade = `<label>Cidade (para a data)</label>
+    <input id="fTCity" value="${esc(DB.vet.city||'')}" placeholder="Ex: São Paulo">`;
+  const data = `<label>Data do documento</label><input id="fTDate" type="date" value="${todayISO()}">`;
+
+  let fields = '';
+  if(type === 'atestado'){
+    // Pré-preenche com a antirrábica mais recente aplicada
+    const rab = pet.vaccines.filter(v => /r[áa]bica|raiva/i.test(v.name) && v.status==='aplicada')
+      .sort((a,b)=>(b.applied||'').localeCompare(a.applied||''))[0];
+    const prox = rab ? pet.vaccines.filter(v => v.name===rab.name && v.status==='programada')
+      .sort((a,b)=>a.due.localeCompare(b.due))[0] : null;
+    fields = `
+      <label>Data da vacinação antirrábica</label><input id="fTRabDate" type="date" value="${rab?.applied||''}">
+      <label>Válida até</label><input id="fTRabVal" type="date" value="${prox?.due || (rab?addDays(rab.applied,365):'')}">
+      <label>Nome comercial da vacina</label><input id="fTRabNome" placeholder="Ex: Defensor">
+      <label>Laboratório</label><input id="fTRabLab" placeholder="Ex: Zoetis">
+      <label>Número do lote</label><input id="fTRabLote" value="${esc(rab?.lot||'')}" placeholder="Ex: 019/24">`;
+  }
+  if(type === 'anestesico'){
+    fields = `
+      <label>Tipo de procedimento anestésico indicado *</label>
+      <input id="fTProc" placeholder="Ex: Anestesia geral inalatória">
+      <label>Observações do(a) Médico(a) Veterinário(a)</label>
+      <textarea id="fTObsVet" rows="2"></textarea>
+      <label>Observações do(a) tutor(a) / responsável</label>
+      <textarea id="fTObsTutor" rows="2"></textarea>`;
+  }
+  if(type === 'cirurgia'){
+    fields = `
+      <label>Procedimento cirúrgico *</label>
+      <input id="fTProc" placeholder="Ex: Ovariossalpingohisterectomia (castração)">
+      <label>Observações do(a) Médico(a) Veterinário(a)</label>
+      <textarea id="fTObsVet" rows="2"></textarea>
+      <label>Observações do(a) tutor(a) / responsável</label>
+      <textarea id="fTObsTutor" rows="2"></textarea>`;
+  }
+  if(type === 'recusa'){
+    fields = `
+      <label>Tratamento / procedimento recusado *</label>
+      <input id="fTProc" placeholder="Ex: Internação para fluidoterapia">
+      <label>Motivo da recusa (opcional)</label>
+      <textarea id="fTObsTutor" rows="2"></textarea>`;
+  }
+  showSheet(`${t.emo} ${t.name}`, tutorSel + fields + cidade + data,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn rx" onclick="printTerm('${petId}','${type}')">🖨️ Gerar PDF</button>`);
+}
+
+function termPatientBlock(pet, tutor, withCpf){
+  const F = v => v ? esc(v) : '<span class="fill" style="min-width:150px"></span>';
+  return `<div class="box">
+    <b>TUTOR:</b> ${F(tutor?.name)}<br>
+    ${withCpf?`<b>CPF/RG:</b> ${F(tutor?.cpf)}<br>`:''}
+    <b>ENDEREÇO:</b> ${F(tutor?.address)}${tutor?.cep?' · CEP '+esc(tutor.cep):''}<br>
+    <b>ANIMAL:</b> ${esc(pet.name)} &nbsp; <b>IDADE:</b> ${calcAge(pet.birth)} &nbsp; <b>ESPÉCIE:</b> ${esc(pet.species)}<br>
+    <b>RAÇA:</b> ${esc(pet.breed||'SRD')} &nbsp; <b>SEXO:</b> ${esc(pet.gender)} &nbsp; <b>PESO:</b> ${pet.weight} kg
+  </div>`;
+}
+function termDateLine(city, iso){
+  const d = new Date(iso+'T00:00:00');
+  return `<div style="margin:26px 0 10px;font-size:14px"><b>${esc(city||'________________')}</b>, ${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()} de ${d.getFullYear()}</div>`;
+}
+const RESP_SIGN = `<div style="margin-top:70px;text-align:center">
+  <div style="border-top:1.5px solid #1A2F5A;width:320px;margin:0 auto 4px"></div>
+  <div style="font-size:12px;font-weight:800;color:#1A2F5A">ASSINATURA DO(A) RESPONSÁVEL PELO ANIMAL</div></div>`;
+
+function printTerm(petId, type){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const tutor = DB.tutors.find(x=>x.id===document.getElementById('fTTutor')?.value) || tutorOf(pet);
+  const city = val('fTCity'); DB.vet.city = city; save();
+  const dt = val('fTDate') || todayISO();
+  const F = id => { const v = val(id); return v ? esc(v) : '<span class="fill"></span>'; };
+  const crmvLine = `${esc(DB.vet.name||'')}${crmvFull()?', '+crmvFull():''}`;
+  let inner = '';
+
+  if(type === 'atestado'){
+    inner = letterheadHTML() + termPatientBlock(pet, tutor, false) +
+      `<div class="doctitle">ATESTADO SANITÁRIO</div>
+      <div style="font-size:14px;line-height:2;text-align:justify">
+      Atesto para os devidos fins, que o animal acima foi por mim examinado e apresenta bom estado geral de saúde, no momento do exame não manifestou sinais de doenças infecciosas ou parasitárias (pulgas, carrapatos ou miíases).<br><br>
+      Encontra-se apto para viajar de avião ou ônibus.<br><br>
+      Realizou a vacinação contra a raiva dia ${val('fTRabDate')?fmtDate(val('fTRabDate')):'____/____/____'}, válida até ${val('fTRabVal')?fmtDate(val('fTRabVal')):'____/____/____'}, vacina com nome comercial ${F('fTRabNome')}, do laboratório ${F('fTRabLab')} e número de lote ${F('fTRabLote')}.
+      <div style="text-align:right;margin-top:22px">Sem mais para o momento,<br>atenciosamente,</div></div>` +
+      termDateLine(city, dt) + vetFooterHTML(dt);
+  }
+  if(type === 'anestesico' || type === 'cirurgia'){
+    const isCir = type === 'cirurgia';
+    inner = letterheadHTML() + termPatientBlock(pet, tutor, true) +
+      `<div class="doctitle" style="font-size:15px">TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO PARA<br>REALIZAÇÃO DE ${isCir?'PROCEDIMENTO CIRÚRGICO':'PROCEDIMENTOS ANESTÉSICOS'}</div>
+      <div style="font-size:13px;line-height:2;text-align:justify">
+      Declaro o livre consentimento para a realização ${isCir?'do procedimento cirúrgico':'do(s) procedimento(s) anestésico(s) necessários'}: <b>${F('fTProc')}</b>, no animal acima identificado, a ser realizado pelo(a) Médico(a) Veterinário(a): <b>${crmvLine}</b>.<br><br>
+      Declaro ainda, ter sido esclarecido(a) acerca dos riscos inerentes${isCir?', durante ou após a realização do procedimento cirúrgico citado':' ao(s) procedimento(s) proposto(s)'}, estando o(a) profissional isento(a) de quaisquer responsabilidades decorrentes de tais riscos.<br><br>
+      <b>Observações de interesse a serem fornecidas pelo(a) Médico(a) Veterinário(a):</b><br>${val('fTObsVet')?esc(val('fTObsVet')):'________________________________________________________________'}<br><br>
+      <b>Observações de interesse a serem fornecidas pelo(a) tutor(a) / responsável pelo animal:</b><br>${val('fTObsTutor')?esc(val('fTObsTutor')):'________________________________________________________________'}
+      </div>` + termDateLine(city, dt) + RESP_SIGN +
+      `<div style="margin-top:40px">${vetFooterHTML(dt)}</div>`;
+  }
+  if(type === 'recusa'){
+    inner = letterheadHTML() + termPatientBlock(pet, tutor, true) +
+      `<div class="doctitle" style="font-size:15px">TERMO DE RECUSA DE TRATAMENTO</div>
+      <div style="font-size:13px;line-height:2;text-align:justify">
+      Declaro que fui devidamente esclarecido(a) pelo(a) Médico(a) Veterinário(a) <b>${crmvLine}</b> sobre o diagnóstico e a importância do tratamento/procedimento indicado para o animal acima identificado: <b>${F('fTProc')}</b>.<br><br>
+      Ainda assim, por livre e espontânea decisão, <b>RECUSO</b> a realização do tratamento/procedimento proposto, assumindo integral responsabilidade pelas consequências desta decisão e isentando o(a) profissional de quaisquer responsabilidades decorrentes desta recusa.<br><br>
+      <b>Motivo da recusa:</b><br>${val('fTObsTutor')?esc(val('fTObsTutor')):'________________________________________________________________'}
+      </div>` + termDateLine(city, dt) + RESP_SIGN +
+      `<div style="margin-top:40px">${vetFooterHTML(dt)}</div>`;
+  }
+  closeSheet();
+  printShell(TERMS[type].name + ' — ' + pet.name, inner);
+}
+
 // ── Aba Arquivos ──
 function renderPetDocs(pet){
   const t = tutorOf(pet);
@@ -1087,7 +1632,7 @@ function renderPetDocs(pet){
     <div class="card"><div class="doc-up">
       <div style="font-size:28px">📤</div>
       <div style="font-size:13px;margin:6px 0 2px">Envie fotos de exames e laudos</div>
-      <div style="font-size:11px;margin-bottom:12px">JPG ou PNG · armazenado no dispositivo</div>
+      <div style="font-size:11px;margin-bottom:12px">Imagens e PDF · até 20MB por arquivo</div>
       <input type="file" accept="image/*" capture="environment" id="docCam" class="hidden" onchange="uploadDoc('${pet.id}',this)">
       <input type="file" accept="image/*" id="docFile" class="hidden" onchange="uploadDoc('${pet.id}',this)">
       <input type="file" accept="application/pdf" id="docPdf" class="hidden" onchange="uploadDoc('${pet.id}',this)">
@@ -1116,15 +1661,18 @@ function linkTutorToPet(petId){
 
 function uploadDoc(petId, input){
   const file = input.files[0]; if(!file) return;
-  if(file.size > 2_000_000){ toast('⚠ Arquivo muito grande (máx 2MB)'); return; }
-  // PDF: salva direto, sem redimensionar
+  if(file.size > 20_000_000){ toast('⚠ Arquivo muito grande (máx 20MB)'); return; }
+  const pet = DB.pets.find(p=>p.id===petId);
+  // PDF: salva direto no IndexedDB
   if(file.type === 'application/pdf'){
     const r = new FileReader();
-    r.onload = e => {
-      const pet = DB.pets.find(p=>p.id===petId);
-      pet.documents.unshift({id:uid(), name:file.name, date:todayISO(), kind:'pdf', data:e.target.result});
-      try{ save(); toast('📄 PDF salvo!'); render(); }
-      catch(err){ pet.documents.shift(); toast('⚠ Armazenamento cheio — remova arquivos antigos'); }
+    r.onload = async e => {
+      const id = uid();
+      try{
+        await idbPut(id, e.target.result);
+        pet.documents.unshift({id, name:file.name, date:todayISO(), kind:'pdf'});
+        save(); toast('📄 PDF salvo!'); render();
+      }catch(err){ toast('⚠ Erro ao salvar o PDF'); }
     };
     r.readAsDataURL(file);
     return;
@@ -1132,23 +1680,28 @@ function uploadDoc(petId, input){
   const reader = new FileReader();
   reader.onload = e => {
     const img = new Image();
-    img.onload = () => {
+    img.onload = async () => {
       const cv = document.createElement('canvas');
-      const scale = Math.min(1, 1000/img.width);
+      const scale = Math.min(1, 1400/img.width);
       cv.width = img.width*scale; cv.height = img.height*scale;
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      const pet = DB.pets.find(p=>p.id===petId);
-      pet.documents.unshift({id:uid(), name:file.name, date:todayISO(), data:cv.toDataURL('image/jpeg',.75)});
-      try{ save(); toast('📄 Documento salvo!'); render(); }
-      catch(err){ pet.documents.shift(); toast('⚠ Armazenamento cheio — remova documentos antigos'); }
+      const id = uid();
+      try{
+        await idbPut(id, cv.toDataURL('image/jpeg',.8));
+        pet.documents.unshift({id, name:file.name, date:todayISO()});
+        save(); toast('📄 Documento salvo!'); render();
+      }catch(err){ toast('⚠ Erro ao salvar a imagem'); }
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
-function viewDoc(petId, docId){
+async function viewDoc(petId, docId){
   const d = DB.pets.find(p=>p.id===petId)?.documents.find(x=>x.id===docId);
   if(!d) return;
+  const data = d.data || await idbGet(d.id);
+  if(!data){ toast('⚠ Arquivo não encontrado'); return; }
+  d.data = data; // uso temporário abaixo
   if(d.kind === 'pdf'){
     // Converte para Blob (data: URL é bloqueada em novas abas)
     const b64 = d.data.split(',')[1];
@@ -1159,16 +1712,19 @@ function viewDoc(petId, docId){
     const a = document.createElement('a');
     a.href = url; a.download = d.name;
     a.click();
+    delete d.data;
     toast('📄 PDF baixado — abra pela notificação ou pasta Downloads');
     return;
   }
   const w = window.open('');
   if(!w){ toast('⚠ Permita pop-ups para visualizar'); return; }
   w.document.write(`<title>${esc(d.name)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${d.data}" style="max-width:100%;max-height:100vh"></body>`);
+  delete d.data;
 }
 function delRecord(petId, coll, id){
   if(!confirm('Remover este registro?')) return;
   const pet = DB.pets.find(p=>p.id===petId);
+  if(coll === 'documents') idbDel(id);
   pet[coll] = pet[coll].filter(x=>x.id!==id);
   save(); render(); toast('Registro removido');
 }
@@ -1229,6 +1785,7 @@ function renderCalendar(){
         <span><i style="background:var(--vac)"></i>Vacina</span>
         <span><i style="background:var(--med)"></i>Medicação</span>
         <span><i style="background:var(--vet)"></i>Atendimento</span>
+        <span><i style="background:var(--warning)"></i>Pagamento</span>
         <span><i style="background:var(--danger)"></i>Vencido</span></div>
     </div>
     <button class="btn" style="margin-top:14px" onclick="openApptPicker(${calSelDay?`'${y}-${String(m+1).padStart(2,'0')}-${String(calSelDay).padStart(2,'0')}'`:'null'})">
@@ -1269,7 +1826,7 @@ function renderAlerts(f){
           <div style="font-weight:700;font-size:14px">${esc(e.title)}</div>
           <div style="color:var(--muted);font-size:12px">${e.emo} ${esc(e.pet)} · ${fmtDate(e.due)}</div></div>
         <button class="btn sm ${e.priority==='overdue'?'danger':'success'}"
-          onclick="openPet('${e.petId}');currentPetTab='health'">${e.priority==='overdue'?'Resolver':'Ver'}</button>
+          onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"');currentPetTab='health'"}">${e.priority==='overdue'?'Resolver':'Ver'}</button>
       </div></div>`;
   });
   return h;
@@ -1287,7 +1844,7 @@ function renderSettings(){
   <div class="sec"><div class="sec-h"><span>👨‍⚕️ Dados do Profissional</span></div>
     <div class="card">
       <label>Nome completo *</label>
-      <input id="vName" value="${esc(v.name)}" placeholder="Ex: Dra. Linda Rizzieri">
+      <input id="vName" value="${esc(v.name)}" placeholder="Ex: Dra. Gabriela">
       <label>CRMV *</label>
       <div style="display:flex;gap:8px">
         <select id="vUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
@@ -1297,6 +1854,9 @@ function renderSettings(){
       <input id="vSipe" value="${esc(v.sipeagro)}" placeholder="Nº de registro SIPEAGRO/MAPA">
       <label>E-mail</label>
       <input id="vEmail" type="email" value="${esc(v.email)}" placeholder="contato@clinica.com.br">
+      <label>Certificado digital ICP-Brasil (opcional)</label>
+      <input id="vCert" value="${esc(v.certInfo||'')}" placeholder="Ex: e-CPF BirdID">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Usado nas receitas com assinatura digital — <button style="background:none;color:var(--primary);font-weight:700;padding:0;font-size:11px" onclick="openSignInfo()">o que é isso?</button></div>
 
       <label>Logo (aparece no receituário)</label>
       <input type="file" accept="image/*" id="vLogoFile" class="hidden" onchange="uploadVetImg('logo',this)">
@@ -1318,6 +1878,15 @@ function renderSettings(){
 
   <div class="sec"><div class="sec-h"><span>⏰ Antecedência dos Alertas</span></div>
     <div class="card">${sw('alert7','7 dias antes')}${sw('alert3','3 dias antes')}${sw('alert1','1 dia antes')}</div></div>
+
+  <div class="sec"><div class="sec-h"><span>🔐 Segurança e Login</span></div>
+    <div class="card">
+      <div style="font-size:13px;color:var(--muted)">
+        🔓 <b>Login e senha removidos</b> nesta versão.<br>
+        O app entra diretamente sem necessidade de autenticação.<br><br>
+        Seus dados continuam salvos localmente no aparelho.
+      </div>
+    </div></div>
 
   <div class="sec"><div class="sec-h"><span>✨ VetFlowCare Pro</span></div>
     <div class="card">
@@ -1351,15 +1920,24 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v7.0 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.0 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v7.0:</b><br>
+      <b>Novidades da v8.0:</b><br>
+      • 🔐 Login com e-mail e senha + criptografia AES-256 dos dados<br>
+      • 📄 Aba Termos: Atestado Sanitário, Consentimento Anestésico/Cirúrgico e Recusa — preenchimento automático<br>
+      • 💻 Receita com opção de assinatura digital ICP-Brasil (guia dentro do app)<br>
+      • 📦 Arquivos até 20MB (novo armazenamento IndexedDB)<br>
+      • 📖 Tutorial repaginado: mais curto, com ação direta e retomada de onde parou<br>
+      <br><b>Da v7.0:</b><br>
       • Tutorial guiado no primeiro acesso (reveja em Ajustes → Ajuda)<br>
       • Exportação da lista de tutores e animais em TXT<br>
       • Vacinas agrupadas por tipo: histórico de doses com data e lote + próxima dose no mesmo card<br>
       • Ao aplicar dose: informe data e lote — a seguinte é agendada sozinha<br>
       • Novo atendimento direto pela Agenda (toque no dia) e data digitável DD/MM/AAAA<br>
       • Upload de PDF nos arquivos do animal<br>
+      • 💰 Módulo Financeiro: valor no atendimento, cobranças avulsas, filtros (atrasados/hoje/próximos/pagos)<br>
+      • Pagamentos vencidos entram nos Alertas e no Início<br>
+      • Pro: cobrança pelo WhatsApp e resumo mensal<br>
       • Sistema Free / Pro com código de ativação<br>
       • Free: até 5 pacientes, marca-d'água nas impressões<br>
       • Pro: ilimitado, controle especial, logo e assinatura<br>
@@ -1385,6 +1963,7 @@ function saveVetProfile(){
   DB.vet.crmvNum = document.getElementById('vNum').value.trim();
   DB.vet.sipeagro= document.getElementById('vSipe').value.trim();
   DB.vet.email   = document.getElementById('vEmail').value.trim();
+  DB.vet.certInfo = document.getElementById('vCert').value.trim();
   save(); toast('👨‍⚕️ Dados profissionais salvos!'); renderScorecard();
   document.getElementById('profileName').textContent = DB.vet.name ? DB.vet.name.split(' ')[0] : 'Perfil';
 }
@@ -1463,6 +2042,7 @@ function exportTutoresTXT(){
 }
 
 function exportJSON(){
+  if(getAuth() && !confirm('O backup JSON é exportado SEM criptografia (para poder ser importado depois). Guarde o arquivo em local seguro. Continuar?')) return;
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -1726,6 +2306,17 @@ function openApptForm(petId){
     </div>
     <label>Horário *</label><input id="fPTime" type="time" value="10:00">
     <label>Local / Clínica</label><input id="fPClinic" placeholder="Opcional">
+    <label>💰 Valor do atendimento (R$)</label>
+    <input id="fPValor" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 150.00 (deixe vazio se não houver cobrança)">
+    <label>Pagamento</label>
+    <div class="chips" id="fPPay">
+      <button class="chip on" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
+      <button class="chip" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
+    </div>
+    <div id="fPPayDueWrap" style="display:none">
+      <label>Vencimento do pagamento *</label>
+      <input id="fPPayDue" type="date">
+    </div>
     <label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
     <textarea id="fPRecord" rows="6" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta:"></textarea>
     <label>📅 Agendamento de retorno (opcional)</label>
@@ -1748,9 +2339,20 @@ function saveAppt(petId){
   window._presetDate = null;
   if(!title || !date){ toast('⚠ Preencha tipo e data'); return; }
   const pet = DB.pets.find(p=>p.id===petId);
+  // Pagamento
+  const valor = parseFloat(val('fPValor')) || 0;
+  let payStatus = null, payDue = null, paidAt = null;
+  if(valor > 0){
+    payStatus = document.querySelector('#fPPay .chip.on')?.dataset.v || 'pago';
+    if(payStatus === 'pendente'){
+      payDue = val('fPPayDue');
+      if(!payDue){ toast('⚠ Informe o vencimento do pagamento'); return; }
+    } else { paidAt = todayISO(); }
+  }
   pet.appointments.push({
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
-    clinic:val('fPClinic'), record:val('fPRecord')});
+    clinic:val('fPClinic'), record:val('fPRecord'),
+    valor, payStatus, payDue, paidAt});
   const retorno = val('fPRetorno');
   if(retorno){
     pet.appointments.push({
@@ -1791,6 +2393,13 @@ function openRxForm(petId, rxId){
       <option value="simples" ${(!rx||rx.type!=='controle')?'selected':''}>Receita Simples</option>
       <option value="controle" ${rx?.type==='controle'?'selected':''}>Receita de Controle Especial (2 vias)${isPro()?'':' — ✨ Pro'}</option>
     </select>
+    <label>Forma de assinatura</label>
+    <select id="fRxSign">
+      <option value="imagem" ${(!rx||rx.sign!=='digital')?'selected':''}>🖊️ Assinatura em imagem (carimbo/manuscrita)</option>
+      <option value="digital" ${rx?.sign==='digital'?'selected':''}>💻 Assinatura digital ICP-Brasil (assinar o PDF depois)</option>
+    </select>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">
+      ℹ️ Receita de controlados só tem validade digital com certificado <b>ICP-Brasil</b> (e-CPF) — <button style="background:none;color:var(--primary);font-weight:700;padding:0;font-size:11px" onclick="openSignInfo()">saiba como</button></div>
     <label>Data</label><input id="fRxDate" type="date" value="${rx?.date||todayISO()}">
     <label>Prescrição *</label>
     <textarea id="fRxContent" rows="10" placeholder="Ex:&#10;1) Amoxicilina 250mg — 1 comprimido a cada 12h por 7 dias&#10;2) Dipirona gotas — 15 gotas a cada 8h se dor&#10;&#10;Uso contínuo:&#10;...">${esc(rx?.content||'')}</textarea>
@@ -1810,9 +2419,11 @@ function saveRx(petId, rxId){
     const rx = pet.prescriptions.find(x=>x.id===rxId);
     rx.date = val('fRxDate')||todayISO(); rx.content = content; rx.notes = val('fRxNotes');
     rx.type = document.getElementById('fRxType').value;
+    rx.sign = document.getElementById('fRxSign').value;
   } else {
     pet.prescriptions.unshift({id:uid(), date:val('fRxDate')||todayISO(), content, notes:val('fRxNotes'),
-      type: document.getElementById('fRxType').value});
+      type: document.getElementById('fRxType').value,
+      sign: document.getElementById('fRxSign').value});
   }
   save(); closeSheet(); render(); toast('📝 Receituário salvo!');
 }
@@ -1900,6 +2511,35 @@ function vetFooterHTML(dateISO){
       <b>SIPEAGRO/MAPA:</b> ${esc(v.sipeagro||'____________')}
     </div></div>`;
 }
+function digitalSignHTML(dateISO){
+  const v = DB.vet;
+  return `<div class="box" style="margin-top:50px;text-align:center;border-style:dashed">
+    <b class="bt">ASSINATURA DIGITAL</b>
+    <div style="font-size:12px;line-height:1.9">
+      Documento emitido para <b>assinatura eletrônica qualificada (ICP-Brasil)</b>.<br>
+      Assine este PDF com seu certificado digital e-CPF antes de enviar.<br>
+      <b>${esc(v.name||'')}</b> · ${crmvFull()||''} · ${fmtDate(dateISO)}
+      ${v.certInfo?`<br>Certificado: ${esc(v.certInfo)}`:''}
+    </div></div>`;
+}
+function openSignInfo(){
+  showSheet('💻 Assinatura Digital — como funciona', `
+    <div style="font-size:13px;line-height:1.9">
+    <b>📄 Receita Simples:</b> a assinatura gratuita do <b>gov.br</b> (assinador.iti.br) tem validade jurídica.<br><br>
+    <b>💊 Receita de Controle Especial (controlados):</b> a legislação exige certificado <b>ICP-Brasil</b> (e-CPF) — a assinatura gov.br <b>não</b> é aceita. Serviços que emitem o certificado:<br>
+    • <b>BirdID</b> (Soluti) — app no celular, popular entre médicos/vets<br>
+    • <b>VIDaaS</b> (Valid)<br>
+    • <b>Certisign / Serasa e-CPF</b><br><br>
+    <b>Fluxo no VetFlowCare:</b><br>
+    1. Crie a receita e escolha "Assinatura digital"<br>
+    2. Gere o PDF (imprimir → Salvar como PDF)<br>
+    3. Assine o PDF no app do seu certificado<br>
+    4. Envie ao tutor pelo WhatsApp ✅<br><br>
+    <span style="color:var(--muted);font-size:12px">💡 Registre o nº do seu certificado em Ajustes → Dados do Profissional para constar no documento.</span>
+    </div>`,
+    `<button class="btn" onclick="closeSheet()">Entendi</button>`);
+}
+
 function printRx(petId, rxId){
   const pet = DB.pets.find(p=>p.id===petId);
   const rx = pet.prescriptions.find(x=>x.id===rxId);
@@ -1926,10 +2566,11 @@ function printRx(petId, rxId){
       <div class="box"><b class="bt">IDENTIFICAÇÃO DO FORNECEDOR</b>
         <br><span class="fill" style="min-width:100%"></span><br><br>
         Assinatura do farmacêutico: <span class="fill"></span> Data: <span class="fill" style="min-width:90px"></span></div>
-      <div style="text-align:center;margin-top:20px">
+      ${rx.sign==='digital' ? digitalSignHTML(rx.date) :
+      `<div style="text-align:center;margin-top:20px">
         ${DB.vet.signature?`<img src="${DB.vet.signature}" style="height:48px;object-fit:contain;margin-bottom:-6px">`:''}
         <div style="border-top:1.5px solid #1A2F5A;width:260px;margin:6px auto 4px"></div>
-        <div style="font-size:11px">${esc(DB.vet.name||'')} · ${crmvFull()||''} · ${fmtDate(rx.date)}</div></div>
+        <div style="font-size:11px">${esc(DB.vet.name||'')} · ${crmvFull()||''} · ${fmtDate(rx.date)}</div></div>`}
     </div>`;
     printShell('Receita Controle Especial — '+pet.name,
       via('1ª VIA — RETENÇÃO DA FARMÁCIA') + via('2ª VIA — ORIENTAÇÃO AO PACIENTE'));
@@ -1942,7 +2583,7 @@ function printRx(petId, rxId){
     `<div class="doctitle">RECEITUÁRIO</div>` +
     rxHeaderBlockHTML(pet) +
     `<div class="content">${esc(rx.content)}</div>` +
-    vetFooterHTML(rx.date));
+    (rx.sign==='digital' ? digitalSignHTML(rx.date) : vetFooterHTML(rx.date)));
 }
 function printRecord(petId, apptId){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -2064,7 +2705,7 @@ function scheduleLocalCheck(){
   localStorage.setItem(key, todayISO());
   const days = activeAlertDays();
   const s = DB.settings;
-  const typeOn = {vaccine:s.nVac, medication:s.nMed, vet:s.nVet};
+  const typeOn = {vaccine:s.nVac, medication:s.nMed, vet:s.nVet, pay:true};
   allEvents().forEach(e => {
     if(!typeOn[e.type]) return;
     const t = TYPE_CFG[e.type];
@@ -2096,18 +2737,26 @@ if('serviceWorker' in navigator){
 }
 
 // ═══════════ INIT ═══════════
-applyDark();
-scheduleLocalCheck();
-if(localStorage.getItem('vfc_entered')){
-  document.getElementById('splash').classList.add('hidden');
-  document.getElementById('appHeader').classList.remove('hidden');
-  document.getElementById('mainNav').classList.remove('hidden');
-  render();
-  if(!localStorage.getItem('vfc_tut_done')) setTimeout(()=>openTutorial(0), 500);
-  else if(!DB.vet.name) setTimeout(openVetSetup, 500);
+function bootApp(){
+  applyDark();
+  // Login/senha removido - entra direto no app
+  // (verificação de auth removida)
+  scheduleLocalCheck();
+  migrateDocsToIDB();
+  if(localStorage.getItem('vfc_entered')){
+    document.getElementById('splash').classList.add('hidden');
+    document.getElementById('appHeader').classList.remove('hidden');
+    document.getElementById('mainNav').classList.remove('hidden');
+    render();
+    if(!localStorage.getItem('vfc_tut_done')) setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500);
+    else if(!DB.vet.name) setTimeout(openVetSetup, 500);
+  }
 }
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
+
+// Login/senha removido - entra direto no app
+bootApp();
 </script>
 </body>
 </html>
