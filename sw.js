@@ -1,44 +1,45 @@
-// VetFlowCare v10 - Service Worker (network-first para o app, cache como reserva)
-const CACHE = 'vetflowcare-v10';
-const ASSETS = ['./', './index.html', './logo.jpg', './manifest.json'];
+// VetFlowCare - Service Worker Otimizado
+const CACHE_NAME = 'vetflowcare-v11'; // ALTERE ESTE NÚMERO AO ATUALIZAR O APP
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
+const ASSETS = [
+  './',
+  './index.html',
+  './manifest.json',
+  './logo.jpg'
+];
+
+// Instalação: Salva os arquivos no cache
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(ASSETS);
+    })
+  );
   self.skipWaiting();
 });
 
-self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(keys =>
-    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-  ));
+// Ativação: Remove caches antigos que não são mais necessários
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+      );
+    })
+  );
   self.clients.claim();
 });
 
-self.addEventListener('fetch', e => {
-  const isApp = e.request.mode === 'navigate' ||
-    e.request.url.endsWith('index.html') ||
-    e.request.url.endsWith('/');
-
-  if (isApp) {
-    e.respondWith(
-      fetch(e.request).then(res => {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-        return res;
-      }).catch(() =>
-        caches.match(e.request).then(h => h || caches.match('./index.html'))
-      )
-    );
-    return;
-  }
-
-  e.respondWith(
-    caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
-      if (e.request.method === 'GET' && res.ok) {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
-      return res;
-    }).catch(() => caches.match('./index.html')))
+// Fetch: Tenta buscar da rede, mas usa o cache como reserva (estratégia rápida)
+self.addEventListener('fetch', (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      return cachedResponse || fetch(event.request).catch(() => {
+        // Se falhar a rede e não tiver cache, tenta retornar a home
+        if (event.request.mode === 'navigate') {
+          return caches.match('./index.html');
+        }
+      });
+    })
   );
 });
