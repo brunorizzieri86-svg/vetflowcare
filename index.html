@@ -3778,13 +3778,10 @@ function bootApp(){
     else if(!DB.vet.name) setTimeout(openVetSetup, 500);
   }
 }
-const _enterOrig = enterApp;
-enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
-
-if(window._LOCKED){
-  showLockScreen();
-} else {
-  bootApp();
+function enterApp() {
+    localStorage.setItem('vfc_entered', 'true');
+    location.reload(); // Recarrega a página para inicializar o app
+}
 }
 </script>
 </body>
