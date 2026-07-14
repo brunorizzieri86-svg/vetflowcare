@@ -257,6 +257,7 @@ let tutorTab = 'resp';
 let showFinance = false;
 let finFilter = 'todos';
 let finView = 'rec';
+let finPeriod = 'm';
 let deferredPrompt = null;
 
 function defaultDB(){
@@ -746,7 +747,7 @@ async function doRegisterEntry(){
     document.getElementById('secPass').value, document.getElementById('secPass2').value);
   if(!ok) return;
   closeSheet();
-  toast('✅ Conta criada! Bem-vinda ao VetFlowCare');
+  toast('✅ Conta criada! Bem-vindo(a) ao VetFlowCare');
   enterApp();
 }
 function openChangePass(){
@@ -1022,610 +1023,88 @@ function delExpense(id){
 }
 
 // ═══ FLUXO MENSAL (Pro) ═══
-function renderFluxo(){
-  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O fluxo mensal é um recurso Pro.')">
-    <div style="font-size:14px">🔒 <b>Fluxo Mensal</b></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">Acompanhe mês a mês o que entrou, o que há a receber e as despesas — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
-  const all = allReceivables();
+function fluxoBuckets(){
   const now = new Date();
-  let h = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Últimos 12 meses — recebido, a receber e despesas:</div>`;
-  for(let i=0;i<12;i++){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const ym = d.toISOString().slice(0,7);
-    const receb = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
-    const prev  = all.filter(r=>r.status==='pendente' && (r.due||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
-    const desp  = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
-    if(!receb && !prev && !desp && i>2) continue;
-    const saldo = receb - desp;
-    h += `<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <b style="font-size:14px">${MONTHS[d.getMonth()]} ${d.getFullYear()}</b>
-        <b style="color:${saldo>=0?'var(--success)':'var(--danger)'}">Saldo: ${fmtBRL(saldo)}</b></div>
-      <div style="display:flex;gap:6px;margin-top:8px;font-size:11px;flex-wrap:wrap">
-        <span class="st ok">✓ Recebido ${fmtBRL(receb)}</span>
-        ${prev?`<span class="st prog">📅 A receber ${fmtBRL(prev)}</span>`:''}
-        ${desp?`<span class="st bad">🧾 Despesas ${fmtBRL(desp)}</span>`:''}
-      </div></div>`;
-  }
-  return h;
-}
-
-// Cobrança avulsa (venda, banho, medicamento…)
-function openChargeForm(){
-  if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); return; }
-  showSheet('➕ Nova Cobrança', `
-    <label>Paciente *</label>
-    <select id="fCPet">${DB.pets.map(p=>`<option value="${p.id}">${petEmoji(p)} ${esc(p.name)}${tutorName(p)?' — '+esc(tutorName(p)):''}</option>`).join('')}</select>
-    <label>Descrição *</label>
-    <input id="fCDesc" placeholder="Ex: Venda de vermífugo · Banho e tosa">
-    <label>Valor (R$) *</label>
-    <input id="fCValor" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 80.00">
-    <label>Situação</label>
-    <div class="chips" id="fCPay">
-      <button class="chip" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">✓ Pago</button>
-      <button class="chip on" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">📅 A receber</button>
-    </div>
-    <label>Vencimento</label>
-    <input id="fCDue" type="date" value="${todayISO()}">`,
-    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
-     <button class="btn" onclick="saveCharge()">💾 Salvar</button>`);
-}
-function saveCharge(){
-  const desc = val('fCDesc'), valor = parseFloat(val('fCValor'));
-  if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
-  const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
-  DB.charges.push({id:uid(), petId:document.getElementById('fCPet').value,
-    desc, valor, due:val('fCDue')||todayISO(), status,
-    paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
-  save(); closeSheet(); render(); toast('💰 Cobrança registrada!');
-}
-
-
-// ═══ LICENCIAMENTO FREE / PRO v2.1 — CÓDIGOS DE USO ÚNICO ═══
-const FREE_PET_LIMIT = 5;
-
-// Chave secreta do desenvolvedor (NUNCA exponha em produção real — use backend)
-const VFC_SECRET = 'VFC2026PRO_SECURE_KEY_vetflowcare';
-
-// Armazenamento de códigos usados (IndexedDB + localStorage como cache)
-const VFC_USED_CODES_DB = 'vfc_used_codes';
-const VFC_USED_CODES_STORE = 'codes';
-
-// Inicializa o banco de códigos usados
-async function initUsedCodesDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(VFC_USED_CODES_DB, 1);
-    req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(VFC_USED_CODES_STORE)) {
-        db.createObjectStore(VFC_USED_CODES_STORE, { keyPath: 'code' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// Verifica se o código já foi usado (local + IndexedDB)
-async function isCodeUsed(code) {
-  const normalized = code.toUpperCase().trim();
-
-  // Verificação 1: Cache local (rápido)
-  const localUsed = localStorage.getItem('vfc_used_codes_cache');
-  if (localUsed) {
-    try {
-      const cache = JSON.parse(localUsed);
-      if (cache.includes(normalized)) return true;
-    } catch (e) {}
-  }
-
-  // Verificação 2: IndexedDB (persistente)
-  try {
-    const db = await initUsedCodesDB();
-    return new Promise((resolve) => {
-      const tx = db.transaction(VFC_USED_CODES_STORE, 'readonly');
-      const store = tx.objectStore(VFC_USED_CODES_STORE);
-      const req = store.get(normalized);
-      req.onsuccess = () => resolve(!!req.result);
-      req.onerror = () => resolve(false);
-    });
-  } catch (e) {
-    return false;
-  }
-}
-
-// Marca o código como usado
-async function markCodeAsUsed(code, deviceInfo) {
-  const normalized = code.toUpperCase().trim();
-  const record = {
-    code: normalized,
-    usedAt: new Date().toISOString(),
-    deviceId: deviceInfo.deviceId || 'unknown',
-    userAgent: navigator.userAgent.slice(0, 200),
-    platform: deviceInfo.platform || 'unknown'
-  };
-
-  // Salva no IndexedDB
-  try {
-    const db = await initUsedCodesDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(VFC_USED_CODES_STORE, 'readwrite');
-      const store = tx.objectStore(VFC_USED_CODES_STORE);
-      store.put(record);
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-  } catch (e) {
-    console.error('[VFC] Falha ao salvar código usado:', e);
-  }
-
-  // Atualiza cache local
-  try {
-    const localUsed = localStorage.getItem('vfc_used_codes_cache');
-    let cache = localUsed ? JSON.parse(localUsed) : [];
-    if (!cache.includes(normalized)) {
-      cache.push(normalized);
-      localStorage.setItem('vfc_used_codes_cache', JSON.stringify(cache));
-    }
-  } catch (e) {}
-}
-
-// Gera um ID único do dispositivo (fingerprint simples)
-function getDeviceId() {
-  let deviceId = localStorage.getItem('vfc_device_id');
-  if (!deviceId) {
-    deviceId = 'dev_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
-    localStorage.setItem('vfc_device_id', deviceId);
-  }
-  return deviceId;
-}
-
-// Verifica se o código já foi usado neste dispositivo
-function isCodeUsedOnThisDevice(code) {
-  const normalized = code.toUpperCase().trim();
-  const deviceCodes = localStorage.getItem('vfc_device_used_codes');
-  if (!deviceCodes) return false;
-  try {
-    const list = JSON.parse(deviceCodes);
-    return list.includes(normalized);
-  } catch (e) {
-    return false;
-  }
-}
-
-// Marca código como usado neste dispositivo
-function markCodeUsedOnThisDevice(code) {
-  const normalized = code.toUpperCase().trim();
-  try {
-    const deviceCodes = localStorage.getItem('vfc_device_used_codes');
-    let list = deviceCodes ? JSON.parse(deviceCodes) : [];
-    if (!list.includes(normalized)) {
-      list.push(normalized);
-      localStorage.setItem('vfc_device_used_codes', JSON.stringify(list));
-    }
-  } catch (e) {}
-}
-
-// Valida o formato e integridade do código
-function vfcCheck(code) {
-  const m = /^VFC-([A-Z0-9]{4})-(\d{4})-(\d{4})$/.exec((code || '').toUpperCase().trim());
-  if (!m) return false;
-
-  const seed = m[1];
-  const providedChecksum1 = m[2];
-  const providedChecksum2 = m[3];
-
-  // Valida checksum 1 (formato)
-  let h1 = 7;
-  const s1 = seed + 'ORGANIZACONECTACUIDA';
-  for (let i = 0; i < s1.length; i++) h1 = (h1 * 31 + s1.charCodeAt(i)) % 99991;
-  const expectedChecksum1 = String(1000 + (h1 % 9000));
-
-  if (providedChecksum1 !== expectedChecksum1) return false;
-
-  // Valida checksum 2 (autenticidade — tenta todos os planos)
-  const plans = [1, 6, 12];
-  for (const plan of plans) {
-    let h2 = 13;
-    const s2 = seed + plan + VFC_SECRET;
-    for (let i = 0; i < s2.length; i++) h2 = ((h2 * 37) + s2.charCodeAt(i)) % 99991;
-    const expectedChecksum2 = String(1000 + (h2 % 9000));
-    if (providedChecksum2 === expectedChecksum2) return { valid: true, plan };
-  }
-
-  return false;
-}
-
-// Funções originais mantidas
-function isPro() {
-  const L = DB.license;
-  if (!L || !L.pro) return false;
-  if (L.expiresAt && todayISO() > L.expiresAt) return false;
-  return true;
-}
-
-function proExpired() {
-  const L = DB.license;
-  return !!(L && L.code && L.expiresAt && todayISO() > L.expiresAt);
-}
-
-function addMonths(iso, m) {
-  const d = new Date(iso + 'T00:00:00');
-  d.setMonth(d.getMonth() + m);
-  return d.toISOString().slice(0, 10);
-}
-
-const PRO_PLANS = { 1: '1 mês', 6: '6 meses', 12: '12 meses' };
-
-// Modal de ativação Pro (atualizado)
-function openProModal(reason) {
-  showSheet('✨ VetFlowCare Pro', `
-    ${reason ? `<div style="background:rgba(240,165,0,.1);border:1.5px solid var(--warning);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--warning);margin-bottom:12px">🔒 ${reason}</div>` : ''}
-    <div style="font-size:14px;font-weight:800;margin-bottom:8px">Desbloqueie tudo com o Pro:</div>
-    <div style="font-size:13px;line-height:2;color:var(--text)">
-      ✅ Pacientes <b>ilimitados</b> (grátis: até ${FREE_PET_LIMIT})<br>
-      ✅ <b>Receita de Controle Especial</b> (2 vias)<br>
-      ✅ Impressões <b>sem marca-d'água</b><br>
-      ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
-      ✅ <b>Cobrança pelo WhatsApp</b> e resumo financeiro mensal<br>
-      ✅ Todas as futuras atualizações Pro</div>
-    <label>Escolha seu plano</label>
-    <div class="chips" id="proPlan">
-      ${Object.entries(PRO_PLANS).map(([m, l]) => `<button class="chip ${m === '12' ? 'on' : ''}" data-m="${m}"
-        onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${l}</button>`).join('')}
-    </div>
-    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:12px;font-size:12px;color:var(--muted)">
-      💬 Escolha o plano e peça seu código ao desenvolvedor (via WhatsApp). Cada código é <b>válido para apenas 1 ativação</b> e vinculado ao seu dispositivo.</div>
-    <label>Já tem um código? Digite aqui</label>
-    <input id="proCode" placeholder="VFC-XXXX-0000-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700">`,
-    `<button class="btn gray" onclick="closeSheet()">Agora não</button>
-     <button class="btn" style="background:var(--rx)" onclick="activatePro()">✨ Ativar Pro</button>`);
-}
-
-// Ativação Pro com blindagem de uso único
-async function activatePro() {
-  const code = val('proCode');
-
-  // Valida formato
-  const check = vfcCheck(code);
-  if (!check || !check.valid) {
-    toast('⚠️ Código inválido — confira e tente novamente');
-    return;
-  }
-
-  const normalizedCode = code.toUpperCase().trim();
-
-  // 🛡️ BLINDAGEM 1: Verifica se já foi usado neste dispositivo
-  if (isCodeUsedOnThisDevice(normalizedCode)) {
-    showSheet('🚫 Código já utilizado', `
-      <div style="font-size:14px;line-height:1.8;color:var(--text)">
-        <b>Este código já foi ativado neste dispositivo.</b><br><br>
-        Cada código do VetFlowCare Pro é válido para <b>apenas 1 ativação</b>.<br><br>
-        Se você já ativou este código anteriormente, verifique em <b>Ajustes → VetFlowCare Pro</b> para ver os dias restantes do seu plano.<br><br>
-        <span style="color:var(--muted)">Se acredita que isso é um erro, entre em contato com o suporte.</span>
-      </div>`,
-      `<button class="btn gray" onclick="closeSheet()">Fechar</button>
-       <button class="btn" onclick="closeSheet();goTab('settings')">Ver meu plano</button>`
-    );
-    return;
-  }
-
-  // 🛡️ BLINDAGEM 2: Verifica se já foi usado em outro dispositivo
-  try {
-    const alreadyUsed = await isCodeUsed(normalizedCode);
-    if (alreadyUsed) {
-      showSheet('🚫 Código já utilizado', `
-        <div style="font-size:14px;line-height:1.8;color:var(--text)">
-          <b>Este código já foi utilizado em outro dispositivo.</b><br><br>
-          Cada código do VetFlowCare Pro é <b>válido para apenas 1 ativação única</b>. Uma vez utilizado, não pode ser reaproveitado.<br><br>
-          <span style="color:var(--muted)">Se você comprou este código e acredita que isso é um erro, entre em contato com o suporte com o código e comprovante de pagamento.</span>
-        </div>`,
-        `<button class="btn gray" onclick="closeSheet()">Fechar</button>`
-      );
-      return;
-    }
-  } catch (e) {
-    console.warn('[VFC] Falha na verificação de código usado:', e);
-  }
-
-  // Determina o plano pelo código ou pela seleção
-  const plan = check.plan || parseInt(document.querySelector('#proPlan .chip.on')?.dataset.m) || 12;
-
-  // Ativa a licença
-  DB.license = {
-    pro: true,
-    code: normalizedCode,
-    activatedAt: todayISO(),
-    plan,
-    expiresAt: addMonths(todayISO(), plan),
-    deviceId: getDeviceId()
-  };
-
-  // 🛡️ BLINDAGEM 3: Marca como usado
-  await markCodeAsUsed(normalizedCode, {
-    deviceId: getDeviceId(),
-    platform: VFC_PLATFORM ? (VFC_PLATFORM.isAndroid ? 'Android' : VFC_PLATFORM.isIOS ? 'iOS' : 'Web') : 'Web'
-  });
-  markCodeUsedOnThisDevice(normalizedCode);
-
-  save();
-  closeSheet();
-  render();
-  toast(`✨ Pro ativado por ${PRO_PLANS[plan]}! Válido até ${fmtDate(DB.license.expiresAt)}`);
-}
-
-function deactivatePro() {
-  if (!confirm('Desativar o Pro neste aparelho?')) return;
-  DB.license = { pro: false, code: '', activatedAt: null };
-  save();
-  render();
-  toast('Pro desativado');
-}
-// ═══ FINANCEIRO ═══
-function fmtBRL(v){ return 'R$ ' + (v||0).toFixed(2).replace('.', ','); }
-// Unifica atendimentos com valor + cobranças avulsas
-function allReceivables(){
+  const mk = (label, months) => ({label, months});
+  const ym = d => d.toISOString().slice(0,7);
   const out = [];
-  DB.pets.forEach(pet => {
-    pet.appointments.forEach(a => {
-      if(!(a.valor > 0 && a.payStatus)) return;
-      if(a.parcelas && a.parcelas.length){
-        a.parcelas.forEach((p, i) => {
-          out.push({kind:'parc', id:a.id+'#'+i, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
-            desc:`${a.title}${a.resumo?' · '+a.resumo:''} (${i+1}/${a.parcelas.length})`,
-            valor:p.valor, due:p.due, status:p.status, paidAt:p.paidAt||null, rem:p.rem});
-        });
-      } else {
-        out.push({kind:'atend', id:a.id, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
-          desc:a.title + (a.resumo?' · '+a.resumo:''), valor:a.valor,
-          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null, rem:a.rem});
-      }
-    });
-  });
-  DB.charges.forEach(c => {
-    const pet = DB.pets.find(p=>p.id===c.petId);
-    out.push({kind:'avulso', id:c.id, petId:c.petId,
-      petName: pet ? pet.name : '(paciente removido)', emo: pet ? petEmoji(pet) : '🐾',
-      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null, rem:c.rem});
-  });
+  if(finPeriod === 'm'){
+    for(let i=0;i<12;i++){
+      const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+      out.push(mk(`${MONTHS[d.getMonth()]} ${d.getFullYear()}`, [ym(d)]));
+    }
+  } else if(finPeriod === 't'){
+    const q0 = Math.floor(now.getMonth()/3);
+    for(let i=0;i<4;i++){
+      const qs = new Date(now.getFullYear(), (q0-i)*3, 1);
+      const ms = [0,1,2].map(k => ym(new Date(qs.getFullYear(), qs.getMonth()+k, 1)));
+      out.push(mk(`${Math.floor(qs.getMonth()/3)+1}º trim. ${qs.getFullYear()}`, ms));
+    }
+  } else if(finPeriod === 's'){
+    const s0 = now.getMonth() < 6 ? 0 : 6;
+    for(let i=0;i<4;i++){
+      const ss = new Date(now.getFullYear(), s0 - i*6, 1);
+      const ms = [0,1,2,3,4,5].map(k => ym(new Date(ss.getFullYear(), ss.getMonth()+k, 1)));
+      out.push(mk(`${ss.getMonth()<6?'1º':'2º'} sem. ${ss.getFullYear()}`, ms));
+    }
+  } else {
+    for(let i=0;i<3;i++){
+      const y = now.getFullYear()-i;
+      out.push(mk(String(y), Array.from({length:12},(_,k)=>`${y}-${String(k+1).padStart(2,'0')}`)));
+    }
+  }
   return out;
 }
-function goFinance(){ showFinance = true; currentPetId = null; currentTutorId = null; finFilter='todos'; render(); }
-
-function renderFinance(){
+function fluxoRows(){
   const all = allReceivables();
-  const pend = all.filter(r=>r.status==='pendente');
-  const tot = pend.reduce((s,r)=>s+r.valor,0);
-  const lateArr = pend.filter(r=>daysUntil(r.due)<0);
-  const lateTot = lateArr.reduce((s,r)=>s+r.valor,0);
-  // Resumo do mês (Pro)
-  const ym = todayISO().slice(0,7);
-  const paidMonth = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym))
-    .reduce((s,r)=>s+r.valor,0);
-  const monthName = MONTHS[new Date().getMonth()];
-
-  const filters = [
-    ['atrasados','🔴 Atrasados', r=>r.status==='pendente' && daysUntil(r.due)<0],
-    ['hoje','🟡 Hoje', r=>r.status==='pendente' && daysUntil(r.due)===0],
-    ['prox','🔵 Próx. 7 dias', r=>r.status==='pendente' && daysUntil(r.due)>0 && daysUntil(r.due)<=7],
-    ['todos','📋 A receber', r=>r.status==='pendente'],
-    ['pagos','✅ Pagos', r=>r.status==='pago']
-  ];
-  const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
-  const list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
-
-  let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-    <button class="btn sm gray" onclick="showFinance=false;render()">‹</button>
-    <h2 style="flex:1">💰 Financeiro</h2>
-    ${finView==='rec'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
-    ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>
-  <div class="subtabs">
-    <button class="chip ${finView==='rec'?'on':''}" onclick="finView='rec';render()">💵 A Receber</button>
-    <button class="chip ${finView==='desp'?'on':''}" onclick="finView='desp';render()">🧾 Despesas${isPro()?'':' 🔒'}</button>
-    <button class="chip ${finView==='fluxo'?'on':''}" onclick="finView='fluxo';render()">📊 Fluxo${isPro()?'':' 🔒'}</button>
-  </div>`;
-  if(finView === 'desp') return h + renderExpenses();
-  if(finView === 'fluxo') return h + renderFluxo();
-  // Lembretes de vencimento (2-3 dias antes)
-  DB.settings.payRem = DB.settings.payRem !== false;
-  const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
-  if(DB.settings.payRem && lembrar.length){
-    h += `<div class="card" style="border-color:var(--warning);margin-bottom:12px">
-      <b style="font-size:13px">🔔 ${lembrar.length} ${lembrar.length===1?'cobrança vence':'cobranças vencem'} em até 3 dias</b>
-      <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Toque em 💬 para enviar o lembrete pelo WhatsApp${isPro()?'':' (recurso Pro)'}</div>
-      ${lembrar.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.emo} ${esc(r.petName)} · ${fmtBRL(r.valor)} · ${fmtDate(r.due)}</span>
-        <button class="btn sm" style="background:#25D366" onclick="cobrarWhats('${r.kind}','${r.id}')">💬</button></div>`).join('')}
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;cursor:pointer">
-        <input type="checkbox" checked onchange="DB.settings.payRem=this.checked;save();render()" style="accent-color:var(--primary)"> Avisar sobre vencimentos próximos</label>
-    </div>`;
-  }
-
-  // Totais
-  h += `<div style="display:flex;gap:10px;margin-bottom:12px">
-    <div class="card" style="flex:1;text-align:center">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">A receber</div>
-      <div style="font-size:18px;font-weight:900;color:var(--warning)">${fmtBRL(tot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${pend.length} ${pend.length===1?'item':'itens'}</div></div>
-    <div class="card" style="flex:1;text-align:center;${lateArr.length?'border-color:var(--danger)':''}">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Atrasado</div>
-      <div style="font-size:18px;font-weight:900;color:${lateArr.length?'var(--danger)':'var(--success)'}">${fmtBRL(lateTot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item':'itens'}</div></div></div>`;
-
-  // Resumo do mês (Pro)
-  h += isPro()
-    ? `<div class="card" style="margin-bottom:12px;background:var(--rxbg);border-color:var(--rx);cursor:pointer" onclick="finView='fluxo';render()">
-        <div style="font-size:11px;font-weight:700;color:var(--rx);text-transform:uppercase">✨ ${monthName}: recebido ${fmtBRL(paidMonth)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Toque para ver o fluxo de todos os meses →</div></div>`
-    : '';
-
-  // Filtros
-  h += `<div class="filters">${filters.map(([k,l,fn])=>{
-    const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
-  }).join('')}</div>`;
-
-  if(!list.length){
-    h += `<div class="card empty"><div class="big">${finFilter==='pagos'?'💸':'🎉'}</div>${finFilter==='pagos'?'Nenhum pagamento registrado ainda':'Nada por aqui!'}</div>`;
-    return h;
-  }
-
-  list.forEach(r => {
-    const d = daysUntil(r.due);
-    const late = r.status==='pendente' && d<0;
-    const pago = r.status==='pago';
-    const dueLbl = pago ? `✓ Pago em ${fmtDate(r.paidAt)}` :
-      late ? `⚠ Venceu em ${fmtDate(r.due)} (${Math.abs(d)}d)` :
-      d===0 ? `🟡 Vence hoje` : `📅 Vence em ${fmtDate(r.due)} (${d}d)`;
-    h += `<div class="card" style="${late?'border-left:4px solid var(--danger)':pago?'opacity:.75':''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="min-width:0">
-          <b style="font-size:14px">${r.emo} ${esc(r.petName)}</b>
-          <div style="color:var(--muted);font-size:12px;margin-top:1px">${esc(r.desc)}${r.kind==='avulso'?' · avulso':''}</div>
-          <div style="font-size:12px;font-weight:700;margin-top:4px;color:${pago?'var(--success)':late?'var(--danger)':d===0?'var(--warning)':'var(--muted)'}">${dueLbl}</div></div>
-        <b style="font-size:16px;color:${pago?'var(--success)':'var(--text)'};white-space:nowrap">${fmtBRL(r.valor)}</b></div>
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        ${pago
-          ? `<button class="btn sm gray" onclick="undoPaid('${r.kind}','${r.id}')">↩ Desfazer</button>`
-          : `<button class="btn sm success" onclick="markPaid('${r.kind}','${r.id}')">✓ Recebido</button>
-             <button class="btn sm" style="background:${isPro()?'#25D366':'var(--border)'};color:${isPro()?'#fff':'var(--muted)'}" onclick="cobrarWhats('${r.kind}','${r.id}')">💬 Cobrar${isPro()?'':' 🔒'}</button>`}
-        ${r.kind==='avulso'?`<button class="btn sm dangero" onclick="delChargeItem('${r.id}')">🗑</button>`:''}
-      </div></div>`;
-  });
-  return h;
+  return fluxoBuckets().map(b => {
+    const inB = s => b.months.some(m => (s||'').startsWith(m));
+    const receb = all.filter(r=>r.status==='pago' && inB(r.paidAt)).reduce((s,r)=>s+r.valor,0);
+    const prev  = all.filter(r=>r.status==='pendente' && inB(r.due)).reduce((s,r)=>s+r.valor,0);
+    const desp  = DB.expenses.filter(e=>inB(e.date)).reduce((s,e)=>s+e.valor,0);
+    return {label:b.label, receb, prev, desp, saldo:receb-desp};
+  }).filter((r,i) => r.receb || r.prev || r.desp || i < 3);
 }
-
-function findRec(kind, id){
-  if(kind==='avulso') return DB.charges.find(c=>c.id===id);
-  if(kind==='parc'){
-    const [aid, idx] = id.split('#');
-    for(const pet of DB.pets){
-      const a = pet.appointments.find(x=>x.id===aid);
-      if(a && a.parcelas) return {__parc:true, a, p:a.parcelas[parseInt(idx)]};
-    }
-    return null;
-  }
-  for(const pet of DB.pets){
-    const a = pet.appointments.find(x=>x.id===id);
-    if(a) return a;
-  }
-  return null;
-}
-function markPaid(kind, id){
-  const r = findRec(kind, id); if(!r) return;
-  if(r.__parc){
-    r.p.status = 'pago'; r.p.paidAt = todayISO();
-    if(r.a.parcelas.every(p=>p.status==='pago')){ r.a.payStatus='pago'; r.a.paidAt=todayISO(); }
-  }
-  else if(kind==='avulso'){ r.status='pago'; r.paidAt = todayISO(); }
-  else { r.payStatus='pago'; r.paidAt = todayISO(); }
-  save(); render(); toast('✅ Pagamento recebido!');
-}
-function undoPaid(kind, id){
-  const r = findRec(kind, id); if(!r) return;
-  if(r.__parc){ r.p.status='pendente'; r.p.paidAt=null; r.a.payStatus='pendente'; r.a.paidAt=null; }
-  else if(kind==='avulso'){ r.status='pendente'; r.paidAt = null; }
-  else { r.payStatus='pendente'; r.paidAt = null; }
-  save(); render(); toast('↩ Voltou para pendente');
-}
-function markReminded(kind, id){
-  const r = findRec(kind, id); if(!r) return;
-  if(r.__parc) r.p.rem = 1; else r.rem = 1;
-  save();
-}
-function delChargeItem(id){
-  if(!confirm('Remover esta cobrança?')) return;
-  DB.charges = DB.charges.filter(c=>c.id!==id);
-  save(); render(); toast('Cobrança removida');
-}
-function cobrarWhats(kind, id){
-  if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
-  markReminded(kind, id);
-  const list = allReceivables();
-  const r = list.find(x=>x.kind===kind && x.id===id); if(!r) return;
-  const pet = DB.pets.find(p=>p.id===r.petId);
-  const t = pet ? tutorOf(pet) : null;
-  const phone = (t?.phone||'').replace(/\D/g,'');
-  if(!phone){ toast('⚠ Tutor sem telefone cadastrado'); return; }
-  const first = (t.name||'').split(' ')[0];
-  const msg = `Olá, ${first}! 😊 Tudo bem?\n\nLembrete do atendimento do(a) ${r.petName}: ${fmtBRL(r.valor)} com vencimento em ${fmtDate(r.due)}.\n\nQualquer dúvida estou à disposição!\n${DB.vet.name||''} 🐾`;
-  window.open('https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg));
-}
-
-// ═══ DESPESAS (Pro) ═══
-const EXP_CATS = ['Materiais','Medicamentos','Transporte','Equipamentos','Outros'];
-function renderExpenses(){
-  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O controle de despesas é um recurso Pro.')">
-    <div style="font-size:14px">🔒 <b>Controle de Despesas</b></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">Registre gastos com materiais, medicamentos, transporte etc. e acompanhe o saldo real no fluxo mensal — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
-  const ym = todayISO().slice(0,7);
-  const mes = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
-  let h = `<div class="card" style="text-align:center;margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Despesas de ${MONTHS[new Date().getMonth()]}</div>
-    <div style="font-size:19px;font-weight:900;color:var(--danger)">${fmtBRL(mes)}</div></div>`;
-  const list = [...DB.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(!list.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa registrada<br><small>Toque em "➕ Despesa"</small></div>`;
-  list.forEach(e => {
-    h += `<div class="card" style="display:flex;align-items:center;gap:10px">
-      <div style="flex:1;min-width:0"><b style="font-size:14px">${esc(e.desc)}</b>
-      <div style="font-size:11px;color:var(--muted)">${esc(e.cat||'Outros')} · ${fmtDate(e.date)}</div></div>
-      <b style="color:var(--danger);white-space:nowrap">- ${fmtBRL(e.valor)}</b>
-      <button style="background:none;color:var(--muted)" onclick="delExpense('${e.id}')">🗑</button></div>`;
-  });
-  return h;
-}
-function openExpenseForm(){
-  showSheet('🧾 Nova Despesa', `
-    <label>Descrição *</label><input id="fEDesc" placeholder="Ex: Seringas e agulhas · Combustível">
-    <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
-    <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal">
-    <label>Data</label><input id="fEDate" type="date" value="${todayISO()}">`,
-    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
-     <button class="btn" onclick="saveExpense()">💾 Salvar</button>`);
-}
-function saveExpense(){
-  const desc = val('fEDesc'), valor = parseFloat(val('fEValor'));
-  if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
-  DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value,
-    valor, date:val('fEDate')||todayISO()});
-  save(); closeSheet(); render(); toast('🧾 Despesa registrada!');
-}
-function delExpense(id){
-  if(!confirm('Remover esta despesa?')) return;
-  DB.expenses = DB.expenses.filter(e=>e.id!==id);
-  save(); render(); toast('Despesa removida');
-}
-
-// ═══ FLUXO MENSAL (Pro) ═══
 function renderFluxo(){
-  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O fluxo mensal é um recurso Pro.')">
-    <div style="font-size:14px">🔒 <b>Fluxo Mensal</b></div>
-    <div style="font-size:12px;color:var(--muted);margin-top:4px">Acompanhe mês a mês o que entrou, o que há a receber e as despesas — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
-  const all = allReceivables();
-  const now = new Date();
-  let h = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Últimos 12 meses — recebido, a receber e despesas:</div>`;
-  for(let i=0;i<12;i++){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    const ym = d.toISOString().slice(0,7);
-    const receb = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
-    const prev  = all.filter(r=>r.status==='pendente' && (r.due||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
-    const desp  = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
-    if(!receb && !prev && !desp && i>2) continue;
-    const saldo = receb - desp;
+  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O fluxo financeiro é um recurso Pro.')">
+    <div style="font-size:14px">🔒 <b>Fluxo Financeiro</b></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Acompanhe por mês, trimestre, semestre ou ano — recebido, a receber, despesas e saldo. Disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
+  const pers = [['m','Mensal'],['t','Trimestral'],['s','Semestral'],['a','Anual']];
+  let h = `<div class="chips" style="margin-bottom:10px">${pers.map(([k,l])=>
+    `<button class="chip ${finPeriod===k?'on':''}" onclick="finPeriod='${k}';render()">${l}</button>`).join('')}
+    <button class="chip" onclick="printFluxo()">📄 PDF</button></div>`;
+  fluxoRows().forEach(r => {
     h += `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b style="font-size:14px">${MONTHS[d.getMonth()]} ${d.getFullYear()}</b>
-        <b style="color:${saldo>=0?'var(--success)':'var(--danger)'}">Saldo: ${fmtBRL(saldo)}</b></div>
+        <b style="font-size:14px">${r.label}</b>
+        <b style="color:${r.saldo>=0?'var(--success)':'var(--danger)'}">Saldo: ${fmtBRL(r.saldo)}</b></div>
       <div style="display:flex;gap:6px;margin-top:8px;font-size:11px;flex-wrap:wrap">
-        <span class="st ok">✓ Recebido ${fmtBRL(receb)}</span>
-        ${prev?`<span class="st prog">📅 A receber ${fmtBRL(prev)}</span>`:''}
-        ${desp?`<span class="st bad">🧾 Despesas ${fmtBRL(desp)}</span>`:''}
+        <span class="st ok">✓ Recebido ${fmtBRL(r.receb)}</span>
+        ${r.prev?`<span class="st prog">📅 A receber ${fmtBRL(r.prev)}</span>`:''}
+        ${r.desp?`<span class="st bad">🧾 Despesas ${fmtBRL(r.desp)}</span>`:''}
       </div></div>`;
-  }
+  });
   return h;
 }
+function printFluxo(){
+  const perLbl = {m:'Mensal',t:'Trimestral',s:'Semestral',a:'Anual'}[finPeriod];
+  const rows = fluxoRows().map(r =>
+    `<tr><td style="padding:7px;border-bottom:1px solid #ddd">${r.label}</td>
+     <td style="padding:7px;border-bottom:1px solid #ddd;color:#1E8E5A">${fmtBRL(r.receb)}</td>
+     <td style="padding:7px;border-bottom:1px solid #ddd;color:#B8860B">${fmtBRL(r.prev)}</td>
+     <td style="padding:7px;border-bottom:1px solid #ddd;color:#C0392B">${fmtBRL(r.desp)}</td>
+     <td style="padding:7px;border-bottom:1px solid #ddd;font-weight:800">${fmtBRL(r.saldo)}</td></tr>`).join('');
+  printShell('Relatório Financeiro',
+    letterheadHTML() +
+    `<div class="doctitle">RELATÓRIO FINANCEIRO — ${perLbl.toUpperCase()}</div>
+    <div style="font-size:12px;color:#6B7A8D;margin-bottom:10px">Gerado em ${fmtDate(todayISO())}${DB.vet.name?' · '+esc(DB.vet.name):''}</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="background:#EDF8F7"><th style="text-align:left;padding:7px">Período</th>
+    <th style="text-align:left;padding:7px">Recebido</th><th style="text-align:left;padding:7px">A receber</th>
+    <th style="text-align:left;padding:7px">Despesas</th><th style="text-align:left;padding:7px">Saldo</th></tr>${rows}</table>`);
+}
 
-// Cobrança avulsa (venda, banho, medicamento…)
+// Cobrança avulsa (venda, banho, medicamento…)// Cobrança avulsa (venda, banho, medicamento…)
 function openChargeForm(){
   if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); return; }
   showSheet('➕ Nova Cobrança', `
@@ -1670,6 +1149,65 @@ function addMonths(iso, m){
   return d.toISOString().slice(0,10);
 }
 const PRO_PLANS = {1:'1 mês', 6:'6 meses', 12:'12 meses'};
+function vfcChecksum(seed){
+  let h = 7;
+  const s = seed + 'ORGANIZACONECTACUIDA';
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
+  return String(1000 + (h % 9000));
+}
+function vfcCheck(code){
+  const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
+  return !!m && vfcChecksum(m[1]) === m[2];
+}
+function openProModal(reason){
+  showSheet('✨ VetFlowCare Pro', `
+    ${reason?`<div style="background:rgba(240,165,0,.1);border:1.5px solid var(--warning);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--warning);margin-bottom:12px">🔒 ${reason}</div>`:''}
+    <div style="font-size:14px;font-weight:800;margin-bottom:8px">Desbloqueie tudo com o Pro:</div>
+    <div style="font-size:13px;line-height:2;color:var(--text)">
+      ✅ Pacientes <b>ilimitados</b> (grátis: até ${FREE_PET_LIMIT})<br>
+      ✅ <b>Receita de Controle Especial</b> (2 vias)<br>
+      ✅ Impressões <b>sem marca-d'água</b><br>
+      ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
+      ✅ <b>Cobrança pelo WhatsApp</b> e resumo financeiro mensal<br>
+      ✅ Todas as futuras atualizações Pro</div>
+    <label>Escolha seu plano</label>
+    <div class="chips" id="proPlan">
+      <button class="chip on" data-m="1">1 mês</button>
+      <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">6 meses · em breve</button>
+      <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">12 meses · em breve</button>
+    </div>
+    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:12px;font-size:12px;color:var(--muted)">
+      💬 Escolha o plano e peça seu código ao desenvolvedor (via WhatsApp). Após ativar, o tempo do plano começa a contar e você acompanha os dias restantes em Ajustes.</div>
+    <label>Já tem um código? Digite aqui</label>
+    <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700">`,
+    `<button class="btn gray" onclick="closeSheet()">Agora não</button>
+     <button class="btn" style="background:var(--rx)" onclick="activatePro()">✨ Ativar Pro</button>`);
+}
+function usedCodes(){
+  try{ return JSON.parse(localStorage.getItem('vfc_used_codes')||'[]'); }catch(e){ return []; }
+}
+function activatePro(){
+  const code = val('proCode').toUpperCase().trim();
+  if(!vfcCheck(code)){ toast('⚠ Código inválido — confira e tente novamente'); return; }
+  // Uso único por aparelho: cada renovação exige um código novo
+  if(usedCodes().includes(code)){
+    toast('⚠ Este código já foi utilizado neste aparelho. Solicite um novo código para renovar.');
+    return;
+  }
+  const plan = 1; // Planos de 6/12 meses em breve
+  DB.license = { pro:true, code, activatedAt:todayISO(),
+    plan, expiresAt: addMonths(todayISO(), plan) };
+  const used = usedCodes(); used.push(code);
+  localStorage.setItem('vfc_used_codes', JSON.stringify(used));
+  save(); closeSheet(); render();
+  toast(`✨ Pro ativado por ${PRO_PLANS[plan]}! Válido até ${fmtDate(DB.license.expiresAt)}`);
+}
+function deactivatePro(){
+  if(!confirm('Desativar o Pro neste aparelho?')) return;
+  DB.license = { pro:false, code:'', activatedAt:null };
+  save(); render(); toast('Pro desativado');
+}
+
 function allEvents(){
   const evts = [];
   for(const pet of DB.pets){
@@ -1711,14 +1249,14 @@ function enterApp(){
 // Modal obrigatório de primeiro acesso — dados do profissional
 function openVetSetup(){
   const ufOpts = UFS.map(u=>`<option ${DB.vet.crmvUf===u?'selected':''}>${u}</option>`).join('');
-  showSheet('👨‍⚕️ Bem-vinda! Seus dados', `
+  showSheet('👨‍⚕️ Bem-vindo! Preencha seus dados', `
     <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac);margin-bottom:4px">
       Esses dados aparecem nos receituários e prontuários impressos. Você pode editá-los depois em Ajustes.</div>
     <label>Nome completo *</label><input id="sName" value="${esc(DB.vet.name)}" placeholder="Ex: Dra. Gabriela">
     <label>CRMV *</label>
     <div style="display:flex;gap:8px">
       <select id="sUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
-      <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 12345">
+      <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 12345" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
     </div>
     <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: 12345678/2020">
     <label>E-mail</label><input id="sEmail" type="email" value="${esc(DB.vet.email)}" placeholder="contato@clinica.com.br">
@@ -1726,15 +1264,21 @@ function openVetSetup(){
     `<button class="btn gray" onclick="closeSheet()">Depois</button>
      <button class="btn" onclick="saveVetSetup()">💾 Salvar e começar</button>`);
 }
+function vetIdsOk(num, sipe){
+  if(num && !/^\d{3,6}$/.test(num)){ toast('⚠ CRMV inválido — use só números (3 a 6 dígitos)'); return false; }
+  if(sipe && !/^\d{4,8}\/\d{4}$/.test(sipe)){ toast('⚠ SIPEAGRO/MAPA inválido — formato: 12345678/2020'); return false; }
+  return true;
+}
 function saveVetSetup(){
   const name = val('sName');
   if(!name){ toast('⚠ Informe seu nome completo'); return; }
+  if(!vetIdsOk(val('sNum'), val('sSipe'))) return;
   DB.vet.name = name;
   DB.vet.crmvUf = document.getElementById('sUf').value;
   DB.vet.crmvNum = val('sNum');
   DB.vet.sipeagro = val('sSipe');
   DB.vet.email = val('sEmail');
-  save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vinda ao VetFlowCare');
+  save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vindo(a) ao VetFlowCare');
   if(!getAuth() && !localStorage.getItem('vfc_sec_prompted')){
     localStorage.setItem('vfc_sec_prompted','1');
     setTimeout(()=>{
@@ -1749,7 +1293,7 @@ function saveVetSetup(){
 
 // ═══ TUTORIAL GUIADO ═══
 const TUT_STEPS = [
-  {emo:'🐾', title:'Bem-vinda ao VetFlowCare!',
+  {emo:'🐾', title:'Bem-vindo(a) ao VetFlowCare!',
    body:`Sua clínica no bolso: <b>Organiza · Conecta · Cuida</b>.<br><br>
    Funciona <b>offline</b>, instala na tela inicial e seus dados ficam <b>no seu aparelho</b>.<br><br>
    Um tour de 1 minuto e você já sai usando. 😉`},
@@ -2021,7 +1565,19 @@ function renderTutorProfile(){
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
           <b style="font-size:15px;flex:1">${esc(t.phone||'—')}</b>
           ${wa?`<button class="btn sm success" onclick="window.open('https://wa.me/55${wa}')">💬 WhatsApp</button>`:''}
-        </div></div></div>`;
+        </div></div></div>
+    <div class="sec"><div class="sec-h"><span>📎 Ficha de cadastro</span></div>
+      <div class="card">
+        ${t.ficha ? `<div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:20px">${t.ficha.kind==='pdf'?'📄':'🖼️'}</span>
+          <div style="flex:1;min-width:0;font-size:13px"><b>${esc(t.ficha.name)}</b>
+          <div style="color:var(--muted);font-size:11px">${fmtDate(t.ficha.date)}</div></div>
+          <button class="btn sm outline" onclick="viewTutorFicha('${t.id}')">👁 Ver</button>
+          <button style="background:none;color:var(--muted)" onclick="delTutorFicha('${t.id}')">🗑</button></div>`
+        : `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Anexe a ficha de cadastro em papel (foto ou PDF) — abra-a depois para conferir ou copiar os dados.</div>
+          <input type="file" accept="image/*,application/pdf" id="tFichaFile" class="hidden" onchange="uploadTutorFicha('${t.id}',this)">
+          <button class="btn sm outline" onclick="document.getElementById('tFichaFile').click()">📎 Anexar ficha (foto ou PDF)</button>`}
+      </div></div>`;
   } else {
     h += `<button class="btn outline" style="margin-bottom:12px" onclick="window._presetTutor='${t.id}';openPetForm()">➕ Adicionar animal</button>`;
     if(!animals.length){
@@ -2042,17 +1598,74 @@ function renderTutorProfile(){
   return h;
 }
 
+async function uploadTutorFicha(tid, input){
+  const file = input.files[0]; if(!file) return;
+  if(file.size > 20_000_000){ toast('⚠ Arquivo muito grande (máx 20MB)'); return; }
+  const r = new FileReader();
+  r.onload = async e => {
+    const id = uid();
+    try{
+      await idbPut(id, e.target.result);
+      const t = DB.tutors.find(x=>x.id===tid);
+      if(t.ficha) idbDel(t.ficha.id);
+      t.ficha = {id, name:file.name, date:todayISO(), kind: file.type==='application/pdf'?'pdf':'img'};
+      save(); render(); toast('📎 Ficha anexada!');
+    }catch(err){ toast('⚠ Erro ao salvar'); }
+  };
+  r.readAsDataURL(file);
+}
+async function viewTutorFicha(tid){
+  const t = DB.tutors.find(x=>x.id===tid);
+  if(!t?.ficha) return;
+  const data = await idbGet(t.ficha.id);
+  if(!data){ toast('⚠ Arquivo não encontrado'); return; }
+  if(t.ficha.kind === 'pdf'){
+    const b64 = data.split(',')[1], bytes = atob(b64);
+    const arr = new Uint8Array(bytes.length);
+    for(let i=0;i<bytes.length;i++) arr[i] = bytes.charCodeAt(i);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([arr], {type:'application/pdf'}));
+    a.download = t.ficha.name; a.click();
+    toast('📄 PDF baixado');
+    return;
+  }
+  const w = window.open('');
+  if(!w){ toast('⚠ Permita pop-ups'); return; }
+  w.document.write(`<title>${esc(t.ficha.name)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${data}" style="max-width:100%;max-height:100vh"></body>`);
+}
+function delTutorFicha(tid){
+  if(!confirm('Remover a ficha anexada?')) return;
+  const t = DB.tutors.find(x=>x.id===tid);
+  if(t.ficha){ idbDel(t.ficha.id); t.ficha = null; save(); render(); }
+}
 function openTutorForm(tutorId){
   const t = tutorId ? DB.tutors.find(x=>x.id===tutorId) : null;
   showSheet(t?'Editar Tutor':'Cadastrar Tutor', `
     <label>Nome completo *</label><input id="tName" value="${esc(t?.name||'')}" placeholder="Ex: Acácio Roboredo">
     <label>CPF</label><input id="tCpf" value="${esc(t?.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric">
     <label>Telefone / WhatsApp *</label><input id="tPhone" value="${esc(t?.phone||'')}" placeholder="(11) 94031-8855" inputmode="tel">
-    <label>CEP</label><input id="tCep" value="${esc(t?.cep||'')}" placeholder="00000-000" inputmode="numeric">
+    <label>CEP</label><input id="tCep" value="${esc(t?.cep||'')}" placeholder="00000-000 (preenche o endereço)" inputmode="numeric" maxlength="9"
+      oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{5})(\d)/,'$1-$2');if(this.value.length===9)buscaCEP(this.value)">
     <label>Endereço</label><input id="tAddr" value="${esc(t?.address||'')}" placeholder="Rua, número, bairro, cidade">
     <label>E-mail</label><input id="tEmail" type="email" value="${esc(t?.email||'')}" placeholder="opcional">`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveTutorForm('${tutorId||''}')">💾 Salvar</button>`);
+}
+async function buscaCEP(cep){
+  const c = cep.replace(/\D/g,'');
+  if(c.length !== 8) return;
+  try{
+    toast('🔎 Buscando endereço…');
+    const r = await fetch(`https://viacep.com.br/ws/${c}/json/`);
+    const d = await r.json();
+    if(d.erro){ toast('⚠ CEP não encontrado'); return; }
+    const addr = document.getElementById('tAddr');
+    if(addr && !addr.value.trim()){
+      addr.value = `${d.logradouro||''}${d.bairro?', '+d.bairro:''}${d.localidade?' — '+d.localidade:''}${d.uf?'/'+d.uf:''}`.replace(/^, /,'');
+      toast('✅ Endereço preenchido — adicione o número');
+      addr.focus();
+    }
+  }catch(e){ /* offline: segue manual */ }
 }
 function saveTutorForm(tutorId){
   const name = val('tName');
@@ -2370,7 +1983,12 @@ function openTermForm(petId, type){
       <label>Motivo da recusa (opcional)</label>
       <textarea id="fTObsTutor" rows="2"></textarea>`;
   }
-  showSheet(`${t.emo} ${t.name}`, tutorSel + fields + cidade + data,
+  const vetFields = type === 'atestado' ? '' : `
+    <label>Veterinário(a) responsável *</label>
+    <input id="fTVet" value="${esc(DB.vet.name||'')}" placeholder="Nome completo">
+    <label>CRMV *</label>
+    <input id="fTCrmv" value="${esc(crmvFull()||'')}" placeholder="Ex: CRMV-SP 12345">`;
+  showSheet(`${t.emo} ${t.name}`, tutorSel + fields + vetFields + cidade + data,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn rx" onclick="printTerm('${petId}','${type}')">🖨️ Gerar PDF</button>`);
 }
@@ -2399,7 +2017,10 @@ function printTerm(petId, type){
   const city = val('fTCity'); DB.vet.city = city; save();
   const dt = val('fTDate') || todayISO();
   const F = id => { const v = val(id); return v ? esc(v) : '<span class="fill"></span>'; };
-  const crmvLine = `${esc(DB.vet.name||'')}${crmvFull()?', '+crmvFull():''}`;
+  if(type !== 'atestado' && (!val('fTVet') || !val('fTCrmv'))){
+    toast('⚠ Preencha o veterinário responsável e o CRMV'); return;
+  }
+  const crmvLine = `${esc(val('fTVet')||DB.vet.name||'')}${(val('fTCrmv')||crmvFull())?', '+esc(val('fTCrmv')||crmvFull()):''}`;
   let inner = '';
 
   if(type === 'atestado'){
@@ -2798,58 +2419,20 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.3 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.5 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v8.3:</b><br>
-      • 🛡️ Armazenamento persistente: navegador não apaga mais os dados por falta de espaço<br>
-      • 📸 Pontos de restauração automáticos diários (últimos 10) com restauração em 1 toque<br>
-      • 🚑 Dados ilegíveis nunca são descartados — viram arquivo de resgate<br>
-      • 💾 Lembrete de backup na tela inicial após 7 dias<br>
-      <br><b>Da v8.2:</b><br>
-      • Atendimento com itens discriminados (consulta, vacina, exame…) — total soma automático<br>
-      • Itens e status de pagamento visíveis no card do atendimento<br>
-      • Datas das parcelas e do vencimento digitáveis (DD/MM/AAAA)<br>
-      <br><b>Da v8.1:</b><br>
-      • Login/senha voltou a ser opcional (Ajustes → Segurança)<br>
-      • 💰 Financeiro: parcelamento em até 5x com valores e datas individuais<br>
-      • 🧾 Despesas do veterinário + 📊 Fluxo mensal de 12 meses (Pro)<br>
-      • 🔔 Lembrete de cobrança 2-3 dias antes do vencimento (opcional)<br>
-      • ✨ Planos Pro de 1, 6 ou 12 meses com contagem de dias restantes<br>
-      • 📄 Exportar ficha escolhendo as seções (ex: só carteira de vacinação)<br>
-      • Financeiro discreto na tela inicial · ProHeart e Bravecto 360 · Ajustes explicados<br>
-      <br><b>Da v8.0:</b><br>
-      • 🔐 Login com e-mail e senha + criptografia AES-256 dos dados<br>
-      • 📄 Aba Termos: Atestado Sanitário, Consentimento Anestésico/Cirúrgico e Recusa — preenchimento automático<br>
-      • 💻 Receita com opção de assinatura digital ICP-Brasil (guia dentro do app)<br>
-      • 📦 Arquivos até 20MB (novo armazenamento IndexedDB)<br>
-      • 📖 Tutorial repaginado: mais curto, com ação direta e retomada de onde parou<br>
-      <br><b>Da v7.0:</b><br>
-      • Tutorial guiado no primeiro acesso (reveja em Ajustes → Ajuda)<br>
-      • Exportação da lista de tutores e animais em TXT<br>
-      • Vacinas agrupadas por tipo: histórico de doses com data e lote + próxima dose no mesmo card<br>
-      • Ao aplicar dose: informe data e lote — a seguinte é agendada sozinha<br>
-      • Novo atendimento direto pela Agenda (toque no dia) e data digitável DD/MM/AAAA<br>
-      • Upload de PDF nos arquivos do animal<br>
-      • 💰 Módulo Financeiro: valor no atendimento, cobranças avulsas, filtros (atrasados/hoje/próximos/pagos)<br>
-      • Pagamentos vencidos entram nos Alertas e no Início<br>
-      • Pro: cobrança pelo WhatsApp e resumo mensal<br>
-      • Sistema Free / Pro com código de ativação<br>
-      • Free: até 5 pacientes, marca-d'água nas impressões<br>
-      • Pro: ilimitado, controle especial, logo e assinatura<br>
-      <br><b>Da v6.0:</b><br>
-      • Receita Simples e Receita de Controle Especial (2 vias)<br>
-      • Dados do veterinário solicitados no primeiro acesso<br>
-      • Tutor completo na aba Arquivos do animal<br>
-      • Câmera para fotos na hora (exames e foto do animal)<br>
-      • Impressão corrigida (funciona com pop-ups bloqueados)<br>
-      <br><b>Da v5.0:</b><br>
-      • Cadastro completo de tutores: CPF, endereço, CEP e telefone<br>
-      • Perfil do tutor com abas Responsável / Animais e WhatsApp<br>
-      • Protocolos de vacinação: anual, primovacinação (21d), Librela (45d) e Cytopoint (60d)<br>
-      • Cálculo automático da próxima dose + lista Aplicada/Programada<br>
-      • Atendimentos em linha do tempo com tipo, resumo e prontuário<br>
-      • Agendamento de retorno automático<br>
-      • Receituário timbrado com logo e assinatura (v4)</div></div>`;
+      <b>Novidades da v8.5:</b><br>
+      • Códigos Pro de uso único por aparelho — renovação exige código novo<br>
+      <br><b>v8.4:</b><br>
+      • Correção do travamento na entrada e da máscara de datas<br>
+      • CEP preenche o endereço automaticamente (ViaCEP)<br>
+      • Termos com veterinário responsável e CRMV obrigatórios<br>
+      • Fluxo financeiro por período (mês/trimestre/semestre/ano) + exportar PDF<br>
+      • Termo de Uso e Privacidade (LGPD) no primeiro acesso<br>
+      • Ficha de cadastro anexável no perfil do tutor<br>
+      <br><b>v8.3:</b><br>
+      • 🛡️ Proteção de dados: armazenamento persistente + pontos de restauração diários<br>
+      • 🚑 Resgate automático de dados ilegíveis · lembrete de backup</div></div>`;
 }
 
 function saveVetProfile(){
@@ -2859,6 +2442,7 @@ function saveVetProfile(){
   DB.vet.sipeagro= document.getElementById('vSipe').value.trim();
   DB.vet.email   = document.getElementById('vEmail').value.trim();
   DB.vet.certInfo = document.getElementById('vCert').value.trim();
+  if(!vetIdsOk(DB.vet.crmvNum, DB.vet.sipeagro)) return;
   save(); toast('👨‍⚕️ Dados profissionais salvos!'); renderScorecard();
   document.getElementById('profileName').textContent = DB.vet.name ? DB.vet.name.split(' ')[0] : 'Perfil';
 }
@@ -3225,7 +2809,7 @@ function openApptForm(petId){
         <label>Vencimento do pagamento *</label>
         <input id="fPPayDue" type="date">
         <input id="fPPayDueTxt" placeholder="ou digite: DD/MM/AAAA" inputmode="numeric" maxlength="10"
-          style="margin-top:6px" oninput="${DATE_MASK}">
+          style="margin-top:6px" oninput="maskDate(this)">
       </div>
       <div id="fPParcRows"></div>
       <div id="fPParcResto" style="display:none;background:var(--vacbg);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--vac);margin-top:10px"></div>
@@ -3262,7 +2846,12 @@ function parseBRDate(txt){
   if(!m) return null;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
-const DATE_MASK = "this.value=this.value.replace(/[^0-9\/]/g,'').replace(/^(\d{2})(\d)/,'$1/$2').replace(/^(\d{2}\/\d{2})(\d)/,'$1/$2').slice(0,10)";
+function maskDate(el){
+  el.value = el.value.replace(/[^0-9]/g,'')
+    .replace(/^(\d{2})(\d)/,'$1/$2')
+    .replace(/^(\d{2}\/\d{2})(\d)/,'$1/$2')
+    .slice(0,10);
+}
 
 function buildParcelas(){
   const n = parseInt(document.getElementById('fPParc').value)||1;
@@ -3280,7 +2869,7 @@ function buildParcelas(){
       <input id="fPParcV${i}" type="number" step="0.01" inputmode="decimal" value="${total?v:''}" oninput="recalcParcelas()"></div>
       <div style="flex:1"><label>Vencimento</label>
       <input id="fPParcD${i}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
-        value="${fmtDate(addDays(todayISO(), 30*(i+1)))}" oninput="${DATE_MASK}"></div></div>`;
+        value="${fmtDate(addDays(todayISO(), 30*(i+1)))}" oninput="maskDate(this)"></div></div>`;
   }
   rows.innerHTML = html;
   recalcParcelas();
@@ -3760,7 +3349,17 @@ document.getElementById('installBtn')?.addEventListener('click', async () => {
   document.getElementById('installBanner').classList.add('hidden');
 });
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    reg.update();
+    setInterval(() => reg.update(), 60*60*1000);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      nw && nw.addEventListener('statechange', () => {
+        if(nw.state === 'installed' && navigator.serviceWorker.controller)
+          toast('🔄 Nova versão disponível! Feche e reabra o app.');
+      });
+    });
+  }).catch(()=>{});
 }
 
 // ═══════════ INIT ═══════════
@@ -3778,10 +3377,36 @@ function bootApp(){
     else if(!DB.vet.name) setTimeout(openVetSetup, 500);
   }
 }
-function enterApp() {
-    localStorage.setItem('vfc_entered', 'true');
-    location.reload(); // Recarrega a página para inicializar o app
+const _enterOrig = enterApp;
+enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
+
+function proceedBoot(){
+  if(window._LOCKED){ showLockScreen(); } else { bootApp(); }
 }
+function showLGPD(){
+  const div = document.createElement('div');
+  div.id = 'lgpdGate';
+  div.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(15,27,46,.96);display:flex;align-items:center;justify-content:center;padding:20px';
+  div.innerHTML = `<div style="background:var(--surface,#fff);border-radius:20px;max-width:440px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="padding:18px 20px 0"><b style="font-size:17px">📜 Termo de Uso e Privacidade</b></div>
+    <div style="padding:12px 20px;overflow-y:auto;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">
+      <b>1. O que é o VetFlowCare.</b> Ferramenta de organização para profissionais veterinários (pacientes, vacinas, receituário, financeiro).<br><br>
+      <b>2. Seus dados ficam com você.</b> Todas as informações são armazenadas <b>somente neste aparelho</b>. O VetFlowCare não envia, não coleta e não tem acesso aos seus dados ou aos dados dos tutores.<br><br>
+      <b>3. LGPD.</b> Você, profissional, é o controlador dos dados pessoais que cadastrar (nome, CPF, telefone e endereço de tutores) e se compromete a usá-los apenas para a prestação do serviço veterinário, conforme a Lei 13.709/2018. Recomendamos ativar a criptografia com senha em Ajustes → Segurança.<br><br>
+      <b>4. Backups são sua responsabilidade.</b> Por ser um armazenamento local, faça backups regulares (Ajustes → Fazer Backup). Perda do aparelho, limpeza de dados do navegador ou senha esquecida podem tornar os dados irrecuperáveis.<br><br>
+      <b>5. Documentos gerados.</b> Receitas, termos e atestados são de responsabilidade técnica do profissional que os assina.<br><br>
+      <b>6. Aceite.</b> Ao tocar em "Li e Aceito", você concorda com estes termos.
+    </div>
+    <div style="padding:14px 20px 18px;border-top:1px solid var(--border,#E3EBF2)">
+      <button onclick="localStorage.setItem('vfc_lgpd','1');document.getElementById('lgpdGate').remove();proceedBoot()"
+        style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Li e Aceito</button>
+    </div></div>`;
+  document.body.appendChild(div);
+}
+if(!localStorage.getItem('vfc_lgpd')){
+  showLGPD();
+} else {
+  proceedBoot();
 }
 </script>
 </body>
