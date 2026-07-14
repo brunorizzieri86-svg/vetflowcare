@@ -186,7 +186,7 @@ canvas{width:100%!important}
   <div class="care">Care</div>
   <div class="pro">PROFISSIONAL</div>
   <div class="tag">ORGANIZA · CONECTA · CUIDA</div>
-  <button onclick="startEntry()">Criar Conta / Entrar</button>
+  <button onclick="enterApp()">Entrar no App</button>
   <div class="sub">Gestão veterinária completa</div>
 </div>
 
@@ -227,6 +227,20 @@ canvas{width:100%!important}
    Perfil único do profissional · Receituário · Prontuário
    ═══════════════════════════════════════════════ */
 
+// Erros de execução aparecem na tela (facilita suporte)
+window.onerror = function(msg, s2, line){
+  try{
+    let e = document.getElementById('jsErr');
+    if(!e){
+      e = document.createElement('div');
+      e.id = 'jsErr';
+      e.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#E05252;color:#fff;font-size:11px;padding:6px 10px;z-index:9999;font-family:monospace';
+      document.body.appendChild(e);
+    }
+    e.textContent = '⚠ ' + msg + ' (linha ' + line + ') — tire um print e envie ao suporte';
+  }catch(_){}
+};
+
 const LS_KEY = 'vetflowcare_v5';
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36);
 const todayISO = () => new Date().toISOString().slice(0,10);
@@ -242,6 +256,7 @@ let pplView = 'animais';
 let tutorTab = 'resp';
 let showFinance = false;
 let finFilter = 'todos';
+let finView = 'rec';
 let deferredPrompt = null;
 
 function defaultDB(){
@@ -252,6 +267,7 @@ function defaultDB(){
     pets: [],
     license: { pro:false, code:'', activatedAt:null },
     charges: [],
+    expenses: [],
     settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true }
   };
 }
@@ -262,11 +278,7 @@ function loadDB(){
     const raw = localStorage.getItem(LS_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      if(parsed && parsed.__enc){ 
-        // Dados criptografados detectados - login removido, resetando para dados limpos
-        console.warn('Dados criptografados ignorados - login/senha removido');
-        return defaultDB(); 
-      }
+      if(parsed && parsed.__enc){ window._LOCKED = true; return defaultDB(); }
       return migrate(parsed);
     }
     // Migra da v3 (família) ou v2
@@ -289,6 +301,7 @@ function migrate(d){
   d.settings = Object.assign(defaultDB().settings, d.settings||{});
   d.license = Object.assign(defaultDB().license, d.license||{});
   d.charges = d.charges || [];
+  d.expenses = d.expenses || [];
   d.pets = (d.pets||[]).map(normalizePet);
   d.tutors = (d.tutors||[]).map(normalizeTutor);
   // Converte campo antigo "tutor" (texto livre) em cadastro de tutor
@@ -522,13 +535,62 @@ async function verifyKey(key, check){
   }catch(e){ return false; }
 }
 
-// ═══ SEGURANÇA: LOGIN + CRIPTOGRAFIA AES-256 ═══
-// Funções de login/senha removidas - app entra direto sem autenticação
-// As funções de criptografia permanecem no código mas não são mais obrigatórias
-
-function getAuth(){ 
-  // Login removido - sempre retorna null
-  return null; 
+function showLockScreen(){
+  const auth = getAuth();
+  if(!auth || !auth.salt || !auth.check){
+    // Blob criptografado sem credenciais — estado corrompido
+    alert('⚠ As credenciais de acesso não foram encontradas.\n\nSe você tem um backup JSON, toque em OK, apague os dados e importe o backup em Ajustes.');
+    if(confirm('Apagar os dados criptografados e recomeçar?')){
+      localStorage.removeItem(LS_KEY);
+      localStorage.removeItem(LS_AUTH);
+      location.reload();
+    }
+    return;
+  }
+  document.getElementById('splash')?.classList.add('hidden');
+  const div = document.createElement('div');
+  div.id = 'lockScreen';
+  div.style.cssText = 'position:fixed;inset:0;z-index:998;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center';
+  div.innerHTML = `
+    <img src="logo.jpg" style="width:120px;height:120px;border-radius:26px;background:#fff;padding:9px;object-fit:contain;box-shadow:0 16px 48px rgba(0,0,0,.35)" onerror="this.style.display='none'">
+    <div style="margin-top:18px;font-size:32px;font-weight:900;letter-spacing:-1px"><span style="color:#fff">Vet</span><span style="color:#2DC0AE">Flow</span></div>
+    <div style="font-family:Georgia,serif;font-style:italic;font-size:19px;color:#2DC0AE;margin-top:-4px">Care</div>
+    <div style="color:rgba(255,255,255,.5);font-size:10px;letter-spacing:2.5px;font-weight:600;margin-top:8px">ORGANIZA · CONECTA · CUIDA</div>
+    <div style="color:#fff;font-size:17px;font-weight:800;margin-top:22px">🔐 Entrar</div>
+    <div style="color:rgba(255,255,255,.65);font-size:13px;margin-top:6px">${esc(auth?.email||'')}</div>
+    <input id="lockPass" type="password" placeholder="Digite sua senha" autocomplete="current-password"
+      style="margin-top:22px;max-width:320px;text-align:center;font-size:17px;padding:14px;border-radius:14px;border:none"
+      onkeydown="if(event.key==='Enter')unlockApp()">
+    <button onclick="unlockApp()" style="margin-top:12px;width:100%;max-width:320px;background:#2DC0AE;color:#fff;padding:15px;border-radius:24px;font-size:16px;font-weight:800;border:none">Entrar</button>
+    <div id="lockErr" style="color:#FF8C69;font-size:13px;margin-top:12px;font-weight:700"></div>
+    <button onclick="lockForgot()" style="margin-top:20px;background:none;color:rgba(255,255,255,.55);font-size:12px;border:none;text-decoration:underline">Esqueci minha senha</button>`;
+  document.body.appendChild(div);
+  setTimeout(()=>document.getElementById('lockPass')?.focus(), 300);
+}
+async function unlockApp(){
+  const auth = getAuth();
+  const pass = document.getElementById('lockPass').value;
+  const err = document.getElementById('lockErr');
+  if(!pass){ err.textContent = 'Digite a senha'; return; }
+  err.textContent = 'Verificando…';
+  try{
+    const key = await deriveKey(pass, b64d(auth.salt));
+    if(!(await verifyKey(key, auth.check))){ err.textContent = '⚠ Senha incorreta'; return; }
+    const blob = JSON.parse(localStorage.getItem(LS_KEY));
+    const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(blob.iv)}, key, b64d(blob.ct));
+    window._cryptoKey = key;
+    window._LOCKED = false;
+    DB = migrate(JSON.parse(new TextDecoder().decode(pt)));
+    document.getElementById('lockScreen').remove();
+    bootApp();
+  }catch(e){ err.textContent = '⚠ Erro ao desbloquear: ' + (e.message||e); console.warn(e); }
+}
+function lockForgot(){
+  if(!confirm('Sem a senha, os dados criptografados NÃO podem ser recuperados.\n\nSe você tem um backup JSON, pode apagar tudo e importá-lo depois.\n\nApagar todos os dados e recomeçar?')) return;
+  if(!confirm('Tem certeza ABSOLUTA? Esta ação não pode ser desfeita.')) return;
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(LS_AUTH);
+  location.reload();
 }
 
 // Criar / alterar / remover senha (Ajustes → Segurança)
@@ -569,8 +631,15 @@ async function doSecuritySetup(){
 
 // ═══ CADASTRO OBRIGATÓRIO NO PRIMEIRO ACESSO ═══
 function startEntry(){
-  // Login/senha removido - entra direto no app
-  enterApp();
+  if(getAuth() || localStorage.getItem('vfc_skip_lock')){ enterApp(); return; }
+  if(!window.crypto || !crypto.subtle){
+    // Navegador/contexto sem WebCrypto (ex: visualizador de arquivo local)
+    toast('⚠ Criptografia indisponível neste navegador — entrando sem conta');
+    localStorage.setItem('vfc_skip_lock','1');
+    enterApp();
+    return;
+  }
+  openRegisterGate();
 }
 function openRegisterGate(){
   showSheet('👤 Crie sua conta', `
@@ -584,7 +653,8 @@ function openRegisterGate(){
     <input id="secPass2" type="password" autocomplete="new-password">
     <div style="background:rgba(224,82,82,.08);border:1.5px solid var(--danger);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:12px">
       ⚠ <b>Guarde bem sua senha!</b> Se esquecê-la, os dados criptografados não podem ser recuperados. Faça backups regularmente em Ajustes → Exportar JSON.</div>`,
-    `<button class="btn" onclick="doRegisterEntry()">✓ Criar conta e entrar</button>`);
+    `<button class="btn gray" onclick="closeSheet()">‹ Voltar</button>
+     <button class="btn" onclick="doRegisterEntry()">✓ Criar conta e entrar</button>`);
 }
 async function doRegisterEntry(){
   const ok = await createAccountCore(val('secEmail'),
@@ -638,10 +708,17 @@ function allReceivables(){
   const out = [];
   DB.pets.forEach(pet => {
     pet.appointments.forEach(a => {
-      if(a.valor > 0 && a.payStatus){
+      if(!(a.valor > 0 && a.payStatus)) return;
+      if(a.parcelas && a.parcelas.length){
+        a.parcelas.forEach((p, i) => {
+          out.push({kind:'parc', id:a.id+'#'+i, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
+            desc:`${a.title}${a.resumo?' · '+a.resumo:''} (${i+1}/${a.parcelas.length})`,
+            valor:p.valor, due:p.due, status:p.status, paidAt:p.paidAt||null, rem:p.rem});
+        });
+      } else {
         out.push({kind:'atend', id:a.id, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
           desc:a.title + (a.resumo?' · '+a.resumo:''), valor:a.valor,
-          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null});
+          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null, rem:a.rem});
       }
     });
   });
@@ -649,7 +726,7 @@ function allReceivables(){
     const pet = DB.pets.find(p=>p.id===c.petId);
     out.push({kind:'avulso', id:c.id, petId:c.petId,
       petName: pet ? pet.name : '(paciente removido)', emo: pet ? petEmoji(pet) : '🐾',
-      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null});
+      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null, rem:c.rem});
   });
   return out;
 }
@@ -677,10 +754,32 @@ function renderFinance(){
   const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
   const list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
 
-  let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+  let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <button class="btn sm gray" onclick="showFinance=false;render()">‹</button>
     <h2 style="flex:1">💰 Financeiro</h2>
-    <button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button></div>`;
+    ${finView==='rec'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
+    ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>
+  <div class="subtabs">
+    <button class="chip ${finView==='rec'?'on':''}" onclick="finView='rec';render()">💵 A Receber</button>
+    <button class="chip ${finView==='desp'?'on':''}" onclick="finView='desp';render()">🧾 Despesas${isPro()?'':' 🔒'}</button>
+    <button class="chip ${finView==='fluxo'?'on':''}" onclick="finView='fluxo';render()">📊 Fluxo${isPro()?'':' 🔒'}</button>
+  </div>`;
+  if(finView === 'desp') return h + renderExpenses();
+  if(finView === 'fluxo') return h + renderFluxo();
+  // Lembretes de vencimento (2-3 dias antes)
+  DB.settings.payRem = DB.settings.payRem !== false;
+  const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
+  if(DB.settings.payRem && lembrar.length){
+    h += `<div class="card" style="border-color:var(--warning);margin-bottom:12px">
+      <b style="font-size:13px">🔔 ${lembrar.length} ${lembrar.length===1?'cobrança vence':'cobranças vencem'} em até 3 dias</b>
+      <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Toque em 💬 para enviar o lembrete pelo WhatsApp${isPro()?'':' (recurso Pro)'}</div>
+      ${lembrar.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.emo} ${esc(r.petName)} · ${fmtBRL(r.valor)} · ${fmtDate(r.due)}</span>
+        <button class="btn sm" style="background:#25D366" onclick="cobrarWhats('${r.kind}','${r.id}')">💬</button></div>`).join('')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;cursor:pointer">
+        <input type="checkbox" checked onchange="DB.settings.payRem=this.checked;save();render()" style="accent-color:var(--primary)"> Avisar sobre vencimentos próximos</label>
+    </div>`;
+  }
 
   // Totais
   h += `<div style="display:flex;gap:10px;margin-bottom:12px">
@@ -695,11 +794,10 @@ function renderFinance(){
 
   // Resumo do mês (Pro)
   h += isPro()
-    ? `<div class="card" style="margin-bottom:12px;background:var(--rxbg);border-color:var(--rx)">
-        <div style="font-size:11px;font-weight:700;color:var(--rx);text-transform:uppercase">✨ Resumo de ${monthName}</div>
-        <div style="font-size:14px;margin-top:4px">Recebido no mês: <b style="color:var(--success)">${fmtBRL(paidMonth)}</b> · A receber: <b style="color:var(--warning)">${fmtBRL(tot)}</b></div></div>`
-    : `<div class="card" style="margin-bottom:12px;cursor:pointer" onclick="openProModal('O resumo financeiro mensal é um recurso Pro.')">
-        <div style="font-size:13px;color:var(--muted)">🔒 <b>Resumo mensal</b> (recebido no mês, totais) — disponível no <b style="color:var(--rx)">✨ Pro</b></div></div>`;
+    ? `<div class="card" style="margin-bottom:12px;background:var(--rxbg);border-color:var(--rx);cursor:pointer" onclick="finView='fluxo';render()">
+        <div style="font-size:11px;font-weight:700;color:var(--rx);text-transform:uppercase">✨ ${monthName}: recebido ${fmtBRL(paidMonth)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Toque para ver o fluxo de todos os meses →</div></div>`
+    : '';
 
   // Filtros
   h += `<div class="filters">${filters.map(([k,l,fn])=>{
@@ -739,6 +837,14 @@ function renderFinance(){
 
 function findRec(kind, id){
   if(kind==='avulso') return DB.charges.find(c=>c.id===id);
+  if(kind==='parc'){
+    const [aid, idx] = id.split('#');
+    for(const pet of DB.pets){
+      const a = pet.appointments.find(x=>x.id===aid);
+      if(a && a.parcelas) return {__parc:true, a, p:a.parcelas[parseInt(idx)]};
+    }
+    return null;
+  }
   for(const pet of DB.pets){
     const a = pet.appointments.find(x=>x.id===id);
     if(a) return a;
@@ -747,15 +853,25 @@ function findRec(kind, id){
 }
 function markPaid(kind, id){
   const r = findRec(kind, id); if(!r) return;
-  if(kind==='avulso'){ r.status='pago'; } else { r.payStatus='pago'; }
-  r.paidAt = todayISO();
+  if(r.__parc){
+    r.p.status = 'pago'; r.p.paidAt = todayISO();
+    if(r.a.parcelas.every(p=>p.status==='pago')){ r.a.payStatus='pago'; r.a.paidAt=todayISO(); }
+  }
+  else if(kind==='avulso'){ r.status='pago'; r.paidAt = todayISO(); }
+  else { r.payStatus='pago'; r.paidAt = todayISO(); }
   save(); render(); toast('✅ Pagamento recebido!');
 }
 function undoPaid(kind, id){
   const r = findRec(kind, id); if(!r) return;
-  if(kind==='avulso'){ r.status='pendente'; } else { r.payStatus='pendente'; }
-  r.paidAt = null;
+  if(r.__parc){ r.p.status='pendente'; r.p.paidAt=null; r.a.payStatus='pendente'; r.a.paidAt=null; }
+  else if(kind==='avulso'){ r.status='pendente'; r.paidAt = null; }
+  else { r.payStatus='pendente'; r.paidAt = null; }
   save(); render(); toast('↩ Voltou para pendente');
+}
+function markReminded(kind, id){
+  const r = findRec(kind, id); if(!r) return;
+  if(r.__parc) r.p.rem = 1; else r.rem = 1;
+  save();
 }
 function delChargeItem(id){
   if(!confirm('Remover esta cobrança?')) return;
@@ -764,6 +880,7 @@ function delChargeItem(id){
 }
 function cobrarWhats(kind, id){
   if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
+  markReminded(kind, id);
   const list = allReceivables();
   const r = list.find(x=>x.kind===kind && x.id===id); if(!r) return;
   const pet = DB.pets.find(p=>p.id===r.petId);
@@ -773,6 +890,79 @@ function cobrarWhats(kind, id){
   const first = (t.name||'').split(' ')[0];
   const msg = `Olá, ${first}! 😊 Tudo bem?\n\nLembrete do atendimento do(a) ${r.petName}: ${fmtBRL(r.valor)} com vencimento em ${fmtDate(r.due)}.\n\nQualquer dúvida estou à disposição!\n${DB.vet.name||''} 🐾`;
   window.open('https://wa.me/55' + phone + '?text=' + encodeURIComponent(msg));
+}
+
+// ═══ DESPESAS (Pro) ═══
+const EXP_CATS = ['Materiais','Medicamentos','Transporte','Equipamentos','Outros'];
+function renderExpenses(){
+  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O controle de despesas é um recurso Pro.')">
+    <div style="font-size:14px">🔒 <b>Controle de Despesas</b></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Registre gastos com materiais, medicamentos, transporte etc. e acompanhe o saldo real no fluxo mensal — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
+  const ym = todayISO().slice(0,7);
+  const mes = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
+  let h = `<div class="card" style="text-align:center;margin-bottom:12px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Despesas de ${MONTHS[new Date().getMonth()]}</div>
+    <div style="font-size:19px;font-weight:900;color:var(--danger)">${fmtBRL(mes)}</div></div>`;
+  const list = [...DB.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(!list.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa registrada<br><small>Toque em "➕ Despesa"</small></div>`;
+  list.forEach(e => {
+    h += `<div class="card" style="display:flex;align-items:center;gap:10px">
+      <div style="flex:1;min-width:0"><b style="font-size:14px">${esc(e.desc)}</b>
+      <div style="font-size:11px;color:var(--muted)">${esc(e.cat||'Outros')} · ${fmtDate(e.date)}</div></div>
+      <b style="color:var(--danger);white-space:nowrap">- ${fmtBRL(e.valor)}</b>
+      <button style="background:none;color:var(--muted)" onclick="delExpense('${e.id}')">🗑</button></div>`;
+  });
+  return h;
+}
+function openExpenseForm(){
+  showSheet('🧾 Nova Despesa', `
+    <label>Descrição *</label><input id="fEDesc" placeholder="Ex: Seringas e agulhas · Combustível">
+    <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
+    <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal">
+    <label>Data</label><input id="fEDate" type="date" value="${todayISO()}">`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="saveExpense()">💾 Salvar</button>`);
+}
+function saveExpense(){
+  const desc = val('fEDesc'), valor = parseFloat(val('fEValor'));
+  if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
+  DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value,
+    valor, date:val('fEDate')||todayISO()});
+  save(); closeSheet(); render(); toast('🧾 Despesa registrada!');
+}
+function delExpense(id){
+  if(!confirm('Remover esta despesa?')) return;
+  DB.expenses = DB.expenses.filter(e=>e.id!==id);
+  save(); render(); toast('Despesa removida');
+}
+
+// ═══ FLUXO MENSAL (Pro) ═══
+function renderFluxo(){
+  if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O fluxo mensal é um recurso Pro.')">
+    <div style="font-size:14px">🔒 <b>Fluxo Mensal</b></div>
+    <div style="font-size:12px;color:var(--muted);margin-top:4px">Acompanhe mês a mês o que entrou, o que há a receber e as despesas — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
+  const all = allReceivables();
+  const now = new Date();
+  let h = `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">Últimos 12 meses — recebido, a receber e despesas:</div>`;
+  for(let i=0;i<12;i++){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const ym = d.toISOString().slice(0,7);
+    const receb = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
+    const prev  = all.filter(r=>r.status==='pendente' && (r.due||'').startsWith(ym)).reduce((s,r)=>s+r.valor,0);
+    const desp  = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
+    if(!receb && !prev && !desp && i>2) continue;
+    const saldo = receb - desp;
+    h += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <b style="font-size:14px">${MONTHS[d.getMonth()]} ${d.getFullYear()}</b>
+        <b style="color:${saldo>=0?'var(--success)':'var(--danger)'}">Saldo: ${fmtBRL(saldo)}</b></div>
+      <div style="display:flex;gap:6px;margin-top:8px;font-size:11px;flex-wrap:wrap">
+        <span class="st ok">✓ Recebido ${fmtBRL(receb)}</span>
+        ${prev?`<span class="st prog">📅 A receber ${fmtBRL(prev)}</span>`:''}
+        ${desp?`<span class="st bad">🧾 Despesas ${fmtBRL(desp)}</span>`:''}
+      </div></div>`;
+  }
+  return h;
 }
 
 // Cobrança avulsa (venda, banho, medicamento…)
@@ -807,7 +997,19 @@ function saveCharge(){
 
 // ═══ LICENCIAMENTO FREE / PRO ═══
 const FREE_PET_LIMIT = 5;
-function isPro(){ return !!(DB.license && DB.license.pro); }
+function isPro(){
+  const L = DB.license;
+  if(!L || !L.pro) return false;
+  if(L.expiresAt && todayISO() > L.expiresAt) return false;
+  return true;
+}
+function proExpired(){ const L = DB.license; return !!(L && L.code && L.expiresAt && todayISO() > L.expiresAt); }
+function addMonths(iso, m){
+  const d = new Date(iso+'T00:00:00');
+  d.setMonth(d.getMonth() + m);
+  return d.toISOString().slice(0,10);
+}
+const PRO_PLANS = {1:'1 mês', 6:'6 meses', 12:'12 meses'};
 function vfcChecksum(seed){
   let h = 7;
   const s = seed + 'ORGANIZACONECTACUIDA';
@@ -829,8 +1031,13 @@ function openProModal(reason){
       ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
       ✅ <b>Cobrança pelo WhatsApp</b> e resumo financeiro mensal<br>
       ✅ Todas as futuras atualizações Pro</div>
-    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:14px;font-size:12px;color:var(--muted)">
-      💬 Para adquirir seu código de ativação, entre em contato com o desenvolvedor.</div>
+    <label>Escolha seu plano</label>
+    <div class="chips" id="proPlan">
+      ${Object.entries(PRO_PLANS).map(([m,l])=>`<button class="chip ${m==='12'?'on':''}" data-m="${m}"
+        onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${l}</button>`).join('')}
+    </div>
+    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:12px;font-size:12px;color:var(--muted)">
+      💬 Escolha o plano e peça seu código ao desenvolvedor (via WhatsApp). Após ativar, o tempo do plano começa a contar e você acompanha os dias restantes em Ajustes.</div>
     <label>Já tem um código? Digite aqui</label>
     <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700">`,
     `<button class="btn gray" onclick="closeSheet()">Agora não</button>
@@ -839,9 +1046,11 @@ function openProModal(reason){
 function activatePro(){
   const code = val('proCode');
   if(!vfcCheck(code)){ toast('⚠ Código inválido — confira e tente novamente'); return; }
-  DB.license = { pro:true, code:code.toUpperCase().trim(), activatedAt:todayISO() };
+  const plan = parseInt(document.querySelector('#proPlan .chip.on')?.dataset.m) || 12;
+  DB.license = { pro:true, code:code.toUpperCase().trim(), activatedAt:todayISO(),
+    plan, expiresAt: addMonths(todayISO(), plan) };
   save(); closeSheet(); render();
-  toast('✨ VetFlowCare Pro ativado! Obrigado!');
+  toast(`✨ Pro ativado por ${PRO_PLANS[plan]}! Válido até ${fmtDate(DB.license.expiresAt)}`);
 }
 function deactivatePro(){
   if(!confirm('Desativar o Pro neste aparelho?')) return;
@@ -878,10 +1087,6 @@ const overdueEvents = () => allEvents().filter(e => e.priority==='overdue');
 
 // ═══════════ NAVEGAÇÃO / RENDER ═══════════
 function enterApp(){
-  // Limpar dados de auth antigos para evitar conflitos
-  localStorage.removeItem('vetflowcare_auth');
-  localStorage.removeItem('vfc_skip_lock');
-  localStorage.removeItem('vfc_sec_prompted');
   document.getElementById('splash').classList.add('hidden');
   document.getElementById('appHeader').classList.remove('hidden');
   document.getElementById('mainNav').classList.remove('hidden');
@@ -918,7 +1123,16 @@ function saveVetSetup(){
   DB.vet.sipeagro = val('sSipe');
   DB.vet.email = val('sEmail');
   save(); closeSheet(); render(); toast('👨‍⚕️ Dados salvos! Bem-vinda ao VetFlowCare');
-  // Prompt de segurança removido - login/senha não é mais obrigatório
+  if(!getAuth() && !localStorage.getItem('vfc_sec_prompted')){
+    localStorage.setItem('vfc_sec_prompted','1');
+    setTimeout(()=>{
+      showSheet('🔐 Proteger seus dados?', `
+        <div style="font-size:14px;line-height:1.8">Deseja criar um <b>login com senha</b> agora?<br><br>
+        Todos os dados sensíveis (tutores, CPFs, telefones, prontuários) serão gravados com <b>criptografia AES-256</b> — proteção contra vazamentos caso alguém acesse seu celular.</div>`,
+        `<button class="btn gray" onclick="closeSheet()">Depois</button>
+         <button class="btn" onclick="closeSheet();openSecuritySetup()">🔐 Proteger agora</button>`);
+    }, 700);
+  }
 }
 
 // ═══ TUTORIAL GUIADO ═══
@@ -1050,18 +1264,12 @@ function renderHome(){
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
 
-  const recPend = allReceivables().filter(r=>r.status==='pendente');
-  const recTot = recPend.reduce((s,r)=>s+r.valor,0);
-  const recLate = recPend.filter(r=>daysUntil(r.due)<0);
-  const recLateTot = recLate.reduce((s,r)=>s+r.valor,0);
-  h += `<div class="sec"><div class="sec-h"><span>💰 Financeiro</span>
-    <button onclick="goFinance()">Abrir →</button></div>
-    <div class="card" style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="goFinance()">
-      <div style="width:44px;height:44px;border-radius:13px;background:rgba(240,165,0,.12);display:flex;align-items:center;justify-content:center;font-size:21px">💰</div>
-      <div style="flex:1">
-        <div style="font-weight:800;font-size:15px">${fmtBRL(recTot)} a receber</div>
-        <div style="font-size:12px;color:${recLate.length?'var(--danger)':'var(--muted)'}">${recLate.length?`⚠ ${recLate.length} ${recLate.length===1?'atrasado':'atrasados'} (${fmtBRL(recLateTot)})`:recPend.length?`${recPend.length} ${recPend.length===1?'pendente':'pendentes'} em dia`:'Nenhuma pendência 🎉'}</div>
-      </div><span style="color:var(--muted)">›</span></div></div>`;
+  const _recLate = allReceivables().some(r=>r.status==='pendente' && daysUntil(r.due)<0);
+  h += `<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer;margin-bottom:16px;padding:13px 16px" onclick="goFinance()">
+    <span style="font-size:19px">💰</span>
+    <b style="flex:1;font-size:14px">Financeiro</b>
+    ${_recLate?'<span style="width:9px;height:9px;border-radius:50%;background:var(--danger)"></span>':''}
+    <span style="color:var(--muted)">›</span></div>`;
 
   h += `<div class="sec"><div class="sec-h"><span>Pacientes</span>
     <button onclick="goTab('pets')">Ver todos →</button></div><div class="pets-row">`;
@@ -1427,6 +1635,11 @@ function renderPetHealth(pet){
         <button style="background:none;font-size:15px" title="Calendário" onclick="downloadICS('${pet.id}','${a.id}')">📅</button>
         <button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','appointments','${a.id}')">🗑</button></span></div>
       ${a.clinic?`<div style="color:var(--muted);font-size:11px;margin-top:5px">📍 ${esc(a.clinic)}</div>`:''}
+      ${a.itens?.length?`<div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:7px;font-size:12px">
+        ${a.itens.map(it=>`<div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:var(--muted)">${esc(it.desc)}</span><span>${fmtBRL(it.valor)}</span></div>`).join('')}
+        <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:3px"><span>Total</span>
+        <span style="color:${a.payStatus==='pago'?'var(--success)':'var(--warning)'}">${fmtBRL(a.valor)}${a.parcelas?` · ${a.parcelas.filter(p=>p.status==='pago').length}/${a.parcelas.length} pagas`:a.payStatus==='pago'?' ✓':''}</span></div></div>`
+      : a.valor>0?`<div style="margin-top:7px;font-size:12px;font-weight:800;color:${a.payStatus==='pago'?'var(--success)':'var(--warning)'}">💰 ${fmtBRL(a.valor)}${a.parcelas?` · ${a.parcelas.filter(p=>p.status==='pago').length}/${a.parcelas.length} pagas`:a.payStatus==='pago'?' ✓ pago':''}</div>`:''}
       ${a.record?`<div class="rxcontent" style="margin-top:10px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase">📋 Prontuário</b><br>${esc(a.record).slice(0,260)}${a.record.length>260?'…':''}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn sm outline" onclick="openRecordForm('${pet.id}','${a.id}')">📋 ${a.record?'Editar':'Preencher'} Prontuário</button>
@@ -1881,11 +2094,16 @@ function renderSettings(){
 
   <div class="sec"><div class="sec-h"><span>🔐 Segurança e Login</span></div>
     <div class="card">
-      <div style="font-size:13px;color:var(--muted)">
-        🔓 <b>Login e senha removidos</b> nesta versão.<br>
-        O app entra diretamente sem necessidade de autenticação.<br><br>
-        Seus dados continuam salvos localmente no aparelho.
-      </div>
+      ${getAuth()
+        ? `<div style="display:flex;align-items:center;gap:10px">
+            <div style="width:44px;height:44px;border-radius:12px;background:var(--medbg);display:flex;align-items:center;justify-content:center;font-size:20px">🔐</div>
+            <div style="flex:1"><b style="color:var(--success)">Dados criptografados (AES-256)</b>
+            <div style="color:var(--muted);font-size:12px">${esc(getAuth().email)}</div></div></div>
+          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn sm outline" onclick="openChangePass()">🔑 Alterar senha</button>
+            <button class="btn sm dangero" onclick="openRemovePass()">Remover proteção</button></div>`
+        : `<div style="font-size:13px;color:var(--muted);margin-bottom:10px">Crie um login com e-mail e senha — todos os dados sensíveis (tutores, CPFs, telefones, prontuários) passam a ser gravados com <b>criptografia AES-256</b> no aparelho.</div>
+          <button class="btn" onclick="openSecuritySetup()">🔐 Criar Login e Senha</button>`}
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>✨ VetFlowCare Pro</span></div>
@@ -1893,9 +2111,17 @@ function renderSettings(){
       ${isPro()
         ? `<div style="display:flex;align-items:center;gap:10px">
             <div style="width:44px;height:44px;border-radius:12px;background:var(--rxbg);display:flex;align-items:center;justify-content:center;font-size:22px">✨</div>
-            <div style="flex:1"><b style="color:var(--rx)">Pro ativo</b>
-            <div style="color:var(--muted);font-size:12px">Ativado em ${fmtDate(DB.license.activatedAt)} · ${esc(DB.license.code)}</div></div></div>
+            <div style="flex:1"><b style="color:var(--rx)">Pro ativo · ${PRO_PLANS[DB.license.plan]||''}</b>
+            <div style="color:var(--muted);font-size:12px">${DB.license.expiresAt
+              ? `⏳ Restam <b style="color:var(--text)">${Math.max(0,daysUntil(DB.license.expiresAt))} dias</b> · expira ${fmtDate(DB.license.expiresAt)}`
+              : 'Ativado em '+fmtDate(DB.license.activatedAt)}</div></div></div>
+          ${DB.license.expiresAt && daysUntil(DB.license.expiresAt)<=15
+            ? `<button class="btn" style="background:var(--rx);margin-top:10px" onclick="openProModal('Seu plano expira em breve — renove para não perder os recursos Pro.')">🔄 Renovar plano</button>`:''}
           <button class="btn sm dangero" style="margin-top:10px" onclick="deactivatePro()">Desativar neste aparelho</button>`
+        : proExpired()
+        ? `<div style="font-size:13px;margin-bottom:4px">⏳ <b style="color:var(--danger)">Seu plano Pro expirou</b> em ${fmtDate(DB.license.expiresAt)}.</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Seus dados continuam intactos — renove para reativar os recursos Pro.</div>
+          <button class="btn" style="background:var(--rx)" onclick="openProModal()">🔄 Renovar Pro</button>`
         : `<div style="font-size:13px;color:var(--muted);margin-bottom:4px">Versão gratuita: até ${FREE_PET_LIMIT} pacientes · sem Receita de Controle Especial · impressões com marca-d'água</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Pacientes: <b style="color:${DB.pets.length>=FREE_PET_LIMIT?'var(--danger)':'var(--text)'}">${DB.pets.length} / ${FREE_PET_LIMIT}</b></div>
           <button class="btn" style="background:var(--rx)" onclick="openProModal()">✨ Conhecer o Pro / Ativar código</button>`}
@@ -1909,20 +2135,36 @@ function renderSettings(){
 
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
-      <button class="btn outline" onclick="exportTutoresTXT()">📄 Exportar Lista de Tutores (TXT)</button>
-      <button class="btn outline" onclick="exportJSON()">📥 Exportar Todos os Dados (JSON)</button>
+      <button class="btn outline" onclick="exportJSON()">💾 Fazer Backup Completo</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Salva TUDO (pacientes, tutores, financeiro, receitas) em um arquivo. Guarde no Google Drive ou envie para você mesmo no WhatsApp — é sua garantia se trocar de celular ou esquecer a senha.</div>
       <input type="file" accept=".json" id="importFile" class="hidden" onchange="importJSON(this)">
-      <button class="btn outline" onclick="document.getElementById('importFile').click()">📤 Importar Dados (JSON)</button>
-      <button class="btn dangero" onclick="wipeAll()">🗑️ Apagar Todos os Dados</button></div></div>
+      <button class="btn outline" onclick="document.getElementById('importFile').click()">📂 Restaurar Backup</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Recupera os dados de um arquivo de backup — use ao trocar de aparelho ou após apagar os dados.</div>
+      <button class="btn outline" onclick="exportTutoresTXT()">📇 Lista de Contatos dos Tutores</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Gera um texto com todos os tutores (telefone, e-mail) e seus animais — útil para imprimir ou consultar fora do app.</div>
+      <button class="btn dangero" onclick="wipeAll()">🗑️ Apagar Todos os Dados</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 0">Remove tudo do aparelho e recomeça do zero. Irreversível — faça um backup antes!</div></div></div>
 
   <div style="text-align:center;padding:16px 0">
     <img src="logo.jpg" style="width:86px;height:86px;border-radius:20px;background:#fff;padding:8px;object-fit:contain;border:1px solid var(--border)" onerror="this.style.display='none'">
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.0 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v8.0:</b><br>
+      <b>Novidades da v8.2:</b><br>
+      • Atendimento com itens discriminados (consulta, vacina, exame…) — total soma automático<br>
+      • Itens e status de pagamento visíveis no card do atendimento<br>
+      • Datas das parcelas e do vencimento digitáveis (DD/MM/AAAA)<br>
+      <br><b>Da v8.1:</b><br>
+      • Login/senha voltou a ser opcional (Ajustes → Segurança)<br>
+      • 💰 Financeiro: parcelamento em até 5x com valores e datas individuais<br>
+      • 🧾 Despesas do veterinário + 📊 Fluxo mensal de 12 meses (Pro)<br>
+      • 🔔 Lembrete de cobrança 2-3 dias antes do vencimento (opcional)<br>
+      • ✨ Planos Pro de 1, 6 ou 12 meses com contagem de dias restantes<br>
+      • 📄 Exportar ficha escolhendo as seções (ex: só carteira de vacinação)<br>
+      • Financeiro discreto na tela inicial · ProHeart e Bravecto 360 · Ajustes explicados<br>
+      <br><b>Da v8.0:</b><br>
       • 🔐 Login com e-mail e senha + criptografia AES-256 dos dados<br>
       • 📄 Aba Termos: Atestado Sanitário, Consentimento Anestésico/Cirúrgico e Recusa — preenchimento automático<br>
       • 💻 Receita com opção de assinatura digital ICP-Brasil (guia dentro do app)<br>
@@ -2185,7 +2427,7 @@ function saveWeight(petId){
 function openVaccineForm(petId){
   const pet = DB.pets.find(p=>p.id===petId);
   const bySpecies = {
-    'Cão':  ['V10 (Décupla)','V8','Antirrábica','Giárdia','Gripe Canina','Librela','Cytopoint'],
+    'Cão':  ['V10 (Décupla)','V8','Antirrábica','Giárdia','Gripe Canina','ProHeart','Bravecto 360','Librela','Cytopoint'],
     'Gato': ['Tríplice Felina','Quádrupla Felina','Quíntupla Felina','FeLV','Antirrábica'],
     'Ave':  ['Bouba Aviária','Newcastle']
   };
@@ -2306,16 +2548,33 @@ function openApptForm(petId){
     </div>
     <label>Horário *</label><input id="fPTime" type="time" value="10:00">
     <label>Local / Clínica</label><input id="fPClinic" placeholder="Opcional">
-    <label>💰 Valor do atendimento (R$)</label>
-    <input id="fPValor" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 150.00 (deixe vazio se não houver cobrança)">
+    <label>💰 Serviços do atendimento</label>
+    <div style="font-size:11px;color:var(--muted);margin:2px 0 6px">Descreva cada item (consulta, vacina, exame…) com seu valor — o total soma sozinho.</div>
+    <div id="fPItens">${servItemRow(0)}</div>
+    <button type="button" class="btn sm outline" style="margin-top:8px" onclick="addServItem()">➕ Adicionar item</button>
+    <div id="fPTotalBox" style="background:var(--medbg);border-radius:10px;padding:9px 12px;font-size:14px;margin-top:10px;display:none">
+      💰 Total do atendimento: <b id="fPTotalTxt">R$ 0,00</b></div>
+    <input type="hidden" id="fPValor" value="0">
     <label>Pagamento</label>
     <div class="chips" id="fPPay">
       <button class="chip on" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
       <button class="chip" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
     </div>
     <div id="fPPayDueWrap" style="display:none">
-      <label>Vencimento do pagamento *</label>
-      <input id="fPPayDue" type="date">
+      <label>Parcelamento</label>
+      <select id="fPParc" onchange="buildParcelas()">
+        <option value="1">À vista (1x)</option>
+        <option value="2">2 parcelas</option><option value="3">3 parcelas</option>
+        <option value="4">4 parcelas</option><option value="5">5 parcelas</option>
+      </select>
+      <div id="fPParc1" style="display:block">
+        <label>Vencimento do pagamento *</label>
+        <input id="fPPayDue" type="date">
+        <input id="fPPayDueTxt" placeholder="ou digite: DD/MM/AAAA" inputmode="numeric" maxlength="10"
+          style="margin-top:6px" oninput="${DATE_MASK}">
+      </div>
+      <div id="fPParcRows"></div>
+      <div id="fPParcResto" style="display:none;background:var(--vacbg);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--vac);margin-top:10px"></div>
     </div>
     <label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
     <textarea id="fPRecord" rows="6" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta:"></textarea>
@@ -2325,6 +2584,66 @@ function openApptForm(petId){
       Se informar a data, um atendimento "Retorno" será criado automaticamente na linha do tempo e na agenda.</div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveAppt('${petId}')">💾 Salvar</button>`);
+}
+function servItemRow(i, desc='', valor=''){
+  return `<div class="srow" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+    <input class="sDesc" placeholder="Ex: Consulta · Vacina V10 · Hemograma" value="${desc}" style="flex:2">
+    <input class="sVal" type="number" step="0.01" inputmode="decimal" placeholder="R$" value="${valor}" style="flex:1" oninput="recalcServTotal()">
+    <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.remove();recalcServTotal()">✕</button></div>`;
+}
+function addServItem(){
+  document.getElementById('fPItens').insertAdjacentHTML('beforeend', servItemRow(1));
+}
+function recalcServTotal(){
+  let total = 0;
+  document.querySelectorAll('#fPItens .sVal').forEach(el => { total += parseFloat(el.value)||0; });
+  document.getElementById('fPValor').value = total;
+  const box = document.getElementById('fPTotalBox');
+  box.style.display = total > 0 ? 'block' : 'none';
+  document.getElementById('fPTotalTxt').textContent = fmtBRL(total);
+  recalcParcelas();
+}
+function parseBRDate(txt){
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((txt||'').trim());
+  if(!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+const DATE_MASK = "this.value=this.value.replace(/[^0-9\/]/g,'').replace(/^(\d{2})(\d)/,'$1/$2').replace(/^(\d{2}\/\d{2})(\d)/,'$1/$2').slice(0,10)";
+
+function buildParcelas(){
+  const n = parseInt(document.getElementById('fPParc').value)||1;
+  const total = parseFloat(document.getElementById('fPValor').value)||0;
+  document.getElementById('fPParc1').style.display = n===1 ? 'block' : 'none';
+  const rows = document.getElementById('fPParcRows');
+  const resto = document.getElementById('fPParcResto');
+  if(n === 1){ rows.innerHTML=''; resto.style.display='none'; return; }
+  const base = Math.floor((total/n)*100)/100;
+  let html = '';
+  for(let i=0;i<n;i++){
+    const v = i===n-1 ? (total - base*(n-1)).toFixed(2) : base.toFixed(2);
+    html += `<div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+      <div style="flex:1"><label>Parcela ${i+1} (R$)</label>
+      <input id="fPParcV${i}" type="number" step="0.01" inputmode="decimal" value="${total?v:''}" oninput="recalcParcelas()"></div>
+      <div style="flex:1"><label>Vencimento</label>
+      <input id="fPParcD${i}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+        value="${fmtDate(addDays(todayISO(), 30*(i+1)))}" oninput="${DATE_MASK}"></div></div>`;
+  }
+  rows.innerHTML = html;
+  recalcParcelas();
+}
+function recalcParcelas(){
+  const n = parseInt(document.getElementById('fPParc').value)||1;
+  if(n === 1) return;
+  const total = parseFloat(document.getElementById('fPValor').value)||0;
+  let soma = 0;
+  for(let i=0;i<n;i++) soma += parseFloat(document.getElementById('fPParcV'+i)?.value)||0;
+  const resto = total - soma;
+  const el = document.getElementById('fPParcResto');
+  el.style.display = 'block';
+  el.style.color = Math.abs(resto) < 0.01 ? 'var(--success)' : 'var(--warning)';
+  el.innerHTML = Math.abs(resto) < 0.01
+    ? `✓ Parcelas fecham o total de ${fmtBRL(total)}`
+    : `Total: ${fmtBRL(total)} · Parcelado: ${fmtBRL(soma)} · <b>Restante: ${fmtBRL(resto)}</b>`;
 }
 function saveAppt(petId){
   const title = val('fPTitle');
@@ -2339,20 +2658,44 @@ function saveAppt(petId){
   window._presetDate = null;
   if(!title || !date){ toast('⚠ Preencha tipo e data'); return; }
   const pet = DB.pets.find(p=>p.id===petId);
-  // Pagamento
-  const valor = parseFloat(val('fPValor')) || 0;
+  // Itens do atendimento
+  const itens = [];
+  document.querySelectorAll('#fPItens .srow').forEach(row => {
+    const d = row.querySelector('.sDesc').value.trim();
+    const v = parseFloat(row.querySelector('.sVal').value)||0;
+    if(d || v) itens.push({desc: d||'Serviço', valor: v});
+  });
+  const valor = itens.reduce((s,i)=>s+i.valor, 0);
   let payStatus = null, payDue = null, paidAt = null;
   if(valor > 0){
     payStatus = document.querySelector('#fPPay .chip.on')?.dataset.v || 'pago';
     if(payStatus === 'pendente'){
-      payDue = val('fPPayDue');
-      if(!payDue){ toast('⚠ Informe o vencimento do pagamento'); return; }
+      const n = parseInt(document.getElementById('fPParc')?.value)||1;
+      if(n > 1){
+        window._parcelas = [];
+        let soma = 0;
+        for(let i=0;i<n;i++){
+          const v = parseFloat(document.getElementById('fPParcV'+i)?.value)||0;
+          const d = parseBRDate(document.getElementById('fPParcD'+i)?.value);
+          if(!v || !d){ toast(`⚠ Preencha valor e data (DD/MM/AAAA) da parcela ${i+1}`); return; }
+          soma += v;
+          window._parcelas.push({valor:v, due:d, status:'pendente', paidAt:null});
+        }
+        if(Math.abs(soma - valor) > 0.01){ toast(`⚠ As parcelas (${fmtBRL(soma)}) não fecham o total (${fmtBRL(valor)})`); return; }
+        payDue = window._parcelas[0].due;
+      } else {
+        payDue = parseBRDate(val('fPPayDueTxt')) || val('fPPayDue');
+        if(!payDue){ toast('⚠ Informe o vencimento do pagamento'); return; }
+      }
     } else { paidAt = todayISO(); }
   }
   pet.appointments.push({
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'),
-    valor, payStatus, payDue, paidAt});
+    valor, payStatus, payDue, paidAt,
+    itens: itens.length ? itens : null,
+    parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
+  window._parcelas = null;
   const retorno = val('fPRetorno');
   if(retorno){
     pet.appointments.push({
@@ -2641,24 +2984,54 @@ function nativeShare(petId){
   else toast('⚠ Compartilhamento nativo não suportado');
 }
 function exportPetPDF(petId){
+  const ck = (id, label, checked, hint) => `
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text)">
+      <input type="checkbox" id="${id}" ${checked?'checked':''} style="width:20px;height:20px;accent-color:var(--primary)">
+      <span style="flex:1"><b>${label}</b>${hint?`<div style="font-size:11px;color:var(--muted);font-weight:400">${hint}</div>`:''}</span></label>`;
+  showSheet('📄 Exportar Ficha — o que incluir?', `
+    <div style="color:var(--muted);font-size:12px;margin-bottom:6px">Escolha as seções do PDF. Ex: para viagem, só a carteira de vacinação.</div>
+    ${ck('exIdent','🐾 Identificação do animal', true, 'Sempre incluída (nome, espécie, raça, idade)')}
+    ${ck('exTutor','👤 Dados do tutor', true, 'Nome, telefone e endereço')}
+    ${ck('exVac','💉 Carteira de Vacinação', true, 'Doses aplicadas, lotes e próximas')}
+    ${ck('exMed','💊 Medicações contínuas', false, '')}
+    ${ck('exAppt','🩺 Histórico de atendimentos', false, 'Com resumo do prontuário')}
+    ${ck('exPeso','⚖️ Histórico de peso', false, '')}`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="doExportFicha('${petId}')">📄 Gerar PDF</button>`);
+}
+function doExportFicha(petId){
+  const on = id => document.getElementById(id)?.checked;
   const pet = DB.pets.find(p=>p.id===petId);
-  const vacRows = pet.vaccines.map(v=>`<tr><td>${esc(v.name)}</td><td>${fmtDate(v.applied)}</td><td>${fmtDate(v.due)}</td><td>${esc(v.lot||'—')}</td></tr>`).join('');
-  const medRows = pet.medications.filter(m=>m.active).map(m=>`<tr><td>${esc(m.name)}</td><td>${esc(m.dosage)}</td><td>${esc(m.freq)}</td><td>${m.time}</td></tr>`).join('');
-  const apptRows = pet.appointments.map(a=>`<tr><td>${esc(a.title)}</td><td>${fmtDate(a.date)} ${a.time||''}</td><td>${esc((a.record||'—').slice(0,120))}</td></tr>`).join('');
-  printShell('Ficha — '+pet.name,
-    letterheadHTML() +
-    `<div class="doctitle">FICHA DO PACIENTE</div>` +
-    patientBlockHTML(pet) +
-    (pet.vaccines.length?`<h3 style="color:#2DC0AE;font-size:15px;border-bottom:2px solid #2DC0AE;padding-bottom:3px">💉 Carteira de Vacinação</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 18px">
-      <tr style="background:#EDF8F7"><th style="text-align:left;padding:7px">Vacina</th><th style="text-align:left;padding:7px">Aplicada</th><th style="text-align:left;padding:7px">Próxima</th><th style="text-align:left;padding:7px">Lote</th></tr>${vacRows}</table>`:'') +
-    (medRows?`<h3 style="color:#2DC0AE;font-size:15px;border-bottom:2px solid #2DC0AE;padding-bottom:3px">💊 Medicações Contínuas</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 18px">
-      <tr style="background:#EDF8F7"><th style="text-align:left;padding:7px">Medicamento</th><th style="text-align:left;padding:7px">Dosagem</th><th style="text-align:left;padding:7px">Frequência</th><th style="text-align:left;padding:7px">Horário</th></tr>${medRows}</table>`:'') +
-    (apptRows?`<h3 style="color:#2DC0AE;font-size:15px;border-bottom:2px solid #2DC0AE;padding-bottom:3px">🩺 Histórico de Consultas</h3>
-      <table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 18px">
-      <tr style="background:#EDF8F7"><th style="text-align:left;padding:7px">Consulta</th><th style="text-align:left;padding:7px">Data</th><th style="text-align:left;padding:7px">Prontuário (resumo)</th></tr>${apptRows}</table>`:'') +
-    signatureHTML(todayISO()));
+  const t = tutorOf(pet);
+  const th = s => `<th style="text-align:left;padding:7px">${s}</th>`;
+  const H = s => `<h3 style="color:#2DC0AE;font-size:15px;border-bottom:2px solid #2DC0AE;padding-bottom:3px">${s}</h3>`;
+  const TBL = inner => `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:8px 0 18px">${inner}</table>`;
+  let body = letterheadHTML() + `<div class="doctitle">FICHA DO PACIENTE</div>` + patientBlockHTML(pet);
+
+  if(on('exTutor') && t){
+    body += H('👤 Tutor / Responsável') + `<div style="font-size:13px;line-height:1.9;margin:8px 0 18px">
+      <b>Nome:</b> ${esc(t.name)}${t.cpf?` · <b>CPF:</b> ${esc(t.cpf)}`:''}<br>
+      ${t.phone?`<b>Telefone:</b> ${esc(t.phone)}<br>`:''}
+      ${t.address?`<b>Endereço:</b> ${esc(t.address)}${t.cep?' · CEP '+esc(t.cep):''}`:''}</div>`;
+  }
+  if(on('exVac') && pet.vaccines.length){
+    const rows = pet.vaccines.map(v=>`<tr><td style="padding:6px">${esc(v.name)}</td><td style="padding:6px">${v.applied?fmtDate(v.applied):'—'}</td><td style="padding:6px">${v.status==='programada'?fmtDate(v.due):'—'}</td><td style="padding:6px">${esc(v.lot||'—')}</td></tr>`).join('');
+    body += H('💉 Carteira de Vacinação') + TBL(`<tr style="background:#EDF8F7">${th('Vacina')}${th('Aplicada')}${th('Próxima')}${th('Lote')}</tr>${rows}`);
+  }
+  if(on('exMed')){
+    const rows = pet.medications.filter(m=>m.active).map(m=>`<tr><td style="padding:6px">${esc(m.name)}</td><td style="padding:6px">${esc(m.dosage)}</td><td style="padding:6px">${esc(m.freq)}</td><td style="padding:6px">${m.time}</td></tr>`).join('');
+    if(rows) body += H('💊 Medicações Contínuas') + TBL(`<tr style="background:#EDF8F7">${th('Medicamento')}${th('Dosagem')}${th('Frequência')}${th('Horário')}</tr>${rows}`);
+  }
+  if(on('exAppt')){
+    const rows = pet.appointments.sort((a,b)=>b.date.localeCompare(a.date)).map(a=>`<tr><td style="padding:6px">${esc(a.title)}${a.resumo?' · '+esc(a.resumo):''}</td><td style="padding:6px">${fmtDate(a.date)}</td><td style="padding:6px">${esc((a.record||'—').slice(0,140))}</td></tr>`).join('');
+    if(rows) body += H('🩺 Histórico de Atendimentos') + TBL(`<tr style="background:#EDF8F7">${th('Atendimento')}${th('Data')}${th('Prontuário (resumo)')}</tr>${rows}`);
+  }
+  if(on('exPeso') && pet.weightHistory?.length){
+    const rows = [...pet.weightHistory].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(w=>`<tr><td style="padding:6px">${fmtDate(w.date)}</td><td style="padding:6px">${w.weight ?? w.w} kg</td></tr>`).join('');
+    body += H('⚖️ Histórico de Peso') + TBL(`<tr style="background:#EDF8F7">${th('Data')}${th('Peso')}</tr>${rows}`);
+  }
+  closeSheet();
+  printShell('Ficha — '+pet.name, body + signatureHTML(todayISO()));
 }
 
 // ═══════════ .ICS CALENDÁRIO ═══════════
@@ -2739,8 +3112,6 @@ if('serviceWorker' in navigator){
 // ═══════════ INIT ═══════════
 function bootApp(){
   applyDark();
-  // Login/senha removido - entra direto no app
-  // (verificação de auth removida)
   scheduleLocalCheck();
   migrateDocsToIDB();
   if(localStorage.getItem('vfc_entered')){
@@ -2755,8 +3126,11 @@ function bootApp(){
 const _enterOrig = enterApp;
 enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
 
-// Login/senha removido - entra direto no app
-bootApp();
+if(window._LOCKED){
+  showLockScreen();
+} else {
+  bootApp();
+}
 </script>
 </body>
 </html>
