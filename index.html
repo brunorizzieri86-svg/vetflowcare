@@ -277,9 +277,17 @@ function loadDB(){
   try{
     const raw = localStorage.getItem(LS_KEY);
     if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed && parsed.__enc){ window._LOCKED = true; return defaultDB(); }
-      return migrate(parsed);
+      try{
+        const parsed = JSON.parse(raw);
+        if(parsed && parsed.__enc){ window._LOCKED = true; return defaultDB(); }
+        return migrate(parsed);
+      }catch(err){
+        // Dados ilegíveis: preserva TUDO num resgate antes de qualquer coisa
+        localStorage.setItem('vetflowcare_rescue', raw);
+        window._RESCUE = true;
+        console.warn('DB corrompido — resgate salvo', err);
+        return defaultDB();
+      }
     }
     // Migra da v3 (família) ou v2
     const v4 = localStorage.getItem('vetflowcare_v4');
@@ -389,11 +397,26 @@ function b64d(str){ const s=atob(str); const u=new Uint8Array(s.length); for(let
 let _idb = null;
 function idbOpen(){
   return new Promise((res, rej) => {
-    const r = indexedDB.open('vetflowcare', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('docs');
+    const r = indexedDB.open('vetflowcare', 2);
+    r.onupgradeneeded = () => {
+      const db = r.result;
+      if(!db.objectStoreNames.contains('docs')) db.createObjectStore('docs');
+      if(!db.objectStoreNames.contains('snap')) db.createObjectStore('snap');
+    };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
   });
+}
+function idbStore(store, mode, fn){
+  return (async () => {
+    _idb = _idb || await idbOpen();
+    return new Promise((res, rej) => {
+      const t = _idb.transaction(store, mode);
+      const out = fn(t.objectStore(store));
+      t.oncomplete = () => res(out && out.result !== undefined ? out.result : true);
+      t.onerror = () => rej(t.error);
+    });
+  })();
 }
 async function idbPut(id, data){
   _idb = _idb || await idbOpen();
@@ -514,6 +537,68 @@ const PROTOCOLS = {
 function addDays(iso, n){
   const d = new Date(iso+'T00:00:00'); d.setDate(d.getDate()+n);
   return d.toISOString().slice(0,10);
+}
+
+// ═══ PROTEÇÃO DE DADOS: persistência + snapshots + resgate ═══
+async function initDataProtection(){
+  // 1) Pede ao navegador para NUNCA apagar os dados automaticamente (pressão de armazenamento)
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      window._persistOK = await navigator.storage.persisted() || await navigator.storage.persist();
+    }
+  }catch(e){ window._persistOK = false; }
+  // 2) Snapshot automático diário (mantém os últimos 10)
+  try{ await dailySnapshot(); }catch(e){ console.warn('snap', e); }
+  // 3) Estado corrompido resgatado?
+  if(window._RESCUE){
+    setTimeout(()=>{
+      alert('⚠ Os dados salvos não puderam ser lidos e foram preservados num arquivo de resgate.\n\nVá em Ajustes → Proteção de Dados para baixar o resgate ou restaurar um ponto automático.');
+    }, 800);
+  }
+}
+async function dailySnapshot(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw || raw.length < 60) return; // nada relevante para proteger
+  const today = todayISO();
+  const keys = await listSnapshots();
+  if(keys.includes(today)) return;
+  await idbStore('snap', 'readwrite', s => s.put(raw, today));
+  const all = (await listSnapshots()).sort();
+  while(all.length > 10){ const k = all.shift(); await idbStore('snap','readwrite', s => s.delete(k)); }
+  window._snapList = await listSnapshots();
+}
+function listSnapshots(){
+  return idbStore('snap', 'readonly', s => s.getAllKeys()).catch(()=>[]);
+}
+async function makeSnapshotNow(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw){ toast('⚠ Nada para salvar ainda'); return; }
+  await idbStore('snap','readwrite', s => s.put(raw, todayISO()+' '+new Date().toTimeString().slice(0,5)));
+  window._snapList = await listSnapshots();
+  render(); toast('📸 Ponto de restauração criado!');
+}
+async function restoreSnapshot(key){
+  if(!confirm(`Restaurar os dados do ponto "${key}"?\n\nO estado ATUAL será guardado antes, por segurança.`)) return;
+  const cur = localStorage.getItem(LS_KEY);
+  if(cur) await idbStore('snap','readwrite', s => s.put(cur, 'antes-restaurar '+new Date().toTimeString().slice(0,5)));
+  const snap = await idbStore('snap','readonly', s => s.get(key));
+  if(!snap){ toast('⚠ Ponto não encontrado'); return; }
+  localStorage.setItem(LS_KEY, snap);
+  toast('↩ Restaurado! Recarregando…');
+  setTimeout(()=>location.reload(), 900);
+}
+function downloadRescue(){
+  const raw = localStorage.getItem('vetflowcare_rescue');
+  if(!raw){ toast('Nenhum arquivo de resgate'); return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([raw], {type:'application/json'}));
+  a.download = 'vetflowcare_resgate.json';
+  a.click();
+}
+function daysSinceBackup(){
+  const d = localStorage.getItem('vfc_last_backup');
+  if(!d) return 9999;
+  return Math.floor((new Date(todayISO()) - new Date(d)) / 86400000);
 }
 
 // ═══ SEGURANÇA: LOGIN + CRIPTOGRAFIA AES-256 ═══
@@ -1264,6 +1349,14 @@ function renderHome(){
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
 
+  if(DB.pets.length && daysSinceBackup() > 7 && localStorage.getItem('vfc_bk_snooze') !== todayISO()){
+    h += `<div class="card" style="border-color:var(--warning);display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 14px">
+      <span style="font-size:20px">🛡️</span>
+      <div style="flex:1;font-size:12px"><b>Proteja seu trabalho!</b><br>
+      <span style="color:var(--muted)">${daysSinceBackup()>999?'Você ainda não fez nenhum backup.':'Último backup há '+daysSinceBackup()+' dias.'}</span></div>
+      <button class="btn sm" onclick="exportJSON()">💾 Backup</button>
+      <button style="background:none;color:var(--muted)" onclick="localStorage.setItem('vfc_bk_snooze','${todayISO()}');render()">✕</button></div>`;
+  }
   const _recLate = allReceivables().some(r=>r.status==='pendente' && daysUntil(r.due)<0);
   h += `<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer;margin-bottom:16px;padding:13px 16px" onclick="goFinance()">
     <span style="font-size:19px">💰</span>
@@ -2133,6 +2226,34 @@ function renderSettings(){
   <div class="sec"><div class="sec-h"><span>❓ Ajuda</span></div>
     <div class="card"><button class="btn outline" onclick="openTutorial(0)">📖 Ver Tutorial do App</button></div></div>
 
+  <div class="sec"><div class="sec-h"><span>🛡️ Proteção de Dados</span></div>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <span>${window._persistOK ? '✅' : '⚠️'}</span>
+        <div style="flex:1"><b>${window._persistOK ? 'Armazenamento protegido' : 'Proteção não confirmada'}</b>
+        <div style="font-size:11px;color:var(--muted)">${window._persistOK
+          ? 'O navegador não apagará os dados automaticamente por falta de espaço.'
+          : 'Instale o app na tela inicial e use-o com frequência para o navegador garantir os dados.'}</div></div></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px">
+        <span>${daysSinceBackup()<=7?'✅':'⚠️'}</span>
+        <div style="flex:1"><b>Backup manual</b>
+        <div style="font-size:11px;color:var(--muted)">${daysSinceBackup()>999?'Nunca feito — faça o primeiro!':'Último: há '+daysSinceBackup()+' dia(s)'}</div></div>
+        <button class="btn sm" onclick="exportJSON()">💾 Agora</button></div>
+      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+        <b style="font-size:12px">📸 Pontos de restauração automáticos</b>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">O app guarda sozinho os últimos 10 dias no aparelho. Se algo sumir, restaure aqui:</div>
+        ${(window._snapList||[]).slice().reverse().slice(0,5).map(k=>
+          `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
+            <span style="flex:1">📅 ${k}</span>
+            <button class="btn sm outline" onclick="restoreSnapshot('${k}')">↩ Restaurar</button></div>`).join('') || '<div style="font-size:12px;color:var(--muted)">Nenhum ponto ainda — será criado automaticamente.</div>'}
+        <button class="btn sm outline" style="margin-top:8px" onclick="makeSnapshotNow()">📸 Criar ponto agora</button>
+      </div>
+      ${localStorage.getItem('vetflowcare_rescue')?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+        <b style="font-size:12px;color:var(--danger)">🚑 Arquivo de resgate encontrado</b>
+        <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Dados que não puderam ser lidos foram preservados. Baixe e envie ao suporte.</div>
+        <button class="btn sm outline" onclick="downloadRescue()">⬇️ Baixar resgate</button></div>`:''}
+    </div></div>
+
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <button class="btn outline" onclick="exportJSON()">💾 Fazer Backup Completo</button>
@@ -2150,9 +2271,14 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.3 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v8.2:</b><br>
+      <b>Novidades da v8.3:</b><br>
+      • 🛡️ Armazenamento persistente: navegador não apaga mais os dados por falta de espaço<br>
+      • 📸 Pontos de restauração automáticos diários (últimos 10) com restauração em 1 toque<br>
+      • 🚑 Dados ilegíveis nunca são descartados — viram arquivo de resgate<br>
+      • 💾 Lembrete de backup na tela inicial após 7 dias<br>
+      <br><b>Da v8.2:</b><br>
       • Atendimento com itens discriminados (consulta, vacina, exame…) — total soma automático<br>
       • Itens e status de pagamento visíveis no card do atendimento<br>
       • Datas das parcelas e do vencimento digitáveis (DD/MM/AAAA)<br>
@@ -2284,6 +2410,7 @@ function exportTutoresTXT(){
 }
 
 function exportJSON(){
+  localStorage.setItem('vfc_last_backup', todayISO());
   if(getAuth() && !confirm('O backup JSON é exportado SEM criptografia (para poder ser importado depois). Guarde o arquivo em local seguro. Continuar?')) return;
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   const a = document.createElement('a');
@@ -3114,6 +3241,7 @@ function bootApp(){
   applyDark();
   scheduleLocalCheck();
   migrateDocsToIDB();
+  initDataProtection();
   if(localStorage.getItem('vfc_entered')){
     document.getElementById('splash').classList.add('hidden');
     document.getElementById('appHeader').classList.remove('hidden');
