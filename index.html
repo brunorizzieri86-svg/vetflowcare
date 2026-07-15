@@ -120,6 +120,13 @@ main{padding:16px}
 .subtabs{display:flex;gap:6px;margin-bottom:14px}
 .subtabs .chip{flex:1;text-align:center;padding:9px 0;font-size:13px}
 .wa-btn{width:38px;height:38px;border-radius:50%;background:#25D366;color:#fff;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.hbtn{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.35);color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);transition:transform .12s}
+.hbtn:active{transform:scale(.9);background:rgba(255,255,255,.32)}
+.hbtn.hdanger{background:rgba(224,82,82,.3);border-color:rgba(255,160,160,.5)}
+.fab{position:fixed;left:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;background:var(--primary);color:#fff;font-size:30px;font-weight:300;box-shadow:0 10px 26px rgba(45,192,174,.5);z-index:60;display:flex;align-items:center;justify-content:center;border:none}
+.pwwrap{position:relative}
+.pwwrap input{padding-right:46px;width:100%;box-sizing:border-box}
+.pwwrap .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;font-size:18px;padding:6px}
 .dcells{display:flex;gap:16px;flex-wrap:wrap;margin-top:8px}
 .dc .l{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase}
 .dc .v{font-size:12px;font-weight:700;margin-top:1px}
@@ -258,6 +265,11 @@ let showFinance = false;
 let finFilter = 'todos';
 let finView = 'rec';
 let finPeriod = 'm';
+let petSort = 'az';
+let petSpec = 'all';
+let finQ = '';
+let finExpM = 0;
+let finExpCat = 'all';
 let deferredPrompt = null;
 
 function defaultDB(){
@@ -603,6 +615,15 @@ function daysSinceBackup(){
 }
 
 // ═══ SEGURANÇA: LOGIN + CRIPTOGRAFIA AES-256 ═══
+function togglePw(id, btn){
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁' : '🙈';
+}
+function pwInput(id, ph){
+  return `<div class="pwwrap"><input id="${id}" type="password" placeholder="${ph||''}" autocomplete="new-password">
+    <button type="button" class="eye" onclick="togglePw('${id}',this)">👁</button></div>`;
+}
 function getAuth(){ try{ return JSON.parse(localStorage.getItem(LS_AUTH)||'null'); }catch(e){ return null; } }
 async function deriveKey(pass, saltU8){
   const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
@@ -644,9 +665,12 @@ function showLockScreen(){
     <div style="color:rgba(255,255,255,.5);font-size:10px;letter-spacing:2.5px;font-weight:600;margin-top:8px">ORGANIZA · CONECTA · CUIDA</div>
     <div style="color:#fff;font-size:17px;font-weight:800;margin-top:22px">🔐 Entrar</div>
     <div style="color:rgba(255,255,255,.65);font-size:13px;margin-top:6px">${esc(auth?.email||'')}</div>
-    <input id="lockPass" type="password" placeholder="Digite sua senha" autocomplete="current-password"
-      style="margin-top:22px;max-width:320px;text-align:center;font-size:17px;padding:14px;border-radius:14px;border:none"
-      onkeydown="if(event.key==='Enter')unlockApp()">
+    <div style="position:relative;width:100%;max-width:320px;margin-top:22px">
+      <input id="lockPass" type="password" placeholder="Digite sua senha" autocomplete="current-password"
+        style="width:100%;box-sizing:border-box;text-align:center;font-size:17px;padding:14px 46px 14px 46px;border-radius:14px;border:none"
+        onkeydown="if(event.key==='Enter')unlockApp()">
+      <button type="button" onclick="togglePw('lockPass',this)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;font-size:18px">👁</button>
+    </div>
     <button onclick="unlockApp()" style="margin-top:12px;width:100%;max-width:320px;background:#2DC0AE;color:#fff;padding:15px;border-radius:24px;font-size:16px;font-weight:800;border:none">Entrar</button>
     <div id="lockErr" style="color:#FF8C69;font-size:13px;margin-top:12px;font-weight:700"></div>
     <button onclick="lockForgot()" style="margin-top:20px;background:none;color:rgba(255,255,255,.55);font-size:12px;border:none;text-decoration:underline">Esqueci minha senha</button>`;
@@ -686,8 +710,8 @@ function openSecuritySetup(){
     <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac)">
       Seus dados (tutores, CPFs, telefones, prontuários) passam a ser gravados com <b>criptografia AES-256</b>. A senha será pedida ao abrir o app.</div>
     <label>E-mail *</label><input id="secEmail" type="email" value="${esc(DB.vet.email||'')}" placeholder="seu@email.com">
-    <label>Senha * (mínimo 6 caracteres)</label><input id="secPass" type="password" autocomplete="new-password">
-    <label>Confirmar senha *</label><input id="secPass2" type="password" autocomplete="new-password">
+    <label>Senha * (mínimo 6 caracteres)</label>${pwInput('secPass')}
+    <label>Confirmar senha *</label>${pwInput('secPass2')}
     <div style="background:rgba(224,82,82,.08);border:1.5px solid var(--danger);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:12px">
       ⚠ <b>Importante:</b> se esquecer a senha, os dados não podem ser recuperados. Faça backups (Ajustes → Exportar JSON) regularmente!</div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
@@ -734,9 +758,9 @@ function openRegisterGate(){
     <label>E-mail *</label>
     <input id="secEmail" type="email" placeholder="seu@email.com" autocomplete="email">
     <label>Senha * (mínimo 6 caracteres)</label>
-    <input id="secPass" type="password" autocomplete="new-password">
+    ${pwInput('secPass')}
     <label>Confirmar senha *</label>
-    <input id="secPass2" type="password" autocomplete="new-password">
+    ${pwInput('secPass2')}
     <div style="background:rgba(224,82,82,.08);border:1.5px solid var(--danger);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--danger);margin-top:12px">
       ⚠ <b>Guarde bem sua senha!</b> Se esquecê-la, os dados criptografados não podem ser recuperados. Faça backups regularmente em Ajustes → Exportar JSON.</div>`,
     `<button class="btn gray" onclick="closeSheet()">‹ Voltar</button>
@@ -752,9 +776,9 @@ async function doRegisterEntry(){
 }
 function openChangePass(){
   showSheet('🔑 Alterar Senha', `
-    <label>Senha atual *</label><input id="cpOld" type="password">
-    <label>Nova senha * (mín. 6)</label><input id="cpNew" type="password">
-    <label>Confirmar nova senha *</label><input id="cpNew2" type="password">`,
+    <label>Senha atual *</label>${pwInput('cpOld')}
+    <label>Nova senha * (mín. 6)</label>${pwInput('cpNew')}
+    <label>Confirmar nova senha *</label>${pwInput('cpNew2')}`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="doChangePass()">💾 Alterar</button>`);
 }
@@ -838,7 +862,9 @@ function renderFinance(){
     ['pagos','✅ Pagos', r=>r.status==='pago']
   ];
   const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
-  const list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  let list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  if(finQ) list = list.filter(r =>
+    r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
 
   let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <button class="btn sm gray" onclick="showFinance=false;render()">‹</button>
@@ -852,6 +878,9 @@ function renderFinance(){
   </div>`;
   if(finView === 'desp') return h + renderExpenses();
   if(finView === 'fluxo') return h + renderFluxo();
+  h += `<input placeholder="🔍 Buscar por paciente ou descrição…" value="${esc(finQ)}" style="margin-bottom:12px"
+    oninput="finQ=this.value.toLowerCase();document.getElementById('mainContent').innerHTML=renderFinance();
+    const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)">`;
   // Lembretes de vencimento (2-3 dias antes)
   DB.settings.payRem = DB.settings.payRem !== false;
   const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
@@ -915,12 +944,34 @@ function renderFinance(){
           ? `<button class="btn sm gray" onclick="undoPaid('${r.kind}','${r.id}')">↩ Desfazer</button>`
           : `<button class="btn sm success" onclick="markPaid('${r.kind}','${r.id}')">✓ Recebido</button>
              <button class="btn sm" style="background:${isPro()?'#25D366':'var(--border)'};color:${isPro()?'#fff':'var(--muted)'}" onclick="cobrarWhats('${r.kind}','${r.id}')">💬 Cobrar${isPro()?'':' 🔒'}</button>`}
-        ${r.kind==='avulso'?`<button class="btn sm dangero" onclick="delChargeItem('${r.id}')">🗑</button>`:''}
+        ${!pago?`<button class="btn sm gray" onclick="openDueEdit('${r.kind}','${r.id}')">📅 Vencimento</button>`:''}
+        ${r.kind==='avulso'?`<button class="btn sm outline" onclick="openChargeForm('${r.id}')">✏️</button>
+          <button class="btn sm dangero" onclick="delChargeItem('${r.id}')">🗑</button>`:''}
       </div></div>`;
   });
   return h;
 }
 
+function openDueEdit(kind, id){
+  const list = allReceivables();
+  const r = list.find(x=>x.kind===kind && x.id===id); if(!r) return;
+  showSheet('📅 Alterar Vencimento', `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:8px">${r.emo} ${esc(r.petName)} · ${esc(r.desc)} · <b>${fmtBRL(r.valor)}</b></div>
+    <label>Novo vencimento *</label>
+    <input id="fDueNew" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+      value="${fmtDate(r.due)}" oninput="maskDate(this)">`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="saveDueEdit('${kind}','${id}')">💾 Salvar</button>`);
+}
+function saveDueEdit(kind, id){
+  const d = parseBRDate(val('fDueNew'));
+  if(!d){ toast('⚠ Data inválida — use DD/MM/AAAA'); return; }
+  const r = findRec(kind, id); if(!r) return;
+  if(r.__parc) r.p.due = d;
+  else if(kind==='avulso') r.due = d;
+  else r.payDue = d;
+  save(); closeSheet(); render(); toast('📅 Vencimento atualizado!');
+}
 function findRec(kind, id){
   if(kind==='avulso') return DB.charges.find(c=>c.id===id);
   if(kind==='parc'){
@@ -984,37 +1035,73 @@ function renderExpenses(){
   if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O controle de despesas é um recurso Pro.')">
     <div style="font-size:14px">🔒 <b>Controle de Despesas</b></div>
     <div style="font-size:12px;color:var(--muted);margin-top:4px">Registre gastos com materiais, medicamentos, transporte etc. e acompanhe o saldo real no fluxo mensal — disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
-  const ym = todayISO().slice(0,7);
-  const mes = DB.expenses.filter(e=>(e.date||'').startsWith(ym)).reduce((s,e)=>s+e.valor,0);
-  let h = `<div class="card" style="text-align:center;margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Despesas de ${MONTHS[new Date().getMonth()]}</div>
-    <div style="font-size:19px;font-weight:900;color:var(--danger)">${fmtBRL(mes)}</div></div>`;
-  const list = [...DB.expenses].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  if(!list.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa registrada<br><small>Toque em "➕ Despesa"</small></div>`;
-  list.forEach(e => {
+  const now = new Date();
+  const md = new Date(now.getFullYear(), now.getMonth() + finExpM, 1);
+  const ym = md.toISOString().slice(0,7);
+  let mes = DB.expenses.filter(e => (e.date||'').startsWith(ym));
+  const totMes = mes.reduce((s,e)=>s+e.valor,0);
+  // Totais por categoria (do mês)
+  const byCat = {};
+  mes.forEach(e => { byCat[e.cat||'Outros'] = (byCat[e.cat||'Outros']||0) + e.valor; });
+  const maxCat = Math.max(1, ...Object.values(byCat));
+  if(finExpCat !== 'all') mes = mes.filter(e => (e.cat||'Outros') === finExpCat);
+
+  let h = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <button class="btn sm gray" onclick="finExpM--;render()">‹</button>
+    <b style="flex:1;text-align:center;font-size:15px">${MONTHS[md.getMonth()]} ${md.getFullYear()}</b>
+    <button class="btn sm gray" ${finExpM>=0?'disabled style="opacity:.4"':''} onclick="finExpM++;render()">›</button></div>
+
+  <div class="card" style="margin-bottom:12px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Total de despesas</div>
+      <b style="font-size:18px;color:var(--danger)">${fmtBRL(totMes)}</b></div>
+    ${Object.keys(byCat).length ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
+        <div style="margin-top:6px">
+          <div style="display:flex;justify-content:space-between;font-size:11px"><span>${c}</span><b>${fmtBRL(v)}</b></div>
+          <div style="height:7px;background:var(--bg);border-radius:4px;margin-top:3px">
+            <div style="height:100%;width:${Math.round(v/maxCat*100)}%;background:var(--danger);border-radius:4px;opacity:.75"></div></div>
+        </div>`).join('')}</div>` : ''}
+  </div>
+
+  <div class="chips" style="margin-bottom:10px">
+    <button class="chip ${finExpCat==='all'?'on':''}" onclick="finExpCat='all';render()">Todas</button>
+    ${EXP_CATS.map(c=>`<button class="chip ${finExpCat===c?'on':''}" onclick="finExpCat='${c}';render()">${c}</button>`).join('')}
+  </div>`;
+
+  if(!mes.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa ${finExpCat!=='all'?'nesta categoria':'neste mês'}<br><small>Toque em "➕ Despesa"</small></div>`;
+  [...mes].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(e => {
     h += `<div class="card" style="display:flex;align-items:center;gap:10px">
       <div style="flex:1;min-width:0"><b style="font-size:14px">${esc(e.desc)}</b>
       <div style="font-size:11px;color:var(--muted)">${esc(e.cat||'Outros')} · ${fmtDate(e.date)}</div></div>
       <b style="color:var(--danger);white-space:nowrap">- ${fmtBRL(e.valor)}</b>
+      <button style="background:none;font-size:14px" onclick="openExpenseForm('${e.id}')">✏️</button>
       <button style="background:none;color:var(--muted)" onclick="delExpense('${e.id}')">🗑</button></div>`;
   });
   return h;
 }
-function openExpenseForm(){
-  showSheet('🧾 Nova Despesa', `
-    <label>Descrição *</label><input id="fEDesc" placeholder="Ex: Seringas e agulhas · Combustível">
-    <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
-    <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal">
-    <label>Data</label><input id="fEDate" type="date" value="${todayISO()}">`,
+function openExpenseForm(editId){
+  const ex = editId ? DB.expenses.find(x=>x.id===editId) : null;
+  showSheet(ex ? '✏️ Editar Despesa' : '🧾 Nova Despesa', `
+    <label>Descrição *</label><input id="fEDesc" value="${esc(ex?.desc||'')}" placeholder="Ex: Seringas e agulhas · Combustível">
+    <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option ${ex?.cat===c?'selected':''}>${c}</option>`).join('')}</select>
+    <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal" value="${ex?ex.valor:''}">
+    <label>Data</label><input id="fEDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+      value="${fmtDate(ex?.date||todayISO())}" oninput="maskDate(this)">`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
-     <button class="btn" onclick="saveExpense()">💾 Salvar</button>`);
+     <button class="btn" onclick="saveExpense('${editId||''}')">💾 Salvar</button>`);
 }
-function saveExpense(){
+function saveExpense(editId){
   const desc = val('fEDesc'), valor = parseFloat(val('fEValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
-  DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value,
-    valor, date:val('fEDate')||todayISO()});
-  save(); closeSheet(); render(); toast('🧾 Despesa registrada!');
+  const date = parseBRDate(val('fEDate')) || todayISO();
+  if(editId){
+    Object.assign(DB.expenses.find(x=>x.id===editId),
+      {desc, cat:document.getElementById('fECat').value, valor, date});
+  } else {
+    DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value, valor, date});
+  }
+  save(); closeSheet(); render(); toast(editId?'✏️ Despesa atualizada!':'🧾 Despesa registrada!');
 }
 function delExpense(id){
   if(!confirm('Remover esta despesa?')) return;
@@ -1022,7 +1109,7 @@ function delExpense(id){
   save(); render(); toast('Despesa removida');
 }
 
-// ═══ FLUXO MENSAL (Pro) ═══
+// ═══ FLUXO MENSAL (Pro) ═══// ═══ FLUXO MENSAL (Pro) ═══
 function fluxoBuckets(){
   const now = new Date();
   const mk = (label, months) => ({label, months});
@@ -1073,7 +1160,40 @@ function renderFluxo(){
   let h = `<div class="chips" style="margin-bottom:10px">${pers.map(([k,l])=>
     `<button class="chip ${finPeriod===k?'on':''}" onclick="finPeriod='${k}';render()">${l}</button>`).join('')}
     <button class="chip" onclick="printFluxo()">📄 PDF</button></div>`;
-  fluxoRows().forEach(r => {
+  const rows = fluxoRows();
+  // Resumo do período
+  const tR = rows.reduce((s,r)=>s+r.receb,0), tP = rows.reduce((s,r)=>s+r.prev,0),
+        tD = rows.reduce((s,r)=>s+r.desp,0), tS = tR - tD;
+  h += `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Resumo do período</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px">
+      <span class="st ok">✓ Recebido ${fmtBRL(tR)}</span>
+      <span class="st prog">📅 A receber ${fmtBRL(tP)}</span>
+      <span class="st bad">🧾 Despesas ${fmtBRL(tD)}</span></div>
+    <div style="margin-top:8px;font-size:15px">Saldo do período: <b style="color:${tS>=0?'var(--success)':'var(--danger)'}">${fmtBRL(tS)}</b></div></div>`;
+  // Gráfico de barras: recebido × despesas por período
+  const maxV = Math.max(1, ...rows.map(r=>Math.max(r.receb, r.desp, r.prev)));
+  const chartRows = [...rows].reverse();
+  h += `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">📊 Evolução</div>
+    ${chartRows.map(r=>`<div style="margin-top:8px">
+      <div style="font-size:11px;font-weight:700;margin-bottom:3px">${r.label}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.receb/maxV*100)}%;background:var(--success);border-radius:5px"></div></div>
+        <span style="font-size:10px;color:var(--success);min-width:70px;text-align:right">${fmtBRL(r.receb)}</span></div>
+      ${r.prev?`<div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.prev/maxV*100)}%;background:var(--vac);border-radius:5px;opacity:.7"></div></div>
+        <span style="font-size:10px;color:var(--vac);min-width:70px;text-align:right">${fmtBRL(r.prev)}</span></div>`:''}
+      ${r.desp?`<div style="display:flex;align-items:center;gap:6px;margin-top:2px">
+        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.desp/maxV*100)}%;background:var(--danger);border-radius:5px;opacity:.75"></div></div>
+        <span style="font-size:10px;color:var(--danger);min-width:70px;text-align:right">${fmtBRL(r.desp)}</span></div>`:''}
+    </div>`).join('')}
+    <div style="display:flex;gap:10px;margin-top:10px;font-size:10px;color:var(--muted)">
+      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--success)"></i> Recebido</span>
+      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--vac)"></i> A receber</span>
+      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--danger)"></i> Despesas</span></div>
+  </div>`;
+  rows.forEach(r => {
     h += `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b style="font-size:14px">${r.label}</b>
@@ -1105,33 +1225,45 @@ function printFluxo(){
 }
 
 // Cobrança avulsa (venda, banho, medicamento…)// Cobrança avulsa (venda, banho, medicamento…)
-function openChargeForm(){
+function openChargeForm(editId){
   if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); return; }
-  showSheet('➕ Nova Cobrança', `
+  const c = editId ? DB.charges.find(x=>x.id===editId) : null;
+  const CATS = ['Consulta','Vacina','Exame','Medicamento','Banho e tosa','Produto','Outros'];
+  showSheet(c ? '✏️ Editar Cobrança' : '➕ Nova Cobrança', `
     <label>Paciente *</label>
-    <select id="fCPet">${DB.pets.map(p=>`<option value="${p.id}">${petEmoji(p)} ${esc(p.name)}${tutorName(p)?' — '+esc(tutorName(p)):''}</option>`).join('')}</select>
+    <select id="fCPet">${DB.pets.map(p=>`<option value="${p.id}" ${c?.petId===p.id?'selected':''}>${petEmoji(p)} ${esc(p.name)}${tutorName(p)?' — '+esc(tutorName(p)):''}</option>`).join('')}</select>
+    <label>Categoria rápida</label>
+    <div class="chips">${CATS.map(k=>`<button class="chip" onclick="const d=document.getElementById('fCDesc');d.value=d.value?d.value+' · '+'${k}':'${k}'">${k}</button>`).join('')}</div>
     <label>Descrição *</label>
-    <input id="fCDesc" placeholder="Ex: Venda de vermífugo · Banho e tosa">
+    <input id="fCDesc" value="${esc(c?.desc||'')}" placeholder="Ex: Venda de vermífugo · Banho e tosa">
     <label>Valor (R$) *</label>
-    <input id="fCValor" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 80.00">
+    <input id="fCValor" type="number" step="0.01" inputmode="decimal" value="${c?c.valor:''}" placeholder="Ex: 80.00">
     <label>Situação</label>
     <div class="chips" id="fCPay">
-      <button class="chip" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">✓ Pago</button>
-      <button class="chip on" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">📅 A receber</button>
+      <button class="chip ${c?.status==='pago'?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on')">✓ Pago</button>
+      <button class="chip ${(!c||c.status==='pendente')?'on':''}" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on')">📅 A receber</button>
     </div>
     <label>Vencimento</label>
-    <input id="fCDue" type="date" value="${todayISO()}">`,
+    <input id="fCDue" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+      value="${fmtDate(c?.due||todayISO())}" oninput="maskDate(this)">`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
-     <button class="btn" onclick="saveCharge()">💾 Salvar</button>`);
+     <button class="btn" onclick="saveCharge('${editId||''}')">💾 Salvar</button>`);
 }
-function saveCharge(){
+function saveCharge(editId){
   const desc = val('fCDesc'), valor = parseFloat(val('fCValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
+  const due = parseBRDate(val('fCDue')) || todayISO();
   const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
-  DB.charges.push({id:uid(), petId:document.getElementById('fCPet').value,
-    desc, valor, due:val('fCDue')||todayISO(), status,
-    paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
-  save(); closeSheet(); render(); toast('💰 Cobrança registrada!');
+  if(editId){
+    const c = DB.charges.find(x=>x.id===editId);
+    Object.assign(c, {petId:document.getElementById('fCPet').value, desc, valor, due, status,
+      paidAt: status==='pago' ? (c.paidAt||todayISO()) : null});
+  } else {
+    DB.charges.push({id:uid(), petId:document.getElementById('fCPet').value,
+      desc, valor, due, status,
+      paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
+  }
+  save(); closeSheet(); render(); toast(editId?'✏️ Cobrança atualizada!':'💰 Cobrança registrada!');
 }
 
 // ═══ LICENCIAMENTO FREE / PRO ═══
@@ -1294,26 +1426,97 @@ function saveVetSetup(){
 // ═══ TUTORIAL GUIADO ═══
 const TUT_STEPS = [
   {emo:'🐾', title:'Bem-vindo(a) ao VetFlowCare!',
-   body:`Sua clínica no bolso: <b>Organiza · Conecta · Cuida</b>.<br><br>
-   Funciona <b>offline</b>, instala na tela inicial e seus dados ficam <b>no seu aparelho</b>.<br><br>
-   Um tour de 1 minuto e você já sai usando. 😉`},
-  {emo:'🏠', title:'Seu dia em um relance',
-   body:`Na aba <b>Início</b>: quem precisa de vacina, medicações para dar agora, pagamentos a receber e alertas de atraso.<br><br>Nada passa despercebido.`},
-  {emo:'👤', title:'Tutores e Animais conectados',
-   body:`Cadastre o <b>tutor</b> uma vez — telefone com WhatsApp, CPF e endereço entram sozinhos em receitas e termos.<br><br>Os animais dele ficam vinculados, a um toque da ficha.`,
-   action:{label:'🐾 Cadastrar meu primeiro paciente', fn:'startFirstPatient()'}},
-  {emo:'💉', title:'Vacinas que se agendam sozinhas',
-   body:`Escolha o protocolo (anual, primo 21d, Librela 45d, Cytopoint 60d) e o app calcula a próxima dose.<br><br>Aplicou? Um toque em <b>✓ Aplicar</b> e a seguinte já entra na agenda.`},
-  {emo:'📋', title:'Prontuário, receitas e termos',
-   body:`Atendimentos em linha do tempo, receituário timbrado (Simples ou Controle Especial) e termos prontos para imprimir — tudo com seu logo e assinatura.`},
-  {emo:'⚙️', title:'Deixe com a sua cara',
-   body:`Em <b>Ajustes</b>: seus dados (CRMV, logo, assinatura), backup, senha com criptografia e o <b>✨ Pro</b>.<br><br>Reveja este tour em Ajustes → Ajuda. Bom trabalho! 🐾`}
+   body:`Sua clínica completa no bolso: <b>Organiza · Conecta · Cuida</b>.<br><br>
+   ✅ Funciona <b>offline</b> — os dados ficam no seu aparelho<br>
+   ✅ <b>Instale na tela inicial</b>: menu do navegador → "Adicionar à tela inicial"<br>
+   ✅ Proteja tudo com <b>senha criptografada</b> e <b>backups</b><br><br>
+   Este guia mostra <b>cada módulo</b> do sistema. Pode pular e rever quando quiser em <b>Ajustes → Ajuda</b>.`},
+  {emo:'🏠', title:'Início — seu painel do dia',
+   body:`Ao abrir, você vê tudo que importa <b>hoje</b>:<br><br>
+   • <b>Índice de saúde</b>: anel com a média dos pacientes<br>
+   • <b>📅 Próximos 7 dias</b>: vacinas, atendimentos e pagamentos chegando<br>
+   • <b>💊 Medicações de Hoje</b>: toque em <b>"Dado"</b> após administrar — evita dose dupla<br>
+   • <b>Banner vermelho</b> = algo vencido; toque para resolver<br>
+   • <b>💰 Financeiro</b>: acesso discreto ao módulo completo`},
+  {emo:'👤', title:'Tutores — cadastre primeiro o responsável',
+   body:`Em <b>Pacientes → aba Tutores</b>:<br><br>
+   • Digite o <b>CEP</b> e o endereço preenche sozinho<br>
+   • O telefone vira botão do <b>WhatsApp</b> no perfil<br>
+   • O perfil tem abas <b>Responsável / Animais</b> — e "Adicionar animal" já vinculado<br>
+   • Anexe a <b>ficha de cadastro</b> em papel (foto ou PDF)<br><br>
+   Os dados do tutor entram sozinhos em receitas e termos!`,
+   action:{label:'👤 Cadastrar meu primeiro tutor', fn:'startFirstPatient()'}},
+  {emo:'🐕', title:'Animais — a ficha de cada paciente',
+   body:`Em <b>Pacientes → aba Animais</b> (ou pelo botão <b>➕</b> fixo):<br><br>
+   • Cadastro com espécie, raça, sexo, fertilidade e peso<br>
+   • <b>Nascimento é opcional</b> — digite DD/MM/AAAA se souber<br>
+   • Foto pela <b>📷 câmera</b> ou galeria<br>
+   • Use os <b>filtros</b>: A-Z, ❤️ Saúde (piores primeiro), espécie ou tutor<br>
+   • A busca encontra por nome, raça <b>ou tutor</b>`},
+  {emo:'💉', title:'Vacinas — protocolos automáticos',
+   body:`Na ficha do animal → <b>Saúde</b>:<br><br>
+   • Registre a vacina escolhendo o <b>protocolo</b>: Anual, Primovacinação (21d), Librela (45d) ou Cytopoint (60d)<br>
+   • O app <b>calcula a próxima dose</b> e cria a "Programada" com alertas<br>
+   • Ao aplicar: toque <b>✓ Aplicar</b>, informe <b>data e lote</b> — a seguinte entra sozinha<br>
+   • Primovacinação vira reforço anual após a 2ª dose, automaticamente`},
+  {emo:'🩺', title:'Atendimentos — prontuário e valores',
+   body:`Ainda em <b>Saúde</b>, a linha do tempo de atendimentos:<br><br>
+   • Tipo, resumo, prontuário completo e <b>retorno automático</b> na agenda<br>
+   • <b>💰 Itens do atendimento</b>: consulta, vacina, exame… cada um com valor — o total soma sozinho<br>
+   • <b>Parcele em até 5x</b>: valores e vencimentos individuais<br>
+   • Imprima o prontuário timbrado quando precisar`},
+  {emo:'📝', title:'Receituário — dois modelos + assinatura',
+   body:`Na aba <b>Receita</b> do animal:<br><br>
+   • <b>Receita Simples</b>: tutor/animal no topo, seus dados (CRMV, MAPA) no rodapé<br>
+   • <b>Controle Especial</b>: 2 vias com campos de comprador/fornecedor (Pro)<br>
+   • Assinatura em <b>imagem</b> (carimbo) ou <b>digital ICP-Brasil</b> — guia dentro do app<br>
+   • Imprimir → <b>"Salvar como PDF"</b> → enviar no WhatsApp`},
+  {emo:'📄', title:'Termos — documentos em segundos',
+   body:`Na aba <b>Termos</b>, 4 documentos que se preenchem sozinhos:<br><br>
+   • <b>Atestado Sanitário</b> (viagem) — puxa a antirrábica da carteirinha!<br>
+   • <b>Consentimento Anestésico</b> e <b>Cirúrgico</b><br>
+   • <b>Recusa de Tratamento</b><br><br>
+   Selecione o tutor, confira veterinário/CRMV e gere o PDF timbrado com logo e assinatura.`},
+  {emo:'📎', title:'Arquivos — exames e exportação',
+   body:`Na aba <b>Arquivos</b>:<br><br>
+   • Envie exames por <b>📷 foto, galeria ou PDF</b> (até 20MB cada)<br>
+   • Os dados do tutor ficam visíveis com edição rápida<br>
+   • <b>Exportar Ficha (PDF)</b>: escolha as seções — ex: só a <b>carteira de vacinação</b> para viagem`},
+  {emo:'📤', title:'Compartilhar Ficha — no topo do paciente',
+   body:`Os 3 botões redondos no alto da ficha:<br><br>
+   • <b>✏️ Editar</b>: altera os dados do paciente<br>
+   • <b>📤 Compartilhar</b>: envia o resumo do animal por <b>WhatsApp</b>, <b>Copiar</b> (cola em qualquer lugar), <b>E-mail</b> ou <b>Nativo</b> (menu de apps do celular) — e o botão <b>Exportar/Imprimir Ficha (PDF)</b> gera o documento timbrado escolhendo as seções<br>
+   • <b>🗑️ Excluir</b>: remove o paciente (pede confirmação)`},
+  {emo:'📅', title:'Agenda e Alertas',
+   body:`<b>📅 Agenda</b>: calendário com pontinhos coloridos por dia (vermelho = vencido). Toque no dia → <b>"➕ Novo Atendimento"</b> já com a data.<br><br>
+   <b>🔔 Alertas</b>: tudo que vence — vacinas, medicações, atendimentos e <b>pagamentos</b> — avisado com 7, 3 e 1 dia de antecedência (você configura).`},
+  {emo:'💰', title:'Financeiro — controle total',
+   body:`Pelo botão no Início:<br><br>
+   • <b>A Receber</b>: filtros (atrasados/hoje/próximos), busca, alterar vencimento e <b>💬 Cobrar no WhatsApp</b> com mensagem pronta (Pro)<br>
+   • <b>🔔 Lembrete</b> automático 3 dias antes do vencimento<br>
+   • <b>Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
+   • <b>Fluxo</b>: gráfico de evolução mensal/trimestral/anual + relatório em <b>PDF</b> (Pro)`},
+  {emo:'🔐', title:'Segurança e Backup — não perca nada!',
+   body:`Em <b>Ajustes</b>:<br><br>
+   • <b>Crie login e senha</b>: dados criptografados (AES-256) — o 👁 mostra a senha ao digitar<br>
+   • <b>💾 Backup Completo</b> toda semana — guarde no Drive/WhatsApp<br>
+   • <b>🔐 Backup Criptografado</b>: versão que só abre com sua senha<br>
+   • O app cria <b>pontos de restauração diários</b> sozinho<br>
+   ⚠️ <b>Nunca</b> limpe "dados de navegação" do navegador — isso apaga o app!`},
+  {emo:'✨', title:'VetFlowCare Pro',
+   body:`A versão gratuita permite até <b>5 pacientes</b>. O <b>Pro</b> libera:<br><br>
+   • Pacientes ilimitados · Controle Especial · sem marca-d'água<br>
+   • Logo/assinatura · Cobrança WhatsApp · Despesas e Fluxo<br><br>
+   Ative em <b>Ajustes → ✨ Pro</b> com o código do desenvolvedor. Cada código vale <b>1 vez por aparelho</b> e você acompanha os <b>dias restantes</b>.<br><br>
+   Pronto! Reveja este guia em <b>Ajustes → Ajuda</b>. Bom trabalho! 🐾`}
 ];
 function startFirstPatient(){
   finishTutorial(true);
   goTab('pets'); pplView = 'tutores';
   setTimeout(openTutorForm, 250);
 }
+// contador compacto para muitos passos
+
 function openTutorial(step = 0){
   step = Math.min(step, TUT_STEPS.length - 1);
   localStorage.setItem('vfc_tut_step', step);
@@ -1436,7 +1639,10 @@ function renderHome(){
     <span style="color:var(--muted)">›</span></div>`;
 
   h += `<div class="sec"><div class="sec-h"><span>Pacientes</span>
-    <button onclick="goTab('pets')">Ver todos →</button></div><div class="pets-row">`;
+    <button onclick="goTab('pets')">Ver todos →</button></div>
+    <div style="display:flex;gap:10px;align-items:stretch">
+      <div class="pet-add" style="flex-shrink:0;margin:0" onclick="openPetForm()"><div class="plus">+</div>Novo Paciente</div>
+      <div class="pets-row" style="flex:1;min-width:0;margin:0">`;
   pets.forEach(p => {
     const s = healthScore(p), c = petColor(p);
     h += `<div class="pet-card" style="border-color:${c}40;background:color-mix(in srgb, ${c} 8%, var(--surface))" onclick="openPet('${p.id}')">
@@ -1444,7 +1650,7 @@ function renderHome(){
       <div class="nm">${esc(p.name)}</div><div class="br">${esc(p.breed||p.species)}</div>
       ${ringSVG(s,46,false)}<div class="sl">saúde</div></div>`;
   });
-  h += `<div class="pet-add" onclick="openPetForm()"><div class="plus">+</div>Novo Paciente</div></div></div>`;
+  h += `</div></div></div>`;
 
   h += `<div class="sec"><div class="sec-h"><span>📅 Próximos 7 dias</span></div>`;
   h += week.length ? week.map(evtRow).join('') :
@@ -1480,14 +1686,22 @@ function toggleMedDone(petId, medId){
 function renderPetsList(q=''){
   let h = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
     <h2>Pacientes</h2>
-    <button class="btn sm" onclick="${pplView==='tutores'?"openTutorForm()":"openPetForm()"}">+ ${pplView==='tutores'?'Novo Tutor':'Cadastrar'}</button></div>
+    </div>
     <div class="subtabs">
       <button class="chip ${pplView==='animais'?'on':''}" onclick="pplView='animais';render()">🐾 Animais (${DB.pets.length})</button>
       <button class="chip ${pplView==='tutores'?'on':''}" onclick="pplView='tutores';render()">👤 Tutores (${DB.tutors.length})</button>
     </div>
-    <input placeholder="🔍 Buscar…" style="margin-bottom:14px"
+    <input placeholder="🔍 Buscar por nome, raça ou tutor…" style="margin-bottom:10px"
       oninput="document.getElementById('mainContent').innerHTML=renderPetsList(this.value.toLowerCase());
-      const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)" value="${esc(q)}">`;
+      const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)" value="${esc(q)}">
+    ${pplView==='animais'?`<div class="chips" style="margin-bottom:12px">
+      <button class="chip ${petSort==='az'?'on':''}" onclick="petSort='az';render()">A-Z</button>
+      <button class="chip ${petSort==='saude'?'on':''}" onclick="petSort='saude';render()">❤️ Saúde</button>
+      <button class="chip ${petSort==='tutor'?'on':''}" onclick="petSort='tutor';render()">👤 Tutor</button>
+      <button class="chip ${petSpec==='Cão'?'on':''}" onclick="petSpec=petSpec==='Cão'?'all':'Cão';render()">🐕 Cães</button>
+      <button class="chip ${petSpec==='Gato'?'on':''}" onclick="petSpec=petSpec==='Gato'?'all':'Gato';render()">🐈 Gatos</button>
+    </div>`:''}
+    <button class="fab" onclick="${pplView==='tutores'?"openTutorForm()":"openPetForm()"}" title="${pplView==='tutores'?'Novo Tutor':'Novo Paciente'}">+</button>`;
 
   if(pplView === 'tutores'){
     const tutors = DB.tutors.filter(t =>
@@ -1501,16 +1715,20 @@ function renderPetsList(q=''){
         <div style="width:52px;height:52px;border-radius:50%;background:var(--vacbg);color:var(--vac);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;flex-shrink:0">${esc((t.name[0]||'?').toUpperCase())}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:15px">${esc(t.name)}</div>
-          <div style="color:var(--muted);font-size:12px;margin-top:2px">${t.phone?'📞 '+esc(t.phone):''}${t.cpf?' · CPF '+esc(t.cpf):''}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:2px">${t.phone?'📞 '+fmtPhone(t.phone):''}${t.cpf?' · CPF '+fmtCPF(t.cpf):''}</div>
           <div style="color:var(--primary);font-size:11px;font-weight:700;margin-top:4px">🐾 ${count} ${count===1?'animal':'animais'}</div></div>
         <div style="color:var(--muted);font-size:16px">›</div></div>`;
     });
     return h;
   }
 
-  const pets = DB.pets.filter(p =>
+  let pets = DB.pets.filter(p =>
     p.name.toLowerCase().includes(q) || (p.breed||'').toLowerCase().includes(q) ||
     tutorName(p).toLowerCase().includes(q));
+  if(petSpec !== 'all') pets = pets.filter(p => p.species === petSpec);
+  if(petSort === 'az') pets = [...pets].sort((a,b)=>a.name.localeCompare(b.name));
+  if(petSort === 'saude') pets = [...pets].sort((a,b)=>healthScore(a)-healthScore(b));
+  if(petSort === 'tutor') pets = [...pets].sort((a,b)=>tutorName(a).localeCompare(tutorName(b)));
   if(!pets.length) return h + `<div class="card empty"><div class="big">🐾</div>
     <b>Nenhum paciente encontrado</b><br><small>Cadastre o primeiro paciente para começar</small><br><br>
     <button class="btn sm" onclick="openPetForm()">+ Cadastrar Paciente</button></div>`;
@@ -1554,8 +1772,8 @@ function renderTutorProfile(){
     h += `<div class="sec"><div class="sec-h"><span>Dados do responsável</span></div>
       <div class="card">
         <div class="irow"><span class="k">Nome completo</span><span class="v">${esc(t.name)}</span></div>
-        <div class="irow"><span class="k">CPF</span><span class="v">${esc(t.cpf||'—')}</span></div>
-        <div class="irow"><span class="k">CEP</span><span class="v">${esc(t.cep||'—')}</span></div>
+        <div class="irow"><span class="k">CPF</span><span class="v">${fmtCPF(t.cpf)}</span></div>
+        <div class="irow"><span class="k">CEP</span><span class="v">${fmtCEP(t.cep)}</span></div>
         <div class="irow"><span class="k">Endereço</span><span class="v">${esc(t.address||'—')}</span></div>
         ${t.email?`<div class="irow"><span class="k">E-mail</span><span class="v">${esc(t.email)}</span></div>`:''}
       </div></div>
@@ -1563,7 +1781,7 @@ function renderTutorProfile(){
       <div class="card">
         <div style="color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase">Celular</div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-          <b style="font-size:15px;flex:1">${esc(t.phone||'—')}</b>
+          <b style="font-size:15px;flex:1">${fmtPhone(t.phone)}</b>
           ${wa?`<button class="btn sm success" onclick="window.open('https://wa.me/55${wa}')">💬 WhatsApp</button>`:''}
         </div></div></div>
     <div class="sec"><div class="sec-h"><span>📎 Ficha de cadastro</span></div>
@@ -1642,8 +1860,8 @@ function openTutorForm(tutorId){
   const t = tutorId ? DB.tutors.find(x=>x.id===tutorId) : null;
   showSheet(t?'Editar Tutor':'Cadastrar Tutor', `
     <label>Nome completo *</label><input id="tName" value="${esc(t?.name||'')}" placeholder="Ex: Acácio Roboredo">
-    <label>CPF</label><input id="tCpf" value="${esc(t?.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric">
-    <label>Telefone / WhatsApp *</label><input id="tPhone" value="${esc(t?.phone||'')}" placeholder="(11) 94031-8855" inputmode="tel">
+    <label>CPF</label><input id="tCpf" value="${fmtCPF(t?.cpf||'')==='—'?'':fmtCPF(t?.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" oninput="maskCPF(this)">
+    <label>Telefone / WhatsApp *</label><input id="tPhone" value="${fmtPhone(t?.phone||'')==='—'?'':fmtPhone(t?.phone||'')}" placeholder="(11) 94031-8855" inputmode="tel" maxlength="15" oninput="maskPhone(this)">
     <label>CEP</label><input id="tCep" value="${esc(t?.cep||'')}" placeholder="00000-000 (preenche o endereço)" inputmode="numeric" maxlength="9"
       oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{5})(\d)/,'$1-$2');if(this.value.length===9)buscaCEP(this.value)">
     <label>Endereço</label><input id="tAddr" value="${esc(t?.address||'')}" placeholder="Rua, número, bairro, cidade">
@@ -1703,10 +1921,10 @@ function renderPetHero(pet){
   <div class="pet-hero" style="background:linear-gradient(150deg,${c},color-mix(in srgb,${c} 72%, #000 8%))">
     <div class="top">
       <button class="bk" onclick="currentPetId=null;render()">‹ Voltar</button>
-      <div style="display:flex;gap:8px">
-        <button class="bk" onclick="openPetForm('${pet.id}')">✏️</button>
-        <button class="del" onclick="sharePet('${pet.id}')">📤</button>
-        <button class="del" onclick="confirmDeletePet('${pet.id}')">🗑️</button>
+      <div style="display:flex;gap:9px">
+        <button class="hbtn" title="Editar dados do paciente" onclick="openPetForm('${pet.id}')">✏️</button>
+        <button class="hbtn" title="Compartilhar / Exportar ficha" onclick="sharePet('${pet.id}')">📤</button>
+        <button class="hbtn hdanger" title="Excluir paciente" onclick="confirmDeletePet('${pet.id}')">🗑️</button>
       </div>
     </div>
     <div class="info">
@@ -2065,9 +2283,9 @@ function renderPetDocs(pet){
   const tutorCard = t
     ? `<div class="card">
         <div class="irow"><span class="k">Nome completo</span><span class="v">${esc(t.name)}</span></div>
-        <div class="irow"><span class="k">CPF</span><span class="v">${esc(t.cpf||'—')}</span></div>
-        <div class="irow"><span class="k">Telefone</span><span class="v">${esc(t.phone||'—')}</span></div>
-        <div class="irow"><span class="k">CEP</span><span class="v">${esc(t.cep||'—')}</span></div>
+        <div class="irow"><span class="k">CPF</span><span class="v">${fmtCPF(t.cpf)}</span></div>
+        <div class="irow"><span class="k">Telefone</span><span class="v">${fmtPhone(t.phone)}</span></div>
+        <div class="irow"><span class="k">CEP</span><span class="v">${fmtCEP(t.cep)}</span></div>
         <div class="irow"><span class="k">Endereço</span><span class="v">${esc(t.address||'—')}</span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn sm outline" onclick="openTutorForm('${t.id}')">✏️ Editar dados</button>
@@ -2358,7 +2576,7 @@ function renderSettings(){
               : 'Ativado em '+fmtDate(DB.license.activatedAt)}</div></div></div>
           ${DB.license.expiresAt && daysUntil(DB.license.expiresAt)<=15
             ? `<button class="btn" style="background:var(--rx);margin-top:10px" onclick="openProModal('Seu plano expira em breve — renove para não perder os recursos Pro.')">🔄 Renovar plano</button>`:''}
-          <button class="btn sm dangero" style="margin-top:10px" onclick="deactivatePro()">Desativar neste aparelho</button>`
+          `
         : proExpired()
         ? `<div style="font-size:13px;margin-bottom:4px">⏳ <b style="color:var(--danger)">Seu plano Pro expirou</b> em ${fmtDate(DB.license.expiresAt)}.</div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Seus dados continuam intactos — renove para reativar os recursos Pro.</div>
@@ -2406,7 +2624,9 @@ function renderSettings(){
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
       <button class="btn outline" onclick="exportJSON()">💾 Fazer Backup Completo</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Salva TUDO (pacientes, tutores, financeiro, receitas) em um arquivo. Guarde no Google Drive ou envie para você mesmo no WhatsApp — é sua garantia se trocar de celular ou esquecer a senha.</div>
-      <input type="file" accept=".json" id="importFile" class="hidden" onchange="importJSON(this)">
+      ${getAuth()?`<button class="btn outline" onclick="exportEncBackup()">🔐 Backup Criptografado (.vfcbak)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Versão protegida do backup: só abre com a sua senha. Ideal para guardar na nuvem com segurança total (LGPD).</div>`:''}
+      <input type="file" accept=".json,.vfcbak" id="importFile" class="hidden" onchange="importJSON(this)">
       <button class="btn outline" onclick="document.getElementById('importFile').click()">📂 Restaurar Backup</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Recupera os dados de um arquivo de backup — use ao trocar de aparelho ou após apagar os dados.</div>
       <button class="btn outline" onclick="exportTutoresTXT()">📇 Lista de Contatos dos Tutores</button>
@@ -2419,9 +2639,25 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v8.5 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v8.5:</b><br>
+      <b>Novidades da v9.2:</b><br>
+      • CPF, telefone e CEP com pontuação automática ao digitar e na exibição<br>
+      • Botões do topo do paciente (✏️ 📤 🗑️) redesenhados<br>
+      • Manual: novo passo explicando o Compartilhar Ficha<br>
+      <br><b>v9.1:</b><br>
+      • Botão "Novo Paciente" fixo à esquerda da esteira (não some mais)<br>
+      • 📖 Tutorial completo: 13 passos cobrindo todos os módulos<br>
+      • Assinatura B&amp;G Systems nos Ajustes<br>
+      <br><b>v9.0:</b><br>
+      • 💰 Financeiro profissional: gráfico de evolução, resumo do período, busca, alterar vencimento e editar cobranças<br>
+      • 🧾 Despesas: navegação por mês, filtro e gráfico por categoria, edição<br>
+      • 🐾 Pacientes: filtros A-Z / Saúde / Espécie / Tutor + botão ➕ fixo<br>
+      • 👁 Mostrar/ocultar senha em todos os campos<br>
+      • 🔐 Backup Criptografado (.vfcbak) + escolha de pasta ao salvar<br>
+      • 📜 Termos de Uso oficiais com aceite registrado (LGPD)<br>
+      • Nascimento digitável (DD/MM/AAAA, opcional)<br>
+      <br><b>v8.5:</b><br>
       • Códigos Pro de uso único por aparelho — renovação exige código novo<br>
       <br><b>v8.4:</b><br>
       • Correção do travamento na entrada e da máscara de datas<br>
@@ -2432,7 +2668,11 @@ function renderSettings(){
       • Ficha de cadastro anexável no perfil do tutor<br>
       <br><b>v8.3:</b><br>
       • 🛡️ Proteção de dados: armazenamento persistente + pontos de restauração diários<br>
-      • 🚑 Resgate automático de dados ilegíveis · lembrete de backup</div></div>`;
+      • 🚑 Resgate automático de dados ilegíveis · lembrete de backup</div>
+    <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
+      <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">Todos os direitos reservados · © 2026</div>
+    </div></div>`;
 }
 
 function saveVetProfile(){
@@ -2520,10 +2760,35 @@ function exportTutoresTXT(){
   toast('📄 Lista de tutores exportada!');
 }
 
+async function saveFileSAF(name, blob){
+  if(window.showSaveFilePicker){
+    try{
+      const h = await showSaveFilePicker({suggestedName:name});
+      const w = await h.createWritable();
+      await w.write(blob); await w.close();
+      toast('💾 Backup salvo!');
+      return true;
+    }catch(e){ if(e.name === 'AbortError') return true; }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name; a.click();
+  return true;
+}
+function exportEncBackup(){
+  const auth = getAuth();
+  const blob = localStorage.getItem(LS_KEY);
+  if(!auth || !blob){ toast('⚠ Ative a senha primeiro (Segurança)'); return; }
+  localStorage.setItem('vfc_last_backup', todayISO());
+  const pack = JSON.stringify({__vfcbak:1, exportedAt:todayISO(), auth, blob});
+  saveFileSAF('vetflowcare_backup_criptografado_' + todayISO() + '.vfcbak',
+    new Blob([pack], {type:'application/json'}));
+}
 function exportJSON(){
   localStorage.setItem('vfc_last_backup', todayISO());
   if(getAuth() && !confirm('O backup JSON é exportado SEM criptografia (para poder ser importado depois). Guarde o arquivo em local seguro. Continuar?')) return;
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
+  if(true){ saveFileSAF('vetflowcare_backup_' + todayISO() + '.json', blob); return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `vetflowcare_backup_${todayISO()}.json`;
@@ -2535,7 +2800,16 @@ function importJSON(input){
   r.onload = e => {
     try{
       const data = JSON.parse(e.target.result);
-      DB = data.version===4 ? migrate(data) : migrateV3(data);
+      // Backup criptografado (.vfcbak): restaura credenciais + dados cifrados
+      if(data.__vfcbak){
+        if(!confirm('Restaurar backup CRIPTOGRAFADO? Os dados atuais deste aparelho serão substituídos e a senha do backup será exigida.')) return;
+        localStorage.setItem(LS_AUTH, data.auth);
+        localStorage.setItem(LS_KEY, data.blob);
+        toast('🔐 Backup restaurado! Recarregando…');
+        setTimeout(()=>location.reload(), 900);
+        return;
+      }
+      DB = data.version >= 4 ? migrate(data) : migrateV3(data);
       save(); applyDark(); render(); toast('✅ Dados importados com sucesso!');
     }catch(err){ toast('⚠ Arquivo inválido'); }
   };
@@ -2595,7 +2869,9 @@ function openPetForm(petId){
     <label>Raça</label><input id="fBreed" value="${esc(pet?.breed||'')}" placeholder="Ex: Shih tzu · SRD">
     <label>Sexo *</label><div class="chips" id="fGender">${chipRow('g',['Macho','Fêmea'], pet?.gender||'Macho')}</div>
     <label>Fertilidade *</label><div class="chips" id="fFert">${chipRow('f',['Fértil','Castrado'], pet?.fertility||'Fértil')}</div>
-    <label>Nascimento *</label><input id="fBirth" type="date" value="${pet?.birth||''}">
+    <label>Nascimento</label>
+    <input id="fBirth" placeholder="DD/MM/AAAA (opcional)" inputmode="numeric" maxlength="10"
+      value="${pet?.birth?fmtDate(pet.birth):''}" oninput="maskDate(this)">
     <label>Peso atual (kg) *</label><input id="fWeight" type="number" step="0.1" value="${pet?.weight||''}" placeholder="Ex: 5.3">
     <label>Porte</label><div class="chips" id="fPorte">${chipRow('p',['Pequeno','Médio','Grande'], pet?.porte||'Médio')}</div>
     <label>Microchip</label><input id="fChip" value="${esc(pet?.chip||'')}" placeholder="Ex: 985141001234567">
@@ -2623,7 +2899,10 @@ function previewPhoto(input){
   r.readAsDataURL(f);
 }
 function savePetForm(petId){
-  const name = val('fName'), birth = val('fBirth'), weight = parseFloat(val('fWeight'));
+  const name = val('fName'), weight = parseFloat(val('fWeight'));
+  const birthTxt = val('fBirth');
+  const birth = birthTxt ? parseBRDate(birthTxt) : '';
+  if(birthTxt && !birth){ toast('⚠ Data de nascimento inválida — use DD/MM/AAAA'); return; }
   if(!name || !birth || !weight){ toast('⚠ Preencha nome, nascimento e peso'); return; }
   const pick = sel => document.querySelector(sel+' .chip.on')?.dataset.v;
   const fields = { name, species:pick('#fSpecies')||'Cão', tutorId:val('fTutor'), tutor:'',
@@ -2845,6 +3124,34 @@ function parseBRDate(txt){
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((txt||'').trim());
   if(!m) return null;
   return `${m[3]}-${m[2]}-${m[1]}`;
+}
+function maskCPF(el){
+  el.value = el.value.replace(/\D/g,'').slice(0,11)
+    .replace(/(\d{3})(\d)/,'$1.$2')
+    .replace(/(\d{3})\.(\d{3})(\d)/,'$1.$2.$3')
+    .replace(/\.(\d{3})(\d{1,2})$/,'.$1-$2');
+}
+function maskPhone(el){
+  let d = el.value.replace(/\D/g,'').slice(0,11);
+  if(d.length > 10)      el.value = d.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');
+  else if(d.length > 6)  el.value = d.replace(/(\d{2})(\d{4})(\d{0,4})/,'($1) $2-$3');
+  else if(d.length > 2)  el.value = d.replace(/(\d{2})(\d{0,5})/,'($1) $2');
+  else                   el.value = d;
+}
+// Formatação para exibição (aceita valores antigos sem pontuação)
+function fmtCPF(v){
+  const d = (v||'').replace(/\D/g,'');
+  return d.length === 11 ? d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4') : (v || '—');
+}
+function fmtPhone(v){
+  const d = (v||'').replace(/\D/g,'');
+  if(d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3');
+  if(d.length === 10) return d.replace(/(\d{2})(\d{4})(\d{4})/,'($1) $2-$3');
+  return v || '—';
+}
+function fmtCEP(v){
+  const d = (v||'').replace(/\D/g,'');
+  return d.length === 8 ? d.replace(/(\d{5})(\d{3})/,'$1-$2') : (v || '—');
 }
 function maskDate(el){
   el.value = el.value.replace(/[^0-9]/g,'')
@@ -3390,16 +3697,24 @@ function showLGPD(){
   div.innerHTML = `<div style="background:var(--surface,#fff);border-radius:20px;max-width:440px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:18px 20px 0"><b style="font-size:17px">📜 Termo de Uso e Privacidade</b></div>
     <div style="padding:12px 20px;overflow-y:auto;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">
-      <b>1. O que é o VetFlowCare.</b> Ferramenta de organização para profissionais veterinários (pacientes, vacinas, receituário, financeiro).<br><br>
-      <b>2. Seus dados ficam com você.</b> Todas as informações são armazenadas <b>somente neste aparelho</b>. O VetFlowCare não envia, não coleta e não tem acesso aos seus dados ou aos dados dos tutores.<br><br>
-      <b>3. LGPD.</b> Você, profissional, é o controlador dos dados pessoais que cadastrar (nome, CPF, telefone e endereço de tutores) e se compromete a usá-los apenas para a prestação do serviço veterinário, conforme a Lei 13.709/2018. Recomendamos ativar a criptografia com senha em Ajustes → Segurança.<br><br>
-      <b>4. Backups são sua responsabilidade.</b> Por ser um armazenamento local, faça backups regulares (Ajustes → Fazer Backup). Perda do aparelho, limpeza de dados do navegador ou senha esquecida podem tornar os dados irrecuperáveis.<br><br>
-      <b>5. Documentos gerados.</b> Receitas, termos e atestados são de responsabilidade técnica do profissional que os assina.<br><br>
-      <b>6. Aceite.</b> Ao tocar em "Li e Aceito", você concorda com estes termos.
-    </div>
+      <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:10px">Última atualização: 14 de julho de 2026</div>
+      <b>1. Aceitação dos Termos.</b> Ao criar uma conta ou utilizar as funcionalidades do VetFlowCare, você declara ter lido, compreendido e aceito estes termos e a Política de Privacidade.<br><br>
+      <b>2. Natureza da Plataforma.</b> O VetFlowCare é uma ferramenta de organização, gestão e armazenamento de informações veterinárias. <b>Aviso:</b> o aplicativo não realiza diagnósticos, prescrições ou tratamentos — todas as informações inseridas são de responsabilidade exclusiva do usuário e não substituem o acompanhamento profissional. Não nos responsabilizamos por decisões baseadas em erros de digitação ou preenchimento.<br><br>
+      <b>3. Proteção de Dados (LGPD — Lei 13.709/2018).</b> Coletamos apenas os dados necessários ao funcionamento (dados de tutores e pacientes), armazenados <b>no seu aparelho</b> com medidas técnicas de proteção — incluindo criptografia e, quando disponível, autenticação por senha. Finalidade: exclusivamente o gerenciamento da sua carteira de pacientes; nada é compartilhado com terceiros sem sua autorização expressa, salvo determinação legal. Você pode acessar, corrigir ou excluir seus dados a qualquer momento pelo próprio app.<br><br>
+      <b>4. Responsabilidades do Usuário.</b> Manter a confidencialidade da sua senha (recomendamos bloqueio de tela no aparelho); garantir a veracidade das informações inseridas; não utilizar o sistema para fins ilícitos.<br><br>
+      <b>5. Planos e Assinaturas (PRO).</b> Os benefícios PRO valem pelo período contratado. A renovação é de responsabilidade do usuário; o acesso aos recursos está condicionado à validade da assinatura.<br><br>
+      <b>6. Backup e Integridade.</b> O app disponibiliza ferramentas de backup. É de inteira responsabilidade do usuário realizar backups periódicos em locais seguros. Não nos responsabilizamos por perdas decorrentes de exclusão acidental, limpeza do navegador ou perda de acesso ao dispositivo.<br><br>
+      <b>7. Propriedade Intelectual.</b> Design, código-fonte, marcas e logotipos do VetFlowCare são de propriedade exclusiva dos desenvolvedores. Reprodução não autorizada é proibida.<br><br>
+      <b>8. Alterações.</b> Estes termos podem ser atualizados periodicamente, com comunicação pelo próprio aplicativo. O uso contínuo implica aceitação da nova versão.<br><br>
+      <b>9. Foro.</b> Fica eleito o foro da comarca de São Paulo – SP para dirimir controvérsias decorrentes destes Termos.</div>
     <div style="padding:14px 20px 18px;border-top:1px solid var(--border,#E3EBF2)">
-      <button onclick="localStorage.setItem('vfc_lgpd','1');document.getElementById('lgpdGate').remove();proceedBoot()"
-        style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Li e Aceito</button>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:12px;cursor:pointer;color:var(--text,#1A2F5A)">
+        <input type="checkbox" id="lgpdCk" style="width:20px;height:20px;accent-color:#2DC0AE;flex-shrink:0;margin-top:1px">
+        <span>Li e concordo com os <b>Termos de Uso e a Política de Privacidade</b></span></label>
+      <button onclick="if(!document.getElementById('lgpdCk').checked){alert('Marque a caixa de aceite para continuar.');return;}
+        localStorage.setItem('vfc_lgpd', JSON.stringify({v:'2026-07-14', aceite:new Date().toISOString()}));
+        document.getElementById('lgpdGate').remove();proceedBoot()"
+        style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Aceitar e Continuar</button>
     </div></div>`;
   document.body.appendChild(div);
 }
