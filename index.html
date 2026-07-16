@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#1e3a5f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -124,6 +126,12 @@ main{padding:16px}
 .hbtn:active{transform:scale(.9);background:rgba(255,255,255,.32)}
 .hbtn.hdanger{background:rgba(224,82,82,.3);border-color:rgba(255,160,160,.5)}
 .fab{position:fixed;left:16px;bottom:calc(88px + env(safe-area-inset-bottom,0px));width:58px;height:58px;border-radius:50%;background:var(--primary);color:#fff;font-size:30px;font-weight:300;box-shadow:0 10px 26px rgba(45,192,174,.5);z-index:60;display:flex;align-items:center;justify-content:center;border:none}
+.pick{position:relative}
+.pick-list{max-height:190px;overflow-y:auto;background:var(--surface);border:1.5px solid var(--primary);border-radius:12px;margin-top:4px;box-shadow:0 8px 22px rgba(20,40,70,.14)}
+.pick-row{padding:10px 13px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
+.pick-row:last-child{border-bottom:none}
+.pick-row:active{background:var(--bg)}
+.pick-row span{color:var(--muted);font-size:11px;white-space:nowrap}
 .pwwrap{position:relative}
 .pwwrap input{padding-right:46px;width:100%;box-sizing:border-box}
 .pwwrap .eye{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;font-size:18px;padding:6px}
@@ -234,6 +242,102 @@ canvas{width:100%!important}
    Perfil único do profissional · Receituário · Prontuário
    ═══════════════════════════════════════════════ */
 
+// ═══ BLINDAGENS ═══
+// Anti-iframe: impede que embrulhem o app OFICIAL em outro site
+// (não interfere em pré-visualizações e testes locais)
+(function(){
+  const OFICIAIS = ['brunorizzieri86-svg.github.io','vetflowcare.com.br','www.vetflowcare.com.br'];
+  if(window.top !== window.self && OFICIAIS.includes((location.hostname||'').toLowerCase())){
+    document.addEventListener('DOMContentLoaded', function(){
+      const d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1B2E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif';
+      d.innerHTML = '<div style="font-size:40px">⚠️</div><h3 style="margin:10px 0 6px">O VetFlowCare não pode ser exibido dentro de outros sites</h3><a href="https://vetflowcare.com.br" target="_top" style="color:#2DC0AE;font-weight:800">Acesse o oficial</a>';
+      document.body.appendChild(d);
+    });
+  }
+})();
+// Aviso anti-curiosos no console
+try{
+  console.log('⛔ PARE! Este console é para desenvolvedores.');
+  console.log('Se alguém pediu para você colar algo aqui, é GOLPE — podem roubar seus dados. Feche esta janela.');
+  console.log('© B&G Systems — VetFlowCare · Todos os direitos reservados');
+}catch(e){}
+// Trava de domínio: bloqueia cópias hospedadas fora dos endereços oficiais
+(function(){
+  const h = (location.hostname||'').toLowerCase();
+  const OK = ['', 'localhost', '127.0.0.1',
+    'brunorizzieri86-svg.github.io',
+    'vetflowcare.com.br', 'www.vetflowcare.com.br'];
+  if(h && !OK.includes(h)){
+    document.addEventListener('DOMContentLoaded', function(){
+      const d = document.createElement('div');
+      d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1B2E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif';
+      d.innerHTML = '<div style="font-size:44px">⚠️</div><h2 style="margin:12px 0 6px">Cópia não autorizada</h2>' +
+        '<p style="color:#8CA0B8;font-size:14px;max-width:320px">Este software é propriedade da B&G Systems.<br>O VetFlowCare oficial está em:</p>' +
+        '<a href="https://vetflowcare.com.br" style="color:#2DC0AE;font-weight:800;font-size:17px">vetflowcare.com.br</a>';
+      document.body.appendChild(d);
+    });
+  }
+})();
+
+// ═══ AVISO DE NOVA VERSÃO ═══
+const APP_VER = '9.6';
+function showWhatsNew(){
+  showSheet('🎉 Novidades no seu VetFlowCare!', `
+    <div style="font-size:14px;line-height:1.85">
+    👋 Olá! Aqui é o <b>Claudinho</b>, da equipe VetFlowCare.<br><br>
+    Nós ouvimos vocês — cada sugestão vira melhoria. Esta atualização trouxe:<br><br>
+    📥 <b>Migração fácil!</b> Traga seus tutores e animais de qualquer sistema ou planilha em 3 passos (Ajustes → Dados → Importar)<br>
+    📲 <b>Instalar o App com 1 toque</b> (Ajustes → Ajuda)<br>
+    🔍 <b>Busca por digitação</b> ao escolher tutores e pacientes<br>
+    📮 <b>CEP automático</b> · 🗓️ Atendimentos retroativos · 📇 Contatos em PDF<br><br>
+    Continue mandando ideias — este app é construído junto com quem usa. 💙<br><br>
+    Bom trabalho e ótimos atendimentos! 🐾<br>
+    <span style="color:var(--muted);font-size:12px">— Claudinho & equipe B&G Systems</span></div>`,
+    `<button class="btn" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet()">Vamos lá! ✨</button>`);
+  localStorage.setItem('vfc_seen_ver', APP_VER);
+}
+
+// ═══ INSTALAÇÃO DO APP (PWA) ═══
+let _bipEvt = null;
+window.addEventListener('beforeinstallprompt', function(e){
+  e.preventDefault();
+  _bipEvt = e;
+});
+function promptInstall(){
+  if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches){
+    toast('🎉 O app já está instalado neste aparelho!');
+    return;
+  }
+  if(_bipEvt){
+    _bipEvt.prompt();
+    _bipEvt.userChoice.then(function(){ _bipEvt = null; });
+    return;
+  }
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  showSheet('📲 Instalar o VetFlowCare', isIOS ? `
+    <div style="font-size:14px;line-height:2">
+    No iPhone/iPad:<br>
+    1. Toque no botão <b>Compartilhar</b> (□↑) na barra do Safari<br>
+    2. Role e toque em <b>"Adicionar à Tela de Início"</b><br>
+    3. Confirme em <b>Adicionar</b> — pronto! 🐾</div>` : `
+    <div style="font-size:14px;line-height:2">
+    No Android (Chrome):<br>
+    1. Toque no menu <b>⋮</b> no canto superior direito<br>
+    2. Toque em <b>"Instalar aplicativo"</b> (ou "Adicionar à tela inicial")<br>
+    3. Confirme — o ícone aparece como um app de verdade! 🐾<br><br>
+    <span style="color:var(--muted);font-size:12px">💡 Se aparecer só "Adicionar à tela inicial", instale por ele mesmo — funciona igual.</span></div>`,
+    `<button class="btn" onclick="closeSheet()">Entendi</button>`);
+}
+
+// ═══ MÉTRICAS ANÔNIMAS (GoatCounter — sem cookies, LGPD-friendly) ═══
+function gcEvent(p){
+  try{
+    if(window.goatcounter && window.goatcounter.count)
+      window.goatcounter.count({path: p, title: p, event: true});
+  }catch(e){}
+}
+
 // Erros de execução aparecem na tela (facilita suporte)
 window.onerror = function(msg, s2, line){
   try{
@@ -244,7 +348,9 @@ window.onerror = function(msg, s2, line){
       e.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#E05252;color:#fff;font-size:11px;padding:6px 10px;z-index:9999;font-family:monospace';
       document.body.appendChild(e);
     }
-    e.textContent = '⚠ ' + msg + ' (linha ' + line + ') — tire um print e envie ao suporte';
+    e.textContent = '⚠ ' + msg + ' (linha ' + line + ') — tire um print e envie ao suporte · toque para fechar';
+    e.onclick = function(){ e.remove(); };
+    setTimeout(function(){ try{ e.remove(); }catch(_){} }, 20000);
   }catch(_){}
 };
 
@@ -385,6 +491,66 @@ function normalizePet(p){
   return out;
 }
 
+// ═══ Seletor com busca próprio do app (lista abaixo do campo) ═══
+window._pickData = {};
+function pickHTML(inputId, items, selectedId, placeholder){
+  window._pickData[inputId] = items;
+  const sel = items.find(i => i.id === selectedId);
+  return `<div class="pick">
+    <input id="${inputId}" placeholder="${placeholder}" autocomplete="off"
+      value="${sel ? esc(sel.label) : ''}" data-pid="${sel ? sel.id : ''}"
+      oninput="this.dataset.pid='';pickFilter('${inputId}')" onfocus="pickFilter('${inputId}')">
+    <div class="pick-list" id="pl_${inputId}" style="display:none"></div>
+  </div>`;
+}
+function pickFilter(inputId){
+  const inp = document.getElementById(inputId);
+  const box = document.getElementById('pl_' + inputId);
+  if(!inp || !box) return;
+  const q = inp.value.trim().toLowerCase();
+  const items = (window._pickData[inputId] || []).filter(i =>
+    !q || i.label.toLowerCase().includes(q) || (i.sub||'').toLowerCase().includes(q));
+  if(!items.length){
+    box.innerHTML = '<div style="padding:10px 12px;font-size:12px;color:var(--muted)">Nenhum resultado — confira o nome</div>';
+  } else {
+    box.innerHTML = items.slice(0,30).map(i =>
+      `<div class="pick-row" onclick="pickChoose('${inputId}','${i.id}')">
+        <b>${esc(i.label)}</b>${i.sub ? `<span>${esc(i.sub)}</span>` : ''}</div>`).join('');
+  }
+  box.style.display = 'block';
+}
+function pickChoose(inputId, id){
+  const item = (window._pickData[inputId] || []).find(i => i.id === id);
+  const inp = document.getElementById(inputId);
+  if(!item || !inp) return;
+  inp.value = item.label;
+  inp.dataset.pid = item.id;
+  document.getElementById('pl_' + inputId).style.display = 'none';
+}
+function pickValue(inputId){
+  const inp = document.getElementById(inputId);
+  if(!inp) return null;
+  const v = inp.value.trim().toLowerCase();
+  if(!v) return '';
+  const items = window._pickData[inputId] || [];
+  if(inp.dataset.pid){
+    const chosen = items.find(i => i.id === inp.dataset.pid);
+    if(chosen && chosen.label.toLowerCase() === v) return chosen.id;
+  }
+  const m = items.find(i => i.label.toLowerCase() === v) ||
+            items.find(i => i.label.toLowerCase().startsWith(v));
+  return m ? m.id : null;
+}
+function tutorPickerHTML(inputId, selectedId){
+  return pickHTML(inputId,
+    DB.tutors.map(t => ({id:t.id, label:t.name, sub:fmtPhone(t.phone)})),
+    selectedId, '🔍 Digite para buscar o tutor…');
+}
+function resolveTutorId(inputId){
+  const inp = document.getElementById(inputId);
+  if(inp && !inp.value.trim()) return '';
+  return pickValue(inputId);
+}
 function tutorOf(pet){ return DB.tutors.find(t => t.id === pet.tutorId) || null; }
 function tutorName(pet){ const t = tutorOf(pet); return t ? t.name : (pet.tutor||''); }
 
@@ -681,11 +847,30 @@ async function unlockApp(){
   const auth = getAuth();
   const pass = document.getElementById('lockPass').value;
   const err = document.getElementById('lockErr');
+  // Proteção contra tentativas em sequência (força bruta)
+  const until = parseInt(localStorage.getItem('vfc_lock_until')||'0');
+  if(Date.now() < until){
+    err.textContent = `⏳ Muitas tentativas — aguarde ${Math.ceil((until-Date.now())/1000)}s`;
+    return;
+  }
   if(!pass){ err.textContent = 'Digite a senha'; return; }
   err.textContent = 'Verificando…';
   try{
     const key = await deriveKey(pass, b64d(auth.salt));
-    if(!(await verifyKey(key, auth.check))){ err.textContent = '⚠ Senha incorreta'; return; }
+    if(!(await verifyKey(key, auth.check))){
+      const tries = parseInt(localStorage.getItem('vfc_bad')||'0') + 1;
+      localStorage.setItem('vfc_bad', tries);
+      if(tries >= 5){
+        localStorage.setItem('vfc_lock_until', Date.now() + 30000);
+        localStorage.setItem('vfc_bad', '0');
+        err.textContent = '⏳ 5 tentativas erradas — aguarde 30 segundos';
+      } else {
+        err.textContent = `⚠ Senha incorreta (${tries}/5)`;
+      }
+      return;
+    }
+    localStorage.removeItem('vfc_bad');
+    localStorage.removeItem('vfc_lock_until');
     const blob = JSON.parse(localStorage.getItem(LS_KEY));
     const pt = await crypto.subtle.decrypt({name:'AES-GCM', iv:b64d(blob.iv)}, key, b64d(blob.ct));
     window._cryptoKey = key;
@@ -1005,6 +1190,12 @@ function undoPaid(kind, id){
   else { r.payStatus='pendente'; r.paidAt = null; }
   save(); render(); toast('↩ Voltou para pendente');
 }
+function markApptDone(petId, aid){
+  const pet = DB.pets.find(p=>p.id===petId); if(!pet) return;
+  const a = pet.appointments.find(x=>x.id===aid); if(!a) return;
+  a.done = 1;
+  save(); render(); toast('✓ Atendimento marcado como realizado!');
+}
 function markReminded(kind, id){
   const r = findRec(kind, id); if(!r) return;
   if(r.__parc) r.p.rem = 1; else r.rem = 1;
@@ -1231,7 +1422,7 @@ function openChargeForm(editId){
   const CATS = ['Consulta','Vacina','Exame','Medicamento','Banho e tosa','Produto','Outros'];
   showSheet(c ? '✏️ Editar Cobrança' : '➕ Nova Cobrança', `
     <label>Paciente *</label>
-    <select id="fCPet">${DB.pets.map(p=>`<option value="${p.id}" ${c?.petId===p.id?'selected':''}>${petEmoji(p)} ${esc(p.name)}${tutorName(p)?' — '+esc(tutorName(p)):''}</option>`).join('')}</select>
+    ${pickHTML('fCPet', DB.pets.map(p => ({id:p.id, label:p.name, sub:`${p.species}${tutorName(p)?' · '+tutorName(p):''}`})), c?.petId, '🔍 Digite para buscar o paciente…')}
     <label>Categoria rápida</label>
     <div class="chips">${CATS.map(k=>`<button class="chip" onclick="const d=document.getElementById('fCDesc');d.value=d.value?d.value+' · '+'${k}':'${k}'">${k}</button>`).join('')}</div>
     <label>Descrição *</label>
@@ -1254,12 +1445,15 @@ function saveCharge(editId){
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
   const due = parseBRDate(val('fCDue')) || todayISO();
   const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
+  const petId = pickValue('fCPet');
+  if(!petId){ toast('⚠ Paciente não encontrado — escolha da lista'); return; }
+  const petSel = DB.pets.find(p=>p.id===petId);
   if(editId){
     const c = DB.charges.find(x=>x.id===editId);
-    Object.assign(c, {petId:document.getElementById('fCPet').value, desc, valor, due, status,
+    Object.assign(c, {petId:petSel.id, desc, valor, due, status,
       paidAt: status==='pago' ? (c.paidAt||todayISO()) : null});
   } else {
-    DB.charges.push({id:uid(), petId:document.getElementById('fCPet').value,
+    DB.charges.push({id:uid(), petId:petSel.id,
       desc, valor, due, status,
       paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
   }
@@ -1287,6 +1481,49 @@ function vfcChecksum(seed){
   for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
   return String(1000 + (h % 9000));
 }
+// ── Convites da fase de testes (desligue mudando para false ao abrir ao público) ──
+const BETA_GATE = true;
+function inviteChecksum(seed){
+  let h = 7;
+  const s = seed + 'CONVITEBETAVFC';
+  for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
+  return String(1000 + (h % 9000));
+}
+function inviteCheck(code){
+  const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
+  return !!m && inviteChecksum(m[1]) === m[2];
+}
+function showInviteGate(next){
+  const div = document.createElement('div');
+  div.id = 'inviteGate';
+  div.style.cssText = 'position:fixed;inset:0;z-index:999;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center';
+  div.innerHTML = `
+    <img src="logo.jpg" style="width:104px;height:104px;border-radius:24px;background:#fff;padding:8px;object-fit:contain" onerror="this.style.display='none'">
+    <div style="margin-top:16px;font-size:28px;font-weight:900"><span style="color:#fff">Vet</span><span style="color:#2DC0AE">Flow</span> <span style="font-family:Georgia,serif;font-style:italic;font-size:20px;color:#2DC0AE">Care</span></div>
+    <div style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:14px;padding:12px 16px;margin-top:18px;max-width:340px">
+      <div style="color:#fff;font-weight:800;font-size:15px">🎟️ Acesso por convite</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px">Estamos em fase de testes fechados. Digite o código de convite recebido do desenvolvedor.</div></div>
+    <input id="invCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13"
+      style="margin-top:16px;width:100%;max-width:300px;text-align:center;font-size:18px;font-weight:800;letter-spacing:2px;padding:14px;border-radius:14px;border:none;text-transform:uppercase"
+      onkeydown="if(event.key==='Enter')checkInvite()">
+    <button onclick="checkInvite()" style="margin-top:12px;width:100%;max-width:300px;background:#2DC0AE;color:#fff;padding:15px;border-radius:24px;font-size:16px;font-weight:800;border:none">Validar Convite</button>
+    <div id="invErr" style="color:#FF8C69;font-size:13px;margin-top:12px;font-weight:700;min-height:18px"></div>
+    <div style="color:rgba(255,255,255,.45);font-size:11px;margin-top:16px">Sem convite? Fale com a equipe VetFlowCare.<br>B&G Systems</div>`;
+  document.body.appendChild(div);
+  window._inviteNext = next;
+}
+function checkInvite(){
+  const code = document.getElementById('invCode').value;
+  if(!inviteCheck(code)){
+    document.getElementById('invErr').textContent = '⚠ Convite inválido — confira com o desenvolvedor';
+    return;
+  }
+  localStorage.setItem('vfc_invite', JSON.stringify({code:code.toUpperCase().trim(), at:new Date().toISOString()}));
+  gcEvent('convite-validado');
+  document.getElementById('inviteGate').remove();
+  if(window._inviteNext) window._inviteNext();
+}
+
 function vfcCheck(code){
   const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
   return !!m && vfcChecksum(m[1]) === m[2];
@@ -1308,8 +1545,11 @@ function openProModal(reason){
       <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">6 meses · em breve</button>
       <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">12 meses · em breve</button>
     </div>
-    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:12px;font-size:12px;color:var(--muted)">
-      💬 Escolha o plano e peça seu código ao desenvolvedor (via WhatsApp). Após ativar, o tempo do plano começa a contar e você acompanha os dias restantes em Ajustes.</div>
+    <button class="btn" style="background:#25D366;margin-top:14px"
+      onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro com vocês, pode me ajudar?'))">
+      💬 Assinar pelo WhatsApp da VetFlowCare</button>
+    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
+      Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>
     <label>Já tem um código? Digite aqui</label>
     <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700">`,
     `<button class="btn gray" onclick="closeSheet()">Agora não</button>
@@ -1331,6 +1571,7 @@ function activatePro(){
     plan, expiresAt: addMonths(todayISO(), plan) };
   const used = usedCodes(); used.push(code);
   localStorage.setItem('vfc_used_codes', JSON.stringify(used));
+  gcEvent('pro-ativado');
   save(); closeSheet(); render();
   toast(`✨ Pro ativado por ${PRO_PLANS[plan]}! Válido até ${fmtDate(DB.license.expiresAt)}`);
 }
@@ -1352,7 +1593,7 @@ function allEvents(){
       evts.push({...base, id:'m-'+m.id, type:'medication', title:`${m.name} — ${m.time}`,
         due:todayISO(), daysLeft:0, priority:'today', medId:m.id});
     });
-    pet.appointments.forEach(a => {
+    pet.appointments.filter(a => !a.done).forEach(a => {
       const d = daysUntil(a.date);
       evts.push({...base, id:'a-'+a.id, type:'vet', title:a.title, due:a.date, daysLeft:d, priority:priorityOf(d)});
     });
@@ -1430,7 +1671,8 @@ const TUT_STEPS = [
    ✅ Funciona <b>offline</b> — os dados ficam no seu aparelho<br>
    ✅ <b>Instale na tela inicial</b>: menu do navegador → "Adicionar à tela inicial"<br>
    ✅ Proteja tudo com <b>senha criptografada</b> e <b>backups</b><br><br>
-   Este guia mostra <b>cada módulo</b> do sistema. Pode pular e rever quando quiser em <b>Ajustes → Ajuda</b>.`},
+   Este guia mostra <b>cada módulo</b> do sistema. Pode pular e rever quando quiser em <b>Ajustes → Ajuda</b>.`,
+   action:{label:'📲 Instalar o App agora (1º passo!)', fn:'promptInstall()'}},
   {emo:'🏠', title:'Início — seu painel do dia',
    body:`Ao abrir, você vê tudo que importa <b>hoje</b>:<br><br>
    • <b>Índice de saúde</b>: anel com a média dos pacientes<br>
@@ -1465,12 +1707,19 @@ const TUT_STEPS = [
    • <b>💰 Itens do atendimento</b>: consulta, vacina, exame… cada um com valor — o total soma sozinho<br>
    • <b>Parcele em até 5x</b>: valores e vencimentos individuais<br>
    • Imprima o prontuário timbrado quando precisar`},
-  {emo:'📝', title:'Receituário — dois modelos + assinatura',
-   body:`Na aba <b>Receita</b> do animal:<br><br>
-   • <b>Receita Simples</b>: tutor/animal no topo, seus dados (CRMV, MAPA) no rodapé<br>
-   • <b>Controle Especial</b>: 2 vias com campos de comprador/fornecedor (Pro)<br>
-   • Assinatura em <b>imagem</b> (carimbo) ou <b>digital ICP-Brasil</b> — guia dentro do app<br>
-   • Imprimir → <b>"Salvar como PDF"</b> → enviar no WhatsApp`},
+  {emo:'📝', title:'Receituário — passo a passo de cada tipo',
+   body:`Na aba <b>Receita</b> do animal, o fluxo completo para cada situação:<br><br>
+   <b>1️⃣ Receita Simples</b> (dia a dia)<br>
+   • Em Ajustes → Dados Profissionais, faça o <b>upload da sua assinatura com carimbo</b> (foto em fundo branco)<br>
+   • Crie a receita → Gerar PDF → <b>envie direto no WhatsApp</b> do tutor ✓<br><br>
+   <b>2️⃣ Receita Controlada (uso humano)</b><br>
+   • Crie no modelo <b>Controle Especial</b> (2 vias) com <b>assinatura digital</b> marcada no app<br>
+   • Gere o PDF → <b>autentique no app gov.br</b> (Assinar Documento) → envie ✓<br><br>
+   <b>3️⃣ Receita Controlada (manipulação)</b><br>
+   • Cadastre seu <b>certificado ICP-Brasil (e-CPF)</b> — o app tem o guia em "Como funciona?"<br>
+   • Use também a assinatura com carimbo → gere o PDF → <b>autentique no gov.br</b> ✓<br><br>
+   💡 A farmácia confere a autenticidade pelo validador do governo.`,
+   action:{label:'📝 Ir para a aba Receita e praticar', fn:'goReceitaDemo()'}},
   {emo:'📄', title:'Termos — documentos em segundos',
    body:`Na aba <b>Termos</b>, 4 documentos que se preenchem sozinhos:<br><br>
    • <b>Atestado Sanitário</b> (viagem) — puxa a antirrábica da carteirinha!<br>
@@ -1510,6 +1759,18 @@ const TUT_STEPS = [
    Ative em <b>Ajustes → ✨ Pro</b> com o código do desenvolvedor. Cada código vale <b>1 vez por aparelho</b> e você acompanha os <b>dias restantes</b>.<br><br>
    Pronto! Reveja este guia em <b>Ajustes → Ajuda</b>. Bom trabalho! 🐾`}
 ];
+function goReceitaDemo(){
+  finishTutorial(true);
+  if(DB.pets.length){
+    openPet(DB.pets[0].id);
+    currentPetTab = 'rx';
+    render();
+    toast('📝 Esta é a aba Receita — toque em "Nova Receita"!');
+  } else {
+    goTab('pets');
+    toast('🐾 Cadastre um paciente primeiro — a receita nasce da ficha dele!');
+  }
+}
 function startFirstPatient(){
   finishTutorial(true);
   goTab('pets'); pplView = 'tutores';
@@ -1534,6 +1795,7 @@ function openTutorial(step = 0){
 }
 function finishTutorial(skipNext){
   localStorage.setItem('vfc_tut_done','1');
+  localStorage.setItem('vfc_seen_ver', APP_VER);
   localStorage.removeItem('vfc_tut_step');
   closeSheet();
   if(!skipNext && !DB.vet.name) setTimeout(openVetSetup, 300);
@@ -1862,8 +2124,7 @@ function openTutorForm(tutorId){
     <label>Nome completo *</label><input id="tName" value="${esc(t?.name||'')}" placeholder="Ex: Acácio Roboredo">
     <label>CPF</label><input id="tCpf" value="${fmtCPF(t?.cpf||'')==='—'?'':fmtCPF(t?.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" oninput="maskCPF(this)">
     <label>Telefone / WhatsApp *</label><input id="tPhone" value="${fmtPhone(t?.phone||'')==='—'?'':fmtPhone(t?.phone||'')}" placeholder="(11) 94031-8855" inputmode="tel" maxlength="15" oninput="maskPhone(this)">
-    <label>CEP</label><input id="tCep" value="${esc(t?.cep||'')}" placeholder="00000-000 (preenche o endereço)" inputmode="numeric" maxlength="9"
-      oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{5})(\d)/,'$1-$2');if(this.value.length===9)buscaCEP(this.value)">
+    <label>CEP</label><input id="tCep" value="${fmtCEP(t?.cep||'')==='—'?'':fmtCEP(t?.cep||'')}" placeholder="00000-000 (preenche o endereço)" inputmode="numeric" maxlength="9" oninput="maskCEP(this)">
     <label>Endereço</label><input id="tAddr" value="${esc(t?.address||'')}" placeholder="Rua, número, bairro, cidade">
     <label>E-mail</label><input id="tEmail" type="email" value="${esc(t?.email||'')}" placeholder="opcional">`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
@@ -2155,9 +2416,7 @@ function openTermForm(petId, type){
   const t = TERMS[type];
   // Seleção de tutor (caso haja mais de um)
   const tutorSel = `<label>Tutor / Responsável ${DB.tutors.length>1?'(selecione)':''}</label>
-    <select id="fTTutor">${DB.tutors.length
-      ? DB.tutors.map(x=>`<option value="${x.id}" ${x.id===pet.tutorId?'selected':''}>${esc(x.name)}</option>`).join('')
-      : '<option value="">— nenhum tutor cadastrado —</option>'}</select>`;
+    ${DB.tutors.length ? tutorPickerHTML('fTTutor', pet.tutorId) : '<input disabled value="— nenhum tutor cadastrado —">'}`;
   const cidade = `<label>Cidade (para a data)</label>
     <input id="fTCity" value="${esc(DB.vet.city||'')}" placeholder="Ex: São Paulo">`;
   const data = `<label>Data do documento</label><input id="fTDate" type="date" value="${todayISO()}">`;
@@ -2231,7 +2490,7 @@ const RESP_SIGN = `<div style="margin-top:70px;text-align:center">
 
 function printTerm(petId, type){
   const pet = DB.pets.find(p=>p.id===petId);
-  const tutor = DB.tutors.find(x=>x.id===document.getElementById('fTTutor')?.value) || tutorOf(pet);
+  const tutor = DB.tutors.find(x=>x.id===resolveTutorId('fTTutor')) || tutorOf(pet);
   const city = val('fTCity'); DB.vet.city = city; save();
   const dt = val('fTDate') || todayISO();
   const F = id => { const v = val(id); return v ? esc(v) : '<span class="fill"></span>'; };
@@ -2293,9 +2552,7 @@ function renderPetDocs(pet){
         </div></div>`
     : `<div class="card">
         <div style="color:var(--muted);font-size:13px;margin-bottom:10px">Nenhum tutor vinculado a este animal. Os dados do tutor saem na receita impressa.</div>
-        ${DB.tutors.length?`<select id="linkTutorSel" style="margin-bottom:10px">
-          <option value="">Selecione um tutor…</option>
-          ${DB.tutors.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>
+        ${DB.tutors.length?`<div style="margin-bottom:10px">${tutorPickerHTML('linkTutorSel','')}</div>
         <button class="btn sm" onclick="linkTutorToPet('${pet.id}')">🔗 Vincular tutor</button>`:''}
         <button class="btn sm outline" style="margin-top:8px" onclick="window._linkPet='${pet.id}';openTutorForm()">➕ Cadastrar novo tutor</button></div>`;
 
@@ -2325,9 +2582,9 @@ function renderPetDocs(pet){
 }
 
 function linkTutorToPet(petId){
-  const sel = document.getElementById('linkTutorSel');
-  if(!sel || !sel.value){ toast('⚠ Selecione um tutor'); return; }
-  DB.pets.find(p=>p.id===petId).tutorId = sel.value;
+  const tid = resolveTutorId('linkTutorSel');
+  if(!tid){ toast('⚠ Digite e escolha um tutor da lista'); return; }
+  DB.pets.find(p=>p.id===petId).tutorId = tid;
   save(); render(); toast('🔗 Tutor vinculado!');
 }
 
@@ -2402,9 +2659,23 @@ function delRecord(petId, coll, id){
 }
 function confirmDeletePet(id){
   const pet = DB.pets.find(p=>p.id===id);
-  if(!confirm(`Remover ${pet.name}? Todos os registros serão apagados.`)) return;
+  showSheet('🗑️ Excluir paciente', `
+    <div style="text-align:center;padding:8px 0">
+      <div style="font-size:44px">${petEmoji(pet)}</div>
+      <div style="font-size:16px;font-weight:800;margin-top:8px">Deseja excluir ${esc(pet.name)}?</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:8px;line-height:1.7">
+        Todos os registros serão apagados:<br>vacinas, atendimentos, receitas, termos e arquivos.<br>
+        <b style="color:var(--danger)">Esta ação não pode ser desfeita.</b></div>
+    </div>`,
+    `<button class="btn gray" onclick="closeSheet()">Não, manter</button>
+     <button class="btn" style="background:var(--danger)" onclick="doDeletePet('${id}')">Sim, excluir</button>`);
+}
+function doDeletePet(id){
+  const pet = DB.pets.find(p=>p.id===id);
+  if(pet?.photoId) idbDel(pet.photoId);
+  (pet?.docs||[]).forEach(d => d.idb && idbDel(d.id));
   DB.pets = DB.pets.filter(p=>p.id!==id);
-  save(); currentPetId=null; goTab('pets'); toast('Paciente removido');
+  save(); closeSheet(); currentPetId=null; goTab('pets'); toast('🗑️ Paciente excluído');
 }
 
 // ═══════════ CALENDÁRIO ═══════════
@@ -2416,13 +2687,19 @@ function openApptPicker(presetDate){
   if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); goTab('pets'); return; }
   window._presetDate = presetDate || null;
   if(DB.pets.length === 1){ openApptForm(DB.pets[0].id); return; }
-  showSheet('Novo Atendimento — escolha o paciente', `
-    ${DB.pets.map(p=>`<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer"
+  window._apRows = q => DB.pets.filter(p =>
+      !q || p.name.toLowerCase().includes(q) || tutorName(p).toLowerCase().includes(q))
+    .map(p=>`<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer"
       onclick="closeSheet();openApptForm('${p.id}')">
       <span style="font-size:24px">${petEmoji(p)}</span>
       <div style="flex:1"><b>${esc(p.name)}</b>
       <div style="color:var(--muted);font-size:12px">${esc(p.breed||p.species)}${tutorName(p)?' · '+esc(tutorName(p)):''}</div></div>
-      <span style="color:var(--muted)">›</span></div>`).join('')}`,
+      <span style="color:var(--muted)">›</span></div>`).join('') || '<div class="empty">Nenhum paciente encontrado</div>';
+  showSheet('Novo Atendimento — escolha o paciente', `
+    <input placeholder="🔍 Buscar paciente ou tutor…" autocomplete="off"
+      oninput="document.getElementById('apList').innerHTML = window._apRows(this.value.toLowerCase())"
+      style="margin-bottom:10px">
+    <div id="apList">${window._apRows('')}</div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>`);
 }
 
@@ -2498,7 +2775,7 @@ function renderAlerts(f){
           <div style="font-weight:700;font-size:14px">${esc(e.title)}</div>
           <div style="color:var(--muted);font-size:12px">${e.emo} ${esc(e.pet)} · ${fmtDate(e.due)}</div></div>
         <button class="btn sm ${e.priority==='overdue'?'danger':'success'}"
-          onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"');currentPetTab='health'"}">${e.priority==='overdue'?'Resolver':'Ver'}</button>
+          onclick="${e.type==='pay' ? 'goFinance()' : (e.type==='vet' && e.priority==='overdue') ? "markApptDone('"+e.petId+"','"+e.id.slice(2)+"')" : "openPet('"+e.petId+"');currentPetTab='health'"}">${(e.type==='vet'&&e.priority==='overdue')?'✓ Concluir':e.priority==='overdue'?'Resolver':'Ver'}</button>
       </div></div>`;
   });
   return h;
@@ -2590,7 +2867,11 @@ function renderSettings(){
     <div class="card">${sw('dark','🌙 Modo Escuro')}</div></div>
 
   <div class="sec"><div class="sec-h"><span>❓ Ajuda</span></div>
-    <div class="card"><button class="btn outline" onclick="openTutorial(0)">📖 Ver Tutorial do App</button></div></div>
+    <div class="card">
+      <button class="btn" onclick="promptInstall()">📲 Instalar o App neste celular</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Coloca o VetFlowCare como aplicativo de verdade: ícone próprio, tela cheia, sem barra do navegador.</div>
+      <button class="btn outline" onclick="openTutorial(0)">📖 Ver Tutorial do App</button>
+      <button class="btn sm outline" style="margin-top:10px" onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Preciso de ajuda com o VetFlowCare.'))">💬 Suporte e Dúvidas (WhatsApp)</button></div></div>
 
   <div class="sec"><div class="sec-h"><span>🛡️ Proteção de Dados</span></div>
     <div class="card">
@@ -2629,8 +2910,10 @@ function renderSettings(){
       <input type="file" accept=".json,.vfcbak" id="importFile" class="hidden" onchange="importJSON(this)">
       <button class="btn outline" onclick="document.getElementById('importFile').click()">📂 Restaurar Backup</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Recupera os dados de um arquivo de backup — use ao trocar de aparelho ou após apagar os dados.</div>
-      <button class="btn outline" onclick="exportTutoresTXT()">📇 Lista de Contatos dos Tutores</button>
-      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Gera um texto com todos os tutores (telefone, e-mail) e seus animais — útil para imprimir ou consultar fora do app.</div>
+      <button class="btn outline" onclick="openImportWizard()">📥 Importar de Outro Sistema (CSV)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Migre tutores e animais de qualquer sistema ou planilha em 3 passos — o app reconhece as colunas sozinho.</div>
+      <button class="btn outline" onclick="exportTutoresTXT()">📇 Lista de Contatos dos Tutores (PDF)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Gera um PDF timbrado (com seu logo e dados) com todos os tutores e seus animais — profissional para imprimir ou arquivar.</div>
       <button class="btn dangero" onclick="wipeAll()">🗑️ Apagar Todos os Dados</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 0">Remove tudo do aparelho e recomeça do zero. Irreversível — faça um backup antes!</div></div></div>
 
@@ -2639,37 +2922,18 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.6 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.2:</b><br>
-      • CPF, telefone e CEP com pontuação automática ao digitar e na exibição<br>
-      • Botões do topo do paciente (✏️ 📤 🗑️) redesenhados<br>
-      • Manual: novo passo explicando o Compartilhar Ficha<br>
-      <br><b>v9.1:</b><br>
-      • Botão "Novo Paciente" fixo à esquerda da esteira (não some mais)<br>
-      • 📖 Tutorial completo: 13 passos cobrindo todos os módulos<br>
-      • Assinatura B&amp;G Systems nos Ajustes<br>
-      <br><b>v9.0:</b><br>
-      • 💰 Financeiro profissional: gráfico de evolução, resumo do período, busca, alterar vencimento e editar cobranças<br>
-      • 🧾 Despesas: navegação por mês, filtro e gráfico por categoria, edição<br>
-      • 🐾 Pacientes: filtros A-Z / Saúde / Espécie / Tutor + botão ➕ fixo<br>
-      • 👁 Mostrar/ocultar senha em todos os campos<br>
-      • 🔐 Backup Criptografado (.vfcbak) + escolha de pasta ao salvar<br>
-      • 📜 Termos de Uso oficiais com aceite registrado (LGPD)<br>
-      • Nascimento digitável (DD/MM/AAAA, opcional)<br>
-      <br><b>v8.5:</b><br>
-      • Códigos Pro de uso único por aparelho — renovação exige código novo<br>
-      <br><b>v8.4:</b><br>
-      • Correção do travamento na entrada e da máscara de datas<br>
-      • CEP preenche o endereço automaticamente (ViaCEP)<br>
-      • Termos com veterinário responsável e CRMV obrigatórios<br>
-      • Fluxo financeiro por período (mês/trimestre/semestre/ano) + exportar PDF<br>
-      • Termo de Uso e Privacidade (LGPD) no primeiro acesso<br>
-      • Ficha de cadastro anexável no perfil do tutor<br>
-      <br><b>v8.3:</b><br>
-      • 🛡️ Proteção de dados: armazenamento persistente + pontos de restauração diários<br>
-      • 🚑 Resgate automático de dados ilegíveis · lembrete de backup</div>
+      <b>Novidades da v9.6:</b><br>
+      • 📥 Importação de outro sistema: traga tutores e animais de qualquer planilha/CSV em 3 passos<br>
+      • 📄 Planilha modelo para quem quer organizar a lista manualmente<br>
+      <br><b>v9.5:</b><br>
+      • 📲 Botão "Instalar o App" · 🔍 Busca nos seletores · 📮 CEP automático<br>
+      • 🗓️ Atendimentos retroativos · 📇 Contatos em PDF timbrado<br>
+      <br><b>v9.4:</b><br>
+      • 📊 Métricas anônimas · 🛡️ Blindagens de segurança</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
+      <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">Todos os direitos reservados · © 2026</div>
     </div></div>`;
@@ -2713,51 +2977,243 @@ function uploadVetImg(field, input){
 
 function applyDark(){ document.body.classList.toggle('dark', DB.settings.dark); }
 function exportTutoresTXT(){
-  const L = [];
-  const line = '─'.repeat(46);
-  L.push('RELATÓRIO DE TUTORES E ANIMAIS — VetFlowCare');
-  L.push('Gerado em ' + fmtDate(todayISO()) +
-    (DB.vet.name ? ' · ' + DB.vet.name + (crmvFull() ? ' · ' + crmvFull() : '') : ''));
-  L.push('Total: ' + DB.tutors.length + ' tutores · ' + DB.pets.length + ' animais');
-  L.push(line);
-
-  DB.tutors.forEach((t, i) => {
+  // Agora em PDF timbrado (nome mantido por compatibilidade)
+  const blocks = DB.tutors.map((t,i) => {
     const animals = DB.pets.filter(p => p.tutorId === t.id);
-    L.push('');
-    L.push((i+1) + '. ' + t.name.toUpperCase());
-    L.push('   Telefone: ' + (t.phone || '—'));
-    L.push('   E-mail:   ' + (t.email || '—'));
-    if(t.cpf)     L.push('   CPF:      ' + t.cpf);
-    if(t.address) L.push('   Endereço: ' + t.address + (t.cep ? ' · CEP ' + t.cep : ''));
-    L.push('   Animais (' + animals.length + '):');
-    if(!animals.length) L.push('   • (nenhum animal vinculado)');
-    animals.forEach(p => {
-      L.push('   • ' + p.name + ' — ' + p.species + ', ' + (p.breed||'SRD') + ', ' +
-        p.gender + (p.fertility ? ' (' + p.fertility + ')' : '') +
-        ', ' + calcAge(p.birth) + ', ' + p.weight + ' kg');
-    });
-    L.push(line);
-  });
+    return `<div class="box" style="margin-bottom:14px">
+      <b style="font-size:14px">${i+1}. ${esc(t.name)}</b><br>
+      <span style="font-size:12px;line-height:1.9">
+      📞 ${fmtPhone(t.phone)}${t.cpf ? ' &nbsp;·&nbsp; CPF ' + fmtCPF(t.cpf) : ''}<br>
+      ${t.email ? '✉️ ' + esc(t.email) + '<br>' : ''}
+      ${t.address ? '📍 ' + esc(t.address) + (t.cep ? ' · CEP ' + fmtCEP(t.cep) : '') + '<br>' : ''}
+      🐾 <b>Animais (${animals.length}):</b> ${animals.length
+        ? animals.map(p => `${esc(p.name)} (${esc(p.species)}, ${esc(p.breed||'SRD')}, ${esc(p.gender)}, ${calcAge(p.birth)})`).join(' · ')
+        : '—'}</span></div>`;
+  }).join('');
+  const orphans = DB.pets.filter(p => !p.tutorId || !DB.tutors.find(t => t.id === p.tutorId));
+  const orphanBlock = orphans.length ? `<div class="box" style="margin-bottom:14px">
+    <b style="font-size:13px">Animais sem tutor vinculado (${orphans.length}):</b><br>
+    <span style="font-size:12px">${orphans.map(p => `${esc(p.name)} (${esc(p.species)}, ${esc(p.breed||'SRD')})`).join(' · ')}</span></div>` : '';
+  printShell('Relação de Tutores — VetFlowCare',
+    letterheadHTML() +
+    `<div class="doctitle">RELAÇÃO DE TUTORES E PACIENTES</div>
+    <div style="font-size:12px;color:#6B7A8D;margin-bottom:14px">Gerado em ${fmtDate(todayISO())}${DB.vet.name ? ' · ' + esc(DB.vet.name) + (crmvFull() ? ' · ' + crmvFull() : '') : ''} · ${DB.tutors.length} tutores · ${DB.pets.length} animais</div>` +
+    blocks + orphanBlock);
+}
 
-  const orphans = DB.pets.filter(p => !p.tutorId || !DB.tutors.find(t=>t.id===p.tutorId));
-  if(orphans.length){
-    L.push('');
-    L.push('ANIMAIS SEM TUTOR VINCULADO (' + orphans.length + '):');
-    orphans.forEach(p => {
-      L.push('   • ' + p.name + ' — ' + p.species + ', ' + (p.breed||'SRD') + ', ' +
-        p.gender + ', ' + calcAge(p.birth) + ', ' + p.weight + ' kg');
-    });
-    L.push(line);
+// ═══════════ IMPORTAÇÃO DE OUTRO SISTEMA (CSV) ═══════════
+function csvParse(text){
+  text = text.replace(/^\uFEFF/, '');
+  const nl = text.indexOf('\n');
+  const first = nl > -1 ? text.slice(0, nl) : text;
+  const delim = (first.match(/;/g)||[]).length >= (first.match(/,/g)||[]).length ? ';' : ',';
+  const rows = [];
+  let row = [''], inQ = false;
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(inQ){
+      if(ch === '"'){
+        if(text[i+1] === '"'){ row[row.length-1] += '"'; i++; }
+        else inQ = false;
+      } else row[row.length-1] += ch;
+    }
+    else if(ch === '"') inQ = true;
+    else if(ch === delim) row.push('');
+    else if(ch === '\n' || ch === '\r'){
+      if(ch === '\r' && text[i+1] === '\n') i++;
+      if(row.length > 1 || row[0].trim() !== '') rows.push(row.map(c=>c.trim()));
+      row = [''];
+    }
+    else row[row.length-1] += ch;
   }
-  L.push('');
-  L.push('ORGANIZA · CONECTA · CUIDA — VetFlowCare');
-
-  const blob = new Blob([L.join('\n')], {type:'text/plain;charset=utf-8'});
+  if(row.length > 1 || row[0].trim() !== '') rows.push(row.map(c=>c.trim()));
+  if(!rows.length) return {headers:[], rows:[]};
+  return {headers: rows[0], rows: rows.slice(1).filter(r => r.some(c => c !== ''))};
+}
+const IMP_FIELDS = [
+  {k:'tNome',  label:'👤 Nome do tutor (obrigatório)', rx:/cliente|tutor|propriet|respons|dono/i, rx2:/^nome$/i},
+  {k:'tFone',  label:'📞 Telefone / WhatsApp', rx:/fone|celular|whats|contato/i},
+  {k:'tEmail', label:'✉️ E-mail', rx:/mail/i},
+  {k:'tCpf',   label:'🪪 CPF', rx:/cpf/i},
+  {k:'tEnd',   label:'📍 Endereço', rx:/endere|logradouro|rua/i},
+  {k:'tCep',   label:'📮 CEP', rx:/cep/i},
+  {k:'pNome',  label:'🐾 Nome do animal', rx:/animal|pet|paciente/i},
+  {k:'pEsp',   label:'Espécie', rx:/esp[eé]cie/i},
+  {k:'pRaca',  label:'Raça', rx:/ra[cç]a/i},
+  {k:'pSexo',  label:'Sexo', rx:/sexo|g[eê]nero/i},
+  {k:'pNasc',  label:'🎂 Nascimento', rx:/nasc/i},
+  {k:'pPeso',  label:'⚖️ Peso', rx:/peso/i},
+  {k:'pChip',  label:'Microchip', rx:/chip/i}
+];
+function impGuessMap(headers){
+  const map = {}, used = new Set();
+  IMP_FIELDS.forEach(f => {
+    let idx = headers.findIndex((h,i) => !used.has(i) && f.rx.test(h));
+    if(idx === -1 && f.rx2) idx = headers.findIndex((h,i) => !used.has(i) && f.rx2.test(h));
+    if(idx > -1){ map[f.k] = idx; used.add(idx); }
+  });
+  return map;
+}
+function impNormEsp(v){
+  v = (v||'').toLowerCase();
+  if(/c[ãa]o|canin|cachorr|dog/.test(v)) return 'Cão';
+  if(/gat|felin|cat/.test(v)) return 'Gato';
+  if(/ave|p[áa]ssar|bird|calopsit|papagai/.test(v)) return 'Ave';
+  return v ? 'Outro' : 'Cão';
+}
+function impNormSexo(v){ return /f/i.test(v||'') ? 'Fêmea' : 'Macho'; }
+function impDate(v){
+  v = (v||'').trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if(m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})/.exec(v);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})$/.exec(v);
+  if(m){ const y = parseInt(m[3]) <= 26 ? '20'+m[3] : '19'+m[3]; return `${y}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`; }
+  return '';
+}
+function openImportWizard(){
+  showSheet('📥 Importar de Outro Sistema', `
+    <div style="font-size:13px;line-height:1.8">
+    Traga seus tutores e animais de <b>qualquer sistema ou planilha</b> em 3 passos:<br><br>
+    <b>1.</b> No seu sistema atual, use <b>"Exportar clientes/animais"</b> (gera Excel ou CSV).<br>
+    <b>2.</b> Se for Excel: abra e use <b>Salvar como → CSV</b>.<br>
+    <b>3.</b> Envie o arquivo abaixo — o VetFlowCare reconhece as colunas sozinho e você só confere.<br><br>
+    <span style="color:var(--muted);font-size:12px">💡 Controla tudo numa planilha própria? Funciona igual! Ou baixe nosso modelo para organizar sua lista:</span></div>
+    <button class="btn sm outline" style="margin-top:10px" onclick="impModelo()">📄 Baixar planilha modelo</button>
+    <input type="file" accept=".csv,.txt" id="impFile" class="hidden" onchange="impFileRead(this)">`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="document.getElementById('impFile').click()">📂 Enviar arquivo CSV</button>`);
+}
+function impModelo(){
+  const csv = 'Nome do Tutor;Telefone;Email;CPF;Endereco;CEP;Nome do Animal;Especie;Raca;Sexo;Nascimento;Peso\n' +
+    'Maria Silva;11955551234;maria@email.com;123.456.789-00;Rua das Flores 100 - Centro;01234-000;Rex;Cão;Labrador;Macho;10/03/2020;28\n' +
+    'João Souza;11944443333;;;;;Mimi;Gato;SRD;Fêmea;05/07/2022;4.2';
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'tutores_vetflowcare_' + todayISO() + '.txt';
+  a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'}));
+  a.download = 'modelo-importacao-vetflowcare.csv';
   a.click();
-  toast('📄 Lista de tutores exportada!');
+  toast('📄 Modelo baixado! Preencha e envie de volta.');
+}
+function impFileRead(input){
+  const f = input.files[0]; if(!f) return;
+  const read = enc => {
+    const r = new FileReader();
+    r.onload = e => {
+      const text = e.target.result;
+      if(enc === 'UTF-8' && text.includes('\uFFFD')){ read('ISO-8859-1'); return; }
+      const parsed = csvParse(text);
+      if(!parsed.headers.length || !parsed.rows.length){
+        toast('⚠ Arquivo vazio ou formato não reconhecido'); return;
+      }
+      window._imp = {headers: parsed.headers, rows: parsed.rows, map: impGuessMap(parsed.headers)};
+      impStep2();
+    };
+    r.readAsText(f, enc);
+  };
+  read('UTF-8');
+}
+function impStep2(){
+  const I = window._imp;
+  showSheet('📥 Conferir colunas (passo 2 de 3)', `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">
+    Encontrei <b>${I.rows.length} linhas</b>. Confira se cada informação aponta para a coluna certa da sua planilha:</div>
+    ${IMP_FIELDS.map(f => `
+      <label>${f.label}</label>
+      <select id="impMap_${f.k}">
+        <option value="-1">— não importar —</option>
+        ${I.headers.map((h,i) => `<option value="${i}" ${I.map[f.k]===i?'selected':''}>${esc(h||('coluna '+(i+1)))}</option>`).join('')}
+      </select>`).join('')}`,
+    `<button class="btn gray" onclick="openImportWizard()">‹ Voltar</button>
+     <button class="btn" onclick="impStep3()">Continuar →</button>`);
+}
+function impStep3(){
+  const I = window._imp;
+  IMP_FIELDS.forEach(f => {
+    const v = parseInt(document.getElementById('impMap_' + f.k)?.value ?? -1);
+    I.map[f.k] = v >= 0 ? v : undefined;
+  });
+  if(I.map.tNome === undefined){ toast('⚠ Aponte qual coluna tem o nome do tutor'); return; }
+  const g = (row, k) => I.map[k] !== undefined ? (row[I.map[k]] || '').trim() : '';
+  const digits = s => (s||'').replace(/\D/g,'');
+  // Monta o plano
+  const tutMap = {}; let skipped = 0, reusedT = 0, pets = [], dupP = 0;
+  I.rows.forEach(row => {
+    const nome = g(row,'tNome');
+    if(!nome){ skipped++; return; }
+    const key = nome.toLowerCase() + '|' + digits(g(row,'tFone'));
+    if(!tutMap[key]){
+      const existing = DB.tutors.find(t =>
+        t.name.toLowerCase() === nome.toLowerCase() &&
+        (!g(row,'tFone') || digits(t.phone) === digits(g(row,'tFone'))));
+      if(existing){ tutMap[key] = {id: existing.id, existing: true}; reusedT++; }
+      else tutMap[key] = {id: null, existing: false,
+        data: {name: nome, phone: g(row,'tFone'), email: g(row,'tEmail'),
+               cpf: g(row,'tCpf'), address: g(row,'tEnd'), cep: g(row,'tCep')}};
+    }
+    const pNome = g(row,'pNome');
+    if(pNome){
+      const esp = impNormEsp(g(row,'pEsp'));
+      const already = DB.pets.some(p => p.name.toLowerCase() === pNome.toLowerCase() &&
+        tutMap[key].existing && p.tutorId === tutMap[key].id);
+      if(already){ dupP++; return; }
+      pets.push({tutKey: key, data: {name: pNome, species: esp, breed: g(row,'pRaca') || 'SRD',
+        gender: impNormSexo(g(row,'pSexo')), birth: impDate(g(row,'pNasc')),
+        weight: parseFloat((g(row,'pPeso')||'').replace(',','.')) || 0,
+        microchip: g(row,'pChip')}});
+    }
+  });
+  const newTutors = Object.values(tutMap).filter(t => !t.existing).length;
+  let limitNote = '', petCount = pets.length;
+  if(!isPro()){
+    const room = Math.max(0, FREE_PET_LIMIT - DB.pets.length);
+    if(pets.length > room){
+      limitNote = `<div style="background:rgba(240,165,0,.1);border:1.5px solid var(--warning);border-radius:10px;padding:10px 12px;font-size:12px;margin-top:10px">
+        ⚠ <b>Plano gratuito (limite de ${FREE_PET_LIMIT} animais):</b> serão importados só os <b>${room} primeiros</b> animais de ${pets.length}. Ative o ✨ Pro para importar todos.</div>`;
+      petCount = room;
+    }
+  }
+  I.plan = {tutMap, pets, petCount};
+  const prev = I.rows.slice(0,3).map(row =>
+    `<tr><td style="padding:5px 8px;border-bottom:1px solid var(--border)">${esc(g(row,'tNome')||'—')}</td>
+     <td style="padding:5px 8px;border-bottom:1px solid var(--border)">${esc(g(row,'pNome')||'—')}</td>
+     <td style="padding:5px 8px;border-bottom:1px solid var(--border)">${esc(impNormEsp(g(row,'pEsp')))}</td></tr>`).join('');
+  showSheet('📥 Confirmar importação (passo 3 de 3)', `
+    <div class="card" style="text-align:center">
+      <div style="font-size:15px"><b>${newTutors}</b> tutores novos${reusedT?` · <b>${reusedT}</b> já existiam (serão aproveitados)`:''}</div>
+      <div style="font-size:15px;margin-top:4px"><b>${petCount}</b> animais${dupP?` · ${dupP} duplicados ignorados`:''}${skipped?` · ${skipped} linhas sem tutor puladas`:''}</div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:10px 0 4px">Prévia das primeiras linhas:</div>
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <tr style="color:var(--muted)"><th style="text-align:left;padding:5px 8px">Tutor</th><th style="text-align:left;padding:5px 8px">Animal</th><th style="text-align:left;padding:5px 8px">Espécie</th></tr>${prev}</table>
+    ${limitNote}
+    <div style="font-size:11px;color:var(--muted);margin-top:12px">🛡️ Um ponto de restauração será criado antes — dá para desfazer em Ajustes → Proteção de Dados.</div>`,
+    `<button class="btn gray" onclick="impStep2()">‹ Voltar</button>
+     <button class="btn" onclick="doImport()">✅ Importar agora</button>`);
+}
+async function doImport(){
+  const I = window._imp; if(!I?.plan) return;
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw) await idbStore('snap','readwrite', s => s.put(raw, 'antes-importacao ' + new Date().toTimeString().slice(0,5)));
+  }catch(e){}
+  let nT = 0, nP = 0;
+  Object.values(I.plan.tutMap).forEach(t => {
+    if(!t.existing){
+      const nt = normalizeTutor(t.data);
+      DB.tutors.push(nt);
+      t.id = nt.id; nT++;
+    }
+  });
+  for(const p of I.plan.pets){
+    if(nP >= I.plan.petCount) break;
+    const pet = normalizePet({...p.data, tutorId: I.plan.tutMap[p.tutKey].id || ''});
+    DB.pets.push(pet); nP++;
+  }
+  save(); gcEvent('importacao-csv');
+  closeSheet(); goTab('pets'); render();
+  toast(`✅ Importados: ${nT} tutores e ${nP} animais!`);
+  window._imp = null;
 }
 
 async function saveFileSAF(name, blob){
@@ -2861,10 +3317,7 @@ function openPetForm(petId){
       onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${SPECIES_EMOJI[s]} ${s}</button>`).join('')}</div>
     <label>Nome *</label><input id="fName" value="${esc(pet?.name||'')}" placeholder="Ex: Vicky">
     <label>Tutor / Responsável</label>
-    <select id="fTutor">
-      <option value="">— Sem tutor vinculado —</option>
-      ${DB.tutors.map(t=>`<option value="${t.id}" ${((pet?.tutorId)||window._presetTutor||'')===t.id?'selected':''}>${esc(t.name)}</option>`).join('')}
-    </select>
+    ${tutorPickerHTML('fTutor', (pet?.tutorId) || window._presetTutor)}
     <div style="font-size:11px;color:var(--muted);margin-top:4px">Para cadastrar um novo tutor: Pacientes → aba Tutores</div>
     <label>Raça</label><input id="fBreed" value="${esc(pet?.breed||'')}" placeholder="Ex: Shih tzu · SRD">
     <label>Sexo *</label><div class="chips" id="fGender">${chipRow('g',['Macho','Fêmea'], pet?.gender||'Macho')}</div>
@@ -2905,7 +3358,7 @@ function savePetForm(petId){
   if(birthTxt && !birth){ toast('⚠ Data de nascimento inválida — use DD/MM/AAAA'); return; }
   if(!name || !birth || !weight){ toast('⚠ Preencha nome, nascimento e peso'); return; }
   const pick = sel => document.querySelector(sel+' .chip.on')?.dataset.v;
-  const fields = { name, species:pick('#fSpecies')||'Cão', tutorId:val('fTutor'), tutor:'',
+  const fields = { name, species:pick('#fSpecies')||'Cão', tutorId:(function(){ const r = resolveTutorId('fTutor'); if(r===null){ toast('⚠ Tutor não encontrado — escolha um da lista'); throw 'tutor'; } return r; })(), tutor:'',
     breed:val('fBreed'), gender:pick('#fGender')||'Macho', fertility:pick('#fFert')||'Fértil',
     birth, weight, porte:pick('#fPorte')||'Médio',
     chip:val('fChip'), registry:val('fReg'), notes:val('fNotes'), photo:window._photoData };
@@ -3060,8 +3513,7 @@ function openApptForm(petId){
     <label>Data *</label><input id="fPDate" type="date" value="${window._presetDate||todayISO()}">
     <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
       <span style="color:var(--muted);font-size:12px;flex-shrink:0">ou digite:</span>
-      <input id="fPDateTxt" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
-        oninput="this.value=this.value.replace(/\D/g,'').replace(/(\d{2})(\d)/,'$1/$2').replace(/(\d{2}\/\d{2})(\d)/,'$1/$2')">
+      <input id="fPDateTxt" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" oninput="maskDate(this)">
     </div>
     <label>Horário *</label><input id="fPTime" type="time" value="10:00">
     <label>Local / Clínica</label><input id="fPClinic" placeholder="Opcional">
@@ -3153,6 +3605,10 @@ function fmtCEP(v){
   const d = (v||'').replace(/\D/g,'');
   return d.length === 8 ? d.replace(/(\d{5})(\d{3})/,'$1-$2') : (v || '—');
 }
+function maskCEP(el){
+  el.value = el.value.replace(/\D/g,'').slice(0,8).replace(/^(\d{5})(\d)/,'$1-$2');
+  if(el.value.length === 9) buscaCEP(el.value);
+}
 function maskDate(el){
   el.value = el.value.replace(/[^0-9]/g,'')
     .replace(/^(\d{2})(\d)/,'$1/$2')
@@ -3243,6 +3699,7 @@ function saveAppt(petId){
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'),
     valor, payStatus, payDue, paidAt,
+    done: date < todayISO() ? 1 : 0,
     itens: itens.length ? itens : null,
     parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
   window._parcelas = null;
@@ -3682,6 +4139,7 @@ function bootApp(){
     render();
     if(!localStorage.getItem('vfc_tut_done')) setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500);
     else if(!DB.vet.name) setTimeout(openVetSetup, 500);
+    else if(localStorage.getItem('vfc_seen_ver') !== APP_VER) setTimeout(showWhatsNew, 900);
   }
 }
 const _enterOrig = enterApp;
@@ -3690,39 +4148,52 @@ enterApp = function(){ localStorage.setItem('vfc_entered','1'); _enterOrig(); };
 function proceedBoot(){
   if(window._LOCKED){ showLockScreen(); } else { bootApp(); }
 }
+const LGPD_HTML = `
+      <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:10px">Última atualização: 14 de julho de 2026</div>
+      <b>1. Aceitação dos Termos.</b> Ao criar uma conta ou utilizar as funcionalidades do VetFlowCare, você declara ter lido, compreendido e aceito estes termos e a Política de Privacidade.<br><br>
+      <b>2. Natureza da Plataforma.</b> O VetFlowCare é uma ferramenta de organização, gestão e armazenamento de informações veterinárias. <b>Aviso:</b> o aplicativo não realiza diagnósticos, prescrições ou tratamentos — todas as informações inseridas são de responsabilidade exclusiva do usuário e não substituem o acompanhamento profissional. Não nos responsabilizamos por decisões baseadas em erros de digitação ou preenchimento.<br><br>
+      <b>3. Proteção de Dados (LGPD — Lei 13.709/2018).</b> Coletamos apenas os dados necessários ao funcionamento (dados de tutores e pacientes), armazenados <b>no seu aparelho</b> com medidas técnicas de proteção — incluindo criptografia e, quando disponível, autenticação por senha. Finalidade: exclusivamente o gerenciamento da sua carteira de pacientes; nada é compartilhado com terceiros sem sua autorização expressa, salvo determinação legal. Você pode acessar, corrigir ou excluir seus dados a qualquer momento pelo próprio app. Para melhoria do serviço, coletamos apenas <b>estatísticas anônimas de uso</b> (contagem de aberturas do aplicativo — sem cookies e sem qualquer identificação pessoal).<br><br>
+      <b>4. Responsabilidades do Usuário.</b> Manter a confidencialidade da sua senha (recomendamos bloqueio de tela no aparelho); garantir a veracidade das informações inseridas; não utilizar o sistema para fins ilícitos.<br><br>
+      <b>5. Planos e Assinaturas (PRO).</b> Os benefícios PRO valem pelo período contratado. A renovação é de responsabilidade do usuário; o acesso aos recursos está condicionado à validade da assinatura.<br><br>
+      <b>6. Backup e Integridade.</b> O app disponibiliza ferramentas de backup. É de inteira responsabilidade do usuário realizar backups periódicos em locais seguros. Não nos responsabilizamos por perdas decorrentes de exclusão acidental, limpeza do navegador ou perda de acesso ao dispositivo.<br><br>
+      <b>7. Propriedade Intelectual.</b> Design, código-fonte, marcas e logotipos do VetFlowCare são de propriedade exclusiva dos desenvolvedores. Reprodução não autorizada é proibida.<br><br>
+      <b>8. Alterações.</b> Estes termos podem ser atualizados periodicamente, com comunicação pelo próprio aplicativo. O uso contínuo implica aceitação da nova versão.<br><br>
+      <b>9. Foro.</b> Fica eleito o foro da comarca de São Paulo – SP para dirimir controvérsias decorrentes destes Termos.`;
+function viewTermsAgain(){
+  showSheet('📜 Termos de Uso e Privacidade', `<div style="font-size:13px;line-height:1.8">${LGPD_HTML}</div>`,
+    `<button class="btn" onclick="closeSheet()">Fechar</button>`);
+}
 function showLGPD(){
   const div = document.createElement('div');
   div.id = 'lgpdGate';
   div.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(15,27,46,.96);display:flex;align-items:center;justify-content:center;padding:20px';
   div.innerHTML = `<div style="background:var(--surface,#fff);border-radius:20px;max-width:440px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
     <div style="padding:18px 20px 0"><b style="font-size:17px">📜 Termo de Uso e Privacidade</b></div>
-    <div style="padding:12px 20px;overflow-y:auto;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">
-      <div style="text-align:center;color:var(--muted);font-size:11px;margin-bottom:10px">Última atualização: 14 de julho de 2026</div>
-      <b>1. Aceitação dos Termos.</b> Ao criar uma conta ou utilizar as funcionalidades do VetFlowCare, você declara ter lido, compreendido e aceito estes termos e a Política de Privacidade.<br><br>
-      <b>2. Natureza da Plataforma.</b> O VetFlowCare é uma ferramenta de organização, gestão e armazenamento de informações veterinárias. <b>Aviso:</b> o aplicativo não realiza diagnósticos, prescrições ou tratamentos — todas as informações inseridas são de responsabilidade exclusiva do usuário e não substituem o acompanhamento profissional. Não nos responsabilizamos por decisões baseadas em erros de digitação ou preenchimento.<br><br>
-      <b>3. Proteção de Dados (LGPD — Lei 13.709/2018).</b> Coletamos apenas os dados necessários ao funcionamento (dados de tutores e pacientes), armazenados <b>no seu aparelho</b> com medidas técnicas de proteção — incluindo criptografia e, quando disponível, autenticação por senha. Finalidade: exclusivamente o gerenciamento da sua carteira de pacientes; nada é compartilhado com terceiros sem sua autorização expressa, salvo determinação legal. Você pode acessar, corrigir ou excluir seus dados a qualquer momento pelo próprio app.<br><br>
-      <b>4. Responsabilidades do Usuário.</b> Manter a confidencialidade da sua senha (recomendamos bloqueio de tela no aparelho); garantir a veracidade das informações inseridas; não utilizar o sistema para fins ilícitos.<br><br>
-      <b>5. Planos e Assinaturas (PRO).</b> Os benefícios PRO valem pelo período contratado. A renovação é de responsabilidade do usuário; o acesso aos recursos está condicionado à validade da assinatura.<br><br>
-      <b>6. Backup e Integridade.</b> O app disponibiliza ferramentas de backup. É de inteira responsabilidade do usuário realizar backups periódicos em locais seguros. Não nos responsabilizamos por perdas decorrentes de exclusão acidental, limpeza do navegador ou perda de acesso ao dispositivo.<br><br>
-      <b>7. Propriedade Intelectual.</b> Design, código-fonte, marcas e logotipos do VetFlowCare são de propriedade exclusiva dos desenvolvedores. Reprodução não autorizada é proibida.<br><br>
-      <b>8. Alterações.</b> Estes termos podem ser atualizados periodicamente, com comunicação pelo próprio aplicativo. O uso contínuo implica aceitação da nova versão.<br><br>
-      <b>9. Foro.</b> Fica eleito o foro da comarca de São Paulo – SP para dirimir controvérsias decorrentes destes Termos.</div>
+    <div style="padding:12px 20px;overflow-y:auto;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">${LGPD_HTML}</div>
     <div style="padding:14px 20px 18px;border-top:1px solid var(--border,#E3EBF2)">
       <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:12px;cursor:pointer;color:var(--text,#1A2F5A)">
         <input type="checkbox" id="lgpdCk" style="width:20px;height:20px;accent-color:#2DC0AE;flex-shrink:0;margin-top:1px">
         <span>Li e concordo com os <b>Termos de Uso e a Política de Privacidade</b></span></label>
       <button onclick="if(!document.getElementById('lgpdCk').checked){alert('Marque a caixa de aceite para continuar.');return;}
         localStorage.setItem('vfc_lgpd', JSON.stringify({v:'2026-07-14', aceite:new Date().toISOString()}));
-        document.getElementById('lgpdGate').remove();proceedBoot()"
+        document.getElementById('lgpdGate').remove();afterLGPD()"
         style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Aceitar e Continuar</button>
     </div></div>`;
   document.body.appendChild(div);
 }
+function afterLGPD(){
+  if(BETA_GATE && !localStorage.getItem('vfc_invite')){
+    showInviteGate(proceedBoot);
+  } else {
+    proceedBoot();
+  }
+}
 if(!localStorage.getItem('vfc_lgpd')){
   showLGPD();
 } else {
-  proceedBoot();
+  afterLGPD();
 }
 </script>
+<script data-goatcounter="https://vetflowcare.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
 </html>
