@@ -1,5 +1,5 @@
 // VetFlowCare v9 — Service Worker (network-first para o app, cache como reserva)
-const CACHE = 'vetflowcare-v97';
+const CACHE = 'vetflowcare-v96b';
 const ASSETS = ['./', './index.html', './logo.jpg', './manifest.json'];
 
 self.addEventListener('install', e => {
