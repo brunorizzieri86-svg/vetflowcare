@@ -103,6 +103,10 @@ main{padding:16px}
 .modal .mh .x{width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center}
 .modal .mb{overflow-y:auto;padding:14px 18px;flex:1}
 .modal .mf{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);display:flex;gap:10px}
+.modal.ov{z-index:300;align-items:center;justify-content:center;padding:22px}
+.modal.ov .sheet{border-radius:22px;max-height:80vh;max-width:400px;animation:vfcpop .18s ease;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.modal.ov .mf{border-top:none;padding-top:2px}
+@keyframes vfcpop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{background:var(--bg);color:var(--muted);border:1px solid var(--border);border-radius:18px;padding:7px 13px;font-size:12px;font-weight:600}
 .chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
@@ -231,12 +235,14 @@ canvas{width:100%!important}
 <nav id="mainNav" class="hidden">
   <button data-tab="home" class="on" onclick="goTab('home')"><span class="nic">🏠</span>Início</button>
   <button data-tab="pets" onclick="goTab('pets')"><span class="nic">🐾</span>Pacientes</button>
+  <button data-tab="fin" onclick="goFinance()"><span class="nic">💰</span>Financeiro</button>
   <button data-tab="calendar" onclick="goTab('calendar')"><span class="nic">📅</span>Agenda</button>
   <button data-tab="alerts" onclick="goTab('alerts')"><span class="nic">🔔</span>Alertas<span class="nbadge hidden" id="alertBadge"></span></button>
   <button data-tab="settings" onclick="goTab('settings')"><span class="nic">⚙️</span>Ajustes</button>
 </nav>
 
 <div id="modals"></div>
+<div id="modals2"></div>
 
 <script>
 /* ═══════════════════════════════════════════════
@@ -283,7 +289,7 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.7';
+const APP_VER = '9.9';
 function showWhatsNew(){
   showSheet('🎉 Novidades no seu VetFlowCare!', `
     <div style="font-size:14px;line-height:1.85">
@@ -381,6 +387,7 @@ let finPeriod = 'm';
 let petSort = 'az';
 let petSpec = 'all';
 let finQ = '';
+let finPA = {ini:'', fim:'', open:false}; // análise por período (Previsão × Realizado)
 let finExpM = 0;
 let finExpCat = 'all';
 let deferredPrompt = null;
@@ -436,6 +443,13 @@ function migrate(d){
   d.license = Object.assign(defaultDB().license, d.license||{});
   d.charges = d.charges || [];
   d.expenses = d.expenses || [];
+  // ID do Aparelho (licença Pro vinculada): 4 caracteres, criado uma única vez.
+  // Vive dentro do DB — sobrevive a backup/restauração junto com os dados da clínica.
+  if(!d.devId){
+    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const r = crypto.getRandomValues(new Uint8Array(4));
+    d.devId = [...r].map(b => A[b % A.length]).join('');
+  }
   d.pets = (d.pets||[]).map(normalizePet);
   d.tutors = (d.tutors||[]).map(normalizeTutor);
   // Converte campo antigo "tutor" (texto livre) em cadastro de tutor
@@ -555,7 +569,8 @@ function tutorPickerHTML(inputId, selectedId){
 }
 function resolveTutorId(inputId){
   const inp = document.getElementById(inputId);
-  if(inp && !inp.value.trim()) return '';
+  if(!inp) return '';               // campo não renderizado (nenhum tutor cadastrado)
+  if(!inp.value.trim()) return '';  // campo vazio = sem tutor
   return pickValue(inputId);
 }
 function tutorOf(pet){ return DB.tutors.find(t => t.id === pet.tutorId) || null; }
@@ -672,7 +687,10 @@ function priorityOf(d){
   if(d<0) return 'overdue'; if(d===0) return 'today';
   if(d<=3) return 'high'; if(d<=7) return 'medium'; return 'low';
 }
-function esc(s){ return String(s??'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c])); }
+function esc(s){ return String(s??'').replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c])); }
+// Para textos do usuário dentro de argumentos JS em onclick="f('...')":
+// escapa \ e ' para o contexto JS e depois aplica esc() para o contexto HTML.
+const escJS = s => esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
 function toast(msg){
   document.querySelectorAll('.toast').forEach(t=>t.remove());
   const t = document.createElement('div');
@@ -738,7 +756,10 @@ async function initDataProtection(){
   // 3) Estado corrompido resgatado?
   if(window._RESCUE){
     setTimeout(()=>{
-      alert('⚠ Os dados salvos não puderam ser lidos e foram preservados num arquivo de resgate.\n\nVá em Ajustes → Proteção de Dados para baixar o resgate ou restaurar um ponto automático.');
+      vfcConfirm({icon:'🛟', title:'Dados preservados em resgate',
+        msg:'Os dados salvos não puderam ser lidos e foram <b>preservados num arquivo de resgate</b>.<br>Vá em Ajustes → Proteção de Dados para baixar o resgate ou restaurar um ponto automático.',
+        note:'Nada foi perdido — está tudo guardado.', noteColor:'var(--success)',
+        single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
     }, 800);
   }
 }
@@ -763,8 +784,14 @@ async function makeSnapshotNow(){
   window._snapList = await listSnapshots();
   render(); toast('📸 Ponto de restauração criado!');
 }
-async function restoreSnapshot(key){
-  if(!confirm(`Restaurar os dados do ponto "${key}"?\n\nO estado ATUAL será guardado antes, por segurança.`)) return;
+function restoreSnapshot(key){
+  vfcConfirm({icon:'↩️', title:'Restaurar ponto?',
+    msg:`Restaurar os dados do ponto<br><b>"${esc(key)}"</b>?`,
+    note:'🛟 O estado ATUAL será guardado antes, por segurança.', noteColor:'var(--vac)',
+    yesLabel:'↩ Sim, restaurar', yesBg:'var(--primary)',
+    yes:`doRestoreSnapshot('${String(key).replace(/'/g,"\\'")}')`});
+}
+async function doRestoreSnapshot(key){
   const cur = localStorage.getItem(LS_KEY);
   if(cur) await idbStore('snap','readwrite', s => s.put(cur, 'antes-restaurar '+new Date().toTimeString().slice(0,5)));
   const snap = await idbStore('snap','readonly', s => s.get(key));
@@ -819,12 +846,10 @@ function showLockScreen(){
   const auth = getAuth();
   if(!auth || !auth.salt || !auth.check){
     // Blob criptografado sem credenciais — estado corrompido
-    alert('⚠ As credenciais de acesso não foram encontradas.\n\nSe você tem um backup JSON, toque em OK, apague os dados e importe o backup em Ajustes.');
-    if(confirm('Apagar os dados criptografados e recomeçar?')){
-      localStorage.removeItem(LS_KEY);
-      localStorage.removeItem(LS_AUTH);
-      location.reload();
-    }
+    vfcConfirm({icon:'🚨', title:'Credenciais não encontradas',
+      msg:'As credenciais de acesso não foram encontradas neste aparelho.<br>Se você tem um <b>backup JSON</b>, apague os dados abaixo e importe o backup em Ajustes.',
+      note:'Apagar os dados criptografados é irreversível.',
+      noLabel:'Fechar', yesLabel:'🗑️ Apagar e recomeçar', yes:'doWipeCrypto()'});
     return;
   }
   document.getElementById('splash')?.classList.add('hidden');
@@ -888,8 +913,18 @@ async function unlockApp(){
   }catch(e){ err.textContent = '⚠ Erro ao desbloquear: ' + (e.message||e); console.warn(e); }
 }
 function lockForgot(){
-  if(!confirm('Sem a senha, os dados criptografados NÃO podem ser recuperados.\n\nSe você tem um backup JSON, pode apagar tudo e importá-lo depois.\n\nApagar todos os dados e recomeçar?')) return;
-  if(!confirm('Tem certeza ABSOLUTA? Esta ação não pode ser desfeita.')) return;
+  vfcConfirm({icon:'🔑', title:'Esqueceu a senha?',
+    msg:'Sem a senha, os dados criptografados <b>NÃO</b> podem ser recuperados.<br>Se você tem um <b>backup JSON</b>, pode apagar tudo e importá-lo depois em Ajustes.',
+    note:'Deseja apagar todos os dados e recomeçar?',
+    noLabel:'← Voltar', yesLabel:'Continuar', yesBg:'var(--warning)', yes:'lockForgot2()'});
+}
+function lockForgot2(){
+  vfcConfirm({icon:'🗑️', title:'Tem certeza ABSOLUTA?',
+    msg:'Todos os dados deste aparelho serão apagados agora.',
+    note:'Esta ação não pode ser desfeita.',
+    noLabel:'Não, manter', yesLabel:'Sim, apagar tudo', yes:'doWipeCrypto()'});
+}
+function doWipeCrypto(){
   localStorage.removeItem(LS_KEY);
   localStorage.removeItem(LS_AUTH);
   location.reload();
@@ -989,13 +1024,25 @@ async function doChangePass(){
   await persistDB();
   closeSheet(); toast('🔑 Senha alterada!');
 }
-async function openRemovePass(){
-  const pass = prompt('Digite sua senha atual para remover a proteção:');
-  if(pass === null) return;
+function openRemovePass(){
+  showSheet('🔓 Remover senha', `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Para sua segurança, confirme a senha atual antes de remover a proteção.</div>
+    <label>Senha atual *</label>${pwInput('rpPass','Digite sua senha atual')}`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" style="background:var(--danger)" onclick="checkRemovePass()">Continuar</button>`);
+}
+async function checkRemovePass(){
+  const pass = document.getElementById('rpPass').value;
   const auth = getAuth();
   const key = await deriveKey(pass, b64d(auth.salt));
   if(!(await verifyKey(key, auth.check))){ toast('⚠ Senha incorreta'); return; }
-  if(!confirm('Remover a senha? Os dados voltarão a ser gravados SEM criptografia.')) return;
+  vfcConfirm({icon:'🔓', title:'Remover a senha?',
+    msg:'Os dados voltarão a ser gravados <b>SEM criptografia</b> neste aparelho.',
+    note:'💡 Você pode reativar a proteção quando quiser em Ajustes → Segurança.', noteColor:'var(--vac)',
+    noLabel:'Não, manter', yesLabel:'Sim, remover', yes:'doRemovePass()'});
+}
+async function doRemovePass(){
+  closeSheet();
   localStorage.removeItem(LS_AUTH);
   window._cryptoKey = null;
   await persistDB();
@@ -1031,7 +1078,11 @@ function allReceivables(){
   });
   return out;
 }
-function goFinance(){ showFinance = true; currentPetId = null; currentTutorId = null; finFilter='todos'; render(); }
+function goFinance(){
+  showFinance = true; currentPetId = null; currentTutorId = null; finFilter='todos';
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab==='fin'));
+  render();
+}
 
 function renderFinance(){
   const all = allReceivables();
@@ -1050,7 +1101,7 @@ function renderFinance(){
     ['hoje','🟡 Hoje', r=>r.status==='pendente' && daysUntil(r.due)===0],
     ['prox','🔵 Próx. 7 dias', r=>r.status==='pendente' && daysUntil(r.due)>0 && daysUntil(r.due)<=7],
     ['todos','📋 A receber', r=>r.status==='pendente'],
-    ['pagos','✅ Pagos', r=>r.status==='pago']
+    ['pagos','✅ Recebidos', r=>r.status==='pago']
   ];
   const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
   let list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
@@ -1058,7 +1109,7 @@ function renderFinance(){
     r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
 
   let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-    <button class="btn sm gray" onclick="showFinance=false;render()">‹</button>
+    <button class="btn sm gray" onclick="goTab(currentTab||'home')">‹</button>
     <h2 style="flex:1">💰 Financeiro</h2>
     ${finView==='rec'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
     ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>
@@ -1070,8 +1121,8 @@ function renderFinance(){
   if(finView === 'desp') return h + renderExpenses();
   if(finView === 'fluxo') return h + renderFluxo();
   h += `<input placeholder="🔍 Buscar por paciente ou descrição…" value="${esc(finQ)}" style="margin-bottom:12px"
-    oninput="finQ=this.value.toLowerCase();document.getElementById('mainContent').innerHTML=renderFinance();
-    const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)">`;
+    oninput="finQ=this.value.toLowerCase();debQ(()=>{document.getElementById('mainContent').innerHTML=renderFinance();
+    const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)})">`;
   // Lembretes de vencimento (2-3 dias antes)
   DB.settings.payRem = DB.settings.payRem !== false;
   const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
@@ -1105,14 +1156,21 @@ function renderFinance(){
         <div style="font-size:12px;color:var(--muted);margin-top:2px">Toque para ver o fluxo de todos os meses →</div></div>`
     : '';
 
-  // Filtros
-  h += `<div class="filters">${filters.map(([k,l,fn])=>{
+  // Filtros — grade FIXA (sem esteira lateral): todos visíveis de uma vez
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">${filters.slice(0,3).map(([k,l,fn])=>{
     const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+  }).join('')}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">${filters.slice(3).map(([k,l,fn])=>{
+    const n = all.filter(fn).length;
+    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
   }).join('')}</div>`;
 
+  // Análise por período: Previsão × Realizado
+  h += renderPeriodoCard(all);
+
   if(!list.length){
-    h += `<div class="card empty"><div class="big">${finFilter==='pagos'?'💸':'🎉'}</div>${finFilter==='pagos'?'Nenhum pagamento registrado ainda':'Nada por aqui!'}</div>`;
+    h += `<div class="card empty"><div class="big">${finFilter==='pagos'?'💸':'🎉'}</div>${finFilter==='pagos'?'Nenhum recebimento registrado ainda':'Nada por aqui!'}</div>`;
     return h;
   }
 
@@ -1154,14 +1212,101 @@ function openDueEdit(kind, id){
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveDueEdit('${kind}','${id}')">💾 Salvar</button>`);
 }
-function saveDueEdit(kind, id){
+function saveDueEdit(kind, id, force){
   const d = parseBRDate(val('fDueNew'));
   if(!d){ toast('⚠ Data inválida — use DD/MM/AAAA'); return; }
+  if(!force && daysUntil(d) < 0){
+    confirmPastDate(d, `saveDueEdit('${kind}','${id}',1)`, 'Vencimento da cobrança.');
+    return;
+  }
   const r = findRec(kind, id); if(!r) return;
   if(r.__parc) r.p.due = d;
   else if(kind==='avulso') r.due = d;
   else r.payDue = d;
   save(); closeSheet(); render(); toast('📅 Vencimento atualizado!');
+}
+// ═══ ANÁLISE POR PERÍODO: Previsão × Realizado ═══
+function setFinPA(campo, v){ finPA[campo] = v; refreshFin(); }
+function refreshFin(){ document.getElementById('mainContent').innerHTML = renderFinance(); }
+function finPAQuick(tipo){
+  const now = new Date();
+  const iso2br = iso => fmtDate(iso);
+  if(tipo==='mes'){
+    finPA.ini = iso2br(`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`);
+    finPA.fim = iso2br(todayISO());
+  } else if(tipo==='mespass'){
+    const d1 = new Date(now.getFullYear(), now.getMonth()-1, 1);
+    const d2 = new Date(now.getFullYear(), now.getMonth(), 0);
+    finPA.ini = iso2br(d1.toISOString().slice(0,10));
+    finPA.fim = iso2br(d2.toISOString().slice(0,10));
+  } else if(tipo==='30d'){
+    finPA.ini = iso2br(addDays(todayISO(), -30));
+    finPA.fim = iso2br(todayISO());
+  } else { finPA.ini=''; finPA.fim=''; }
+  refreshFin();
+}
+function renderPeriodoCard(all){
+  const ini = parseBRDate(finPA.ini), fim = parseBRDate(finPA.fim);
+  const valido = ini && fim && ini <= fim;
+  let corpo = '';
+  if(valido){
+    const inR = s => s && s >= ini && s <= fim;
+    const previsto  = all.filter(r=>inR(r.due)).reduce((s,r)=>s+r.valor,0);
+    const realizado = all.filter(r=>r.status==='pago' && inR(r.paidAt)).reduce((s,r)=>s+r.valor,0);
+    const emAtraso  = all.filter(r=>r.status==='pendente' && inR(r.due) && daysUntil(r.due)<0).reduce((s,r)=>s+r.valor,0);
+    const aVencer   = all.filter(r=>r.status==='pendente' && inR(r.due) && daysUntil(r.due)>=0).reduce((s,r)=>s+r.valor,0);
+    const desp = DB.expenses.filter(e=>inR(e.date)).reduce((s,e)=>s+e.valor,0);
+    const taxa = previsto > 0 ? Math.round(realizado/previsto*100) : (realizado>0?100:0);
+    const dif = realizado - previsto;
+    const encerrado = fim < todayISO();
+    const maxB = Math.max(previsto, realizado, 1);
+    const bar = (v,cor) => `<div style="flex:1;height:11px;background:var(--bg);border-radius:6px"><div style="height:100%;width:${Math.min(100,Math.round(v/maxB*100))}%;background:${cor};border-radius:6px"></div></div>`;
+    corpo = `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+      <span class="st ${encerrado?'ok':'prog'}" style="font-size:10px">${encerrado?'📊 Período encerrado — Previsão × Realizado':'⏳ Período em andamento — resultado parcial'}</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:10px">
+        <span style="font-size:11px;min-width:74px;color:var(--muted)">Previsto</span>${bar(previsto,'var(--vac)')}
+        <b style="font-size:11px;min-width:76px;text-align:right;color:var(--vac)">${fmtBRL(previsto)}</b></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+        <span style="font-size:11px;min-width:74px;color:var(--muted)">Realizado</span>${bar(realizado,'var(--success)')}
+        <b style="font-size:11px;min-width:76px;text-align:right;color:var(--success)">${fmtBRL(realizado)}</b></div>
+      <div style="display:flex;gap:12px;margin-top:12px;padding-top:9px;border-top:1px dashed var(--border)">
+        <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Realização</div>
+          <b style="font-size:17px;color:${taxa>=80?'var(--success)':taxa>=50?'var(--warning)':'var(--danger)'}">${taxa}%</b></div>
+        <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Diferença</div>
+          <b style="font-size:14px;color:${dif>=0?'var(--success)':'var(--danger)'}">${dif>=0?'+':'−'} ${fmtBRL(Math.abs(dif))}</b></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;margin-top:10px">
+        ${emAtraso?`<span class="st bad">⚠ Em atraso ${fmtBRL(emAtraso)}</span>`:''}
+        ${aVencer?`<span class="st prog">📅 A vencer ${fmtBRL(aVencer)}</span>`:''}
+        ${desp?`<span class="st bad">🧾 Despesas ${fmtBRL(desp)}</span>`:''}
+      </div>
+      ${desp?`<div style="font-size:13px;margin-top:8px">Saldo realizado do período: <b style="color:${(realizado-desp)>=0?'var(--success)':'var(--danger)'}">${fmtBRL(realizado-desp)}</b></div>`:''}
+    </div>`;
+  } else if(finPA.ini || finPA.fim){
+    corpo = `<div style="font-size:12px;color:var(--warning);margin-top:8px">⚠ Informe as duas datas completas (DD/MM/AAAA), com a inicial antes da final.</div>`;
+  }
+  return `<div class="card" style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer" onclick="finPA.open=!finPA.open;refreshFin()">
+      <b style="font-size:13px">🔎 Análise por Período — Previsão × Realizado</b>
+      <span style="color:var(--muted);font-size:14px">${finPA.open?'▲':'▼'}</span></div>
+    ${finPA.open?`
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Digite o período: o app compara o que estava <b>previsto para vencer</b> com o que foi <b>de fato recebido</b>.</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <div style="flex:1"><label style="margin-top:0">Data inicial</label>
+        <input value="${esc(finPA.ini)}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+          oninput="maskDate(this)" onchange="setFinPA('ini', this.value)"></div>
+      <div style="flex:1"><label style="margin-top:0">Data final</label>
+        <input value="${esc(finPA.fim)}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+          oninput="maskDate(this)" onchange="setFinPA('fim', this.value)"></div></div>
+    <div class="chips" style="margin-top:8px">
+      <button class="chip" onclick="finPAQuick('mes')">Este mês</button>
+      <button class="chip" onclick="finPAQuick('mespass')">Mês passado</button>
+      <button class="chip" onclick="finPAQuick('30d')">Últimos 30 dias</button>
+      ${(finPA.ini||finPA.fim)?`<button class="chip" onclick="finPAQuick('limpar')">✕ Limpar</button>`:''}
+    </div>
+    ${corpo}`:''}
+  </div>`;
 }
 function findRec(kind, id){
   if(kind==='avulso') return DB.charges.find(c=>c.id===id);
@@ -1208,9 +1353,12 @@ function markReminded(kind, id){
   save();
 }
 function delChargeItem(id){
-  if(!confirm('Remover esta cobrança?')) return;
+  const c = DB.charges.find(x=>x.id===id);
+  askDel('💰 Excluir cobrança', `Deseja excluir a cobrança <b>${esc(c?.desc||'')}</b> de <b>${fmtBRL(c?.valor)}</b>?`, `doDelChargeItem('${id}')`);
+}
+function doDelChargeItem(id){
   DB.charges = DB.charges.filter(c=>c.id!==id);
-  save(); render(); toast('Cobrança removida');
+  save(); render(); toast('🗑️ Cobrança excluída');
 }
 function cobrarWhats(kind, id){
   if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
@@ -1227,7 +1375,7 @@ function cobrarWhats(kind, id){
 }
 
 // ═══ DESPESAS (Pro) ═══
-const EXP_CATS = ['Materiais','Medicamentos','Transporte','Equipamentos','Outros'];
+const EXP_CATS = ['Serviços/Procedimentos','Materiais','Medicamentos','Transporte','Equipamentos','Laboratório','Outros'];
 function renderExpenses(){
   if(!isPro()) return `<div class="card" style="cursor:pointer" onclick="openProModal('O controle de despesas é um recurso Pro.')">
     <div style="font-size:14px">🔒 <b>Controle de Despesas</b></div>
@@ -1299,12 +1447,20 @@ function openExpenseForm(editId){
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveExpense('${editId||''}')">💾 Salvar</button>`);
 }
-function saveExpense(editId){
+function saveExpense(editId, force){
   const desc = val('fEDesc'), valor = parseFloat(val('fEValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
+  if(!(valor > 0 && valor < 1000000)){ toast('⚠ Valor inválido — use um número positivo'); return; }
   const date = parseBRDate(val('fEDate')) || todayISO();
+  const e0 = editId ? DB.expenses.find(x=>x.id===editId) : null;
+  const dateChanged = !e0 || e0.date !== date;
+  // Despesas antigas são normais (lançar a compra de ontem) — só confirma se for MUITO antiga
+  if(dateChanged && daysUntil(date) < -30 && !force){
+    confirmPastDate(date, `saveExpense('${editId||''}',1)`, 'Data da despesa — confira se não foi erro de digitação.');
+    return;
+  }
   if(editId){
-    Object.assign(DB.expenses.find(x=>x.id===editId),
+    Object.assign(e0,
       {desc, cat:document.getElementById('fECat').value, valor, date});
   } else {
     DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value, valor, date});
@@ -1312,9 +1468,12 @@ function saveExpense(editId){
   save(); closeSheet(); render(); toast(editId?'✏️ Despesa atualizada!':'🧾 Despesa registrada!');
 }
 function delExpense(id){
-  if(!confirm('Remover esta despesa?')) return;
+  const e = DB.expenses.find(x=>x.id===id);
+  askDel('🧾 Excluir despesa', `Deseja excluir a despesa <b>${esc(e?.desc||'')}</b> de <b>${fmtBRL(e?.valor)}</b>?`, `doDelExpense('${id}')`);
+}
+function doDelExpense(id){
   DB.expenses = DB.expenses.filter(e=>e.id!==id);
-  save(); render(); toast('Despesa removida');
+  save(); render(); toast('🗑️ Despesa excluída');
 }
 
 // ═══ FLUXO MENSAL (Pro) ═══// ═══ FLUXO MENSAL (Pro) ═══
@@ -1402,7 +1561,7 @@ function renderFluxo(){
     </div></div>`;
   // Card de produção clínica por tipo
   if(prodTot){
-    const TIPO_EMO = {'Consulta':'🩺','Retorno':'🔄','Vacinação':'💉','Exame':'🔬','Cirurgia':'🏥','Emergência':'🚨'};
+    const TIPO_EMO = {'Consulta':'🩺','Retorno':'🔄','Vacinação':'💉','Exame':'🔬','Cirurgia':'🏥','Emergência':'🚨','Orientações via Telefone':'📞'};
     const maxT = Math.max(...Object.values(prodCount));
     h += `<div class="card" style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">🩺 Produção clínica do período</div>
@@ -1478,31 +1637,104 @@ function openChargeForm(editId){
     <div class="chips">${CATS.map(k=>`<button class="chip" onclick="const d=document.getElementById('fCDesc');d.value=d.value?d.value+' · '+'${k}':'${k}'">${k}</button>`).join('')}</div>
     <label>Descrição *</label>
     <input id="fCDesc" value="${esc(c?.desc||'')}" placeholder="Ex: Venda de vermífugo · Banho e tosa">
-    <label>Valor (R$) *</label>
-    <input id="fCValor" type="number" step="0.01" inputmode="decimal" value="${c?c.valor:''}" placeholder="Ex: 80.00">
+    <label>Valor total (R$) *</label>
+    <input id="fCValor" type="number" step="0.01" inputmode="decimal" value="${c?c.valor:''}" placeholder="Ex: 80.00" oninput="buildChgParcelas()">
     <label>Situação</label>
     <div class="chips" id="fCPay">
-      <button class="chip ${c?.status==='pago'?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on')">✓ Pago</button>
-      <button class="chip ${(!c||c.status==='pendente')?'on':''}" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on')">📅 A receber</button>
+      <button class="chip ${c?.status==='pago'?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on');document.getElementById('fCPendWrap').style.display='none'">✓ Recebido</button>
+      <button class="chip ${(!c||c.status==='pendente')?'on':''}" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on');document.getElementById('fCPendWrap').style.display='block'">📅 A receber</button>
     </div>
-    <label>Vencimento</label>
-    <input id="fCDue" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
-      value="${fmtDate(c?.due||todayISO())}" oninput="maskDate(this)">`,
+    <div id="fCPendWrap" style="display:${c?.status==='pago'?'none':'block'}">
+      <label>Parcelamento</label>
+      <select id="fCParc" onchange="buildChgParcelas()">
+        <option value="1">À vista (1x)</option>
+        <option value="2">2 parcelas</option><option value="3">3 parcelas</option>
+        <option value="4">4 parcelas</option><option value="5">5 parcelas</option>
+      </select>
+      <div id="fCParc1">
+        <label>Vencimento *</label>
+        <input id="fCDue" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+          value="${fmtDate(c?.due||todayISO())}" oninput="maskDate(this)">
+      </div>
+      <div id="fCParcRows"></div>
+      <div id="fCParcInfo" style="display:none;background:var(--vacbg);border-radius:10px;padding:9px 12px;font-size:12px;color:var(--vac);margin-top:10px">
+        💡 Cada parcela vira uma cobrança própria no Financeiro (1/n, 2/n…) — você marca o recebimento de cada uma separadamente.</div>
+    </div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveCharge('${editId||''}')">💾 Salvar</button>`);
 }
-function saveCharge(editId){
+function buildChgParcelas(){
+  const n = parseInt(document.getElementById('fCParc')?.value)||1;
+  const total = parseFloat(val('fCValor'))||0;
+  const rows = document.getElementById('fCParcRows');
+  const info = document.getElementById('fCParcInfo');
+  document.getElementById('fCParc1').style.display = n===1 ? 'block' : 'none';
+  if(!rows) return;
+  if(n === 1){ rows.innerHTML=''; info.style.display='none'; return; }
+  info.style.display = 'block';
+  const base = Math.floor((total/n)*100)/100;
+  let html = '';
+  for(let i=0;i<n;i++){
+    const v = i===n-1 ? (total - base*(n-1)).toFixed(2) : base.toFixed(2);
+    const sug = fmtDate(addDays(todayISO(), 30*(i+1)));
+    const oldV = document.getElementById('fCParcV'+i)?.value;
+    const oldD = document.getElementById('fCParcD'+i)?.value;
+    html += `<div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
+      <div style="flex:1"><label>Parcela ${i+1} (R$)</label>
+      <input id="fCParcV${i}" type="number" step="0.01" inputmode="decimal" value="${oldV||(total?v:'')}"></div>
+      <div style="flex:1"><label>Vencimento</label>
+      <input id="fCParcD${i}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" value="${oldD||sug}" oninput="maskDate(this)"></div></div>`;
+  }
+  rows.innerHTML = html;
+}
+function saveCharge(editId, force){
   const desc = val('fCDesc'), valor = parseFloat(val('fCValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
-  const due = parseBRDate(val('fCDue')) || todayISO();
+  if(!(valor > 0 && valor < 1000000)){ toast('⚠ Valor inválido — use um número positivo'); return; }
   const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
   const petId = pickValue('fCPet');
   if(!petId){ toast('⚠ Paciente não encontrado — escolha da lista'); return; }
   const petSel = DB.pets.find(p=>p.id===petId);
+  const n = (status==='pendente') ? (parseInt(document.getElementById('fCParc')?.value)||1) : 1;
+
+  if(n > 1){
+    // Parcelado: valida todas as parcelas
+    const parc = [];
+    let soma = 0;
+    for(let i=0;i<n;i++){
+      const v = parseFloat(document.getElementById('fCParcV'+i)?.value)||0;
+      const d = parseBRDate(document.getElementById('fCParcD'+i)?.value);
+      if(!v || !d){ toast(`⚠ Preencha valor e data (DD/MM/AAAA) da parcela ${i+1}`); return; }
+      soma += v; parc.push({v, d});
+    }
+    if(Math.abs(soma - valor) > 0.01){ toast(`⚠ As parcelas (${fmtBRL(soma)}) não fecham o total (${fmtBRL(valor)})`); return; }
+    const past = parc.find(p => daysUntil(p.d) < 0);
+    if(past && !force){
+      confirmPastDate(past.d, `saveCharge('${editId||''}',1)`, 'Vencimento de uma das parcelas.');
+      return;
+    }
+    const oldC = editId ? DB.charges.find(x=>x.id===editId) : null;
+    parc.forEach((p,i) => {
+      const base = {petId:petSel.id, desc:`${desc} (${i+1}/${n})`, valor:p.v, due:p.d,
+        status:'pendente', paidAt:null, createdAt: oldC?.createdAt || todayISO()};
+      if(i===0 && oldC) Object.assign(oldC, base);
+      else DB.charges.push({id:uid(), ...base});
+    });
+    save(); closeSheet(); render();
+    toast(`💰 Cobrança em ${n}x registrada!`);
+    return;
+  }
+
+  const due = parseBRDate(val('fCDue')) || todayISO();
+  const c0 = editId ? DB.charges.find(x=>x.id===editId) : null;
+  const dueChanged = !c0 || c0.due !== due;
+  if(status==='pendente' && dueChanged && daysUntil(due) < 0 && !force){
+    confirmPastDate(due, `saveCharge('${editId||''}',1)`, 'Vencimento da cobrança.');
+    return;
+  }
   if(editId){
-    const c = DB.charges.find(x=>x.id===editId);
-    Object.assign(c, {petId:petSel.id, desc, valor, due, status,
-      paidAt: status==='pago' ? (c.paidAt||todayISO()) : null});
+    Object.assign(c0, {petId:petSel.id, desc, valor, due, status,
+      paidAt: status==='pago' ? (c0.paidAt||todayISO()) : null});
   } else {
     DB.charges.push({id:uid(), petId:petSel.id,
       desc, valor, due, status,
@@ -1526,12 +1758,14 @@ function addMonths(iso, m){
   return d.toISOString().slice(0,10);
 }
 const PRO_PLANS = {1:'1 mês', 6:'6 meses', 12:'12 meses'};
-function vfcChecksum(seed){
+function vfcChecksum(seed, devId){
+  // v9.9: código Pro VINCULADO ao aparelho — o mesmo código não ativa em outro celular.
   let h = 7;
-  const s = seed + 'ORGANIZACONECTACUIDA';
+  const s = seed + '|' + (devId||'') + 'ORGANIZACONECTACUIDA';
   for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
   return String(1000 + (h % 9000));
 }
+function myDevId(){ return DB?.devId || ''; }
 // ── Convites da fase de testes (desligue mudando para false ao abrir ao público) ──
 const BETA_GATE = true;
 function inviteChecksum(seed){
@@ -1577,7 +1811,7 @@ function checkInvite(){
 
 function vfcCheck(code){
   const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
-  return !!m && vfcChecksum(m[1]) === m[2];
+  return !!m && vfcChecksum(m[1], myDevId()) === m[2];
 }
 function openProModal(reason){
   showSheet('✨ VetFlowCare Pro', `
@@ -1596,8 +1830,14 @@ function openProModal(reason){
       <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">6 meses · em breve</button>
       <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">12 meses · em breve</button>
     </div>
-    <button class="btn" style="background:#25D366;margin-top:14px"
-      onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro com vocês, pode me ajudar?'))">
+    <div style="background:var(--rxbg);border:1.5px dashed var(--rx);border-radius:12px;padding:11px 13px;margin-top:12px">
+      <div style="font-size:10px;font-weight:800;color:var(--rx);text-transform:uppercase">🔑 ID deste aparelho</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <b style="font-size:20px;letter-spacing:3px;font-family:monospace;flex:1">AP-${myDevId()}</b>
+        <button class="btn sm" style="background:var(--rx)" onclick="navigator.clipboard.writeText('AP-'+myDevId()).then(()=>toast('📋 ID copiado!'))">📋 Copiar</button></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Seu código Pro é gerado para ESTE ID e só funciona neste aparelho.</div></div>
+    <button class="btn" style="background:#25D366;margin-top:12px"
+      onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro! Meu ID de aparelho é AP-'+myDevId()+'. Pode me ajudar?'))">
       💬 Assinar pelo WhatsApp da VetFlowCare</button>
     <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
       Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>
@@ -1611,7 +1851,7 @@ function usedCodes(){
 }
 function activatePro(){
   const code = val('proCode').toUpperCase().trim();
-  if(!vfcCheck(code)){ toast('⚠ Código inválido — confira e tente novamente'); return; }
+  if(!vfcCheck(code)){ toast('⚠ Código inválido para este aparelho — confira se ele foi gerado para o ID AP-'+myDevId()); return; }
   // Uso único por aparelho: cada renovação exige um código novo
   if(usedCodes().includes(code)){
     toast('⚠ Este código já foi utilizado neste aparelho. Solicite um novo código para renovar.');
@@ -1627,7 +1867,12 @@ function activatePro(){
   toast(`✨ Pro ativado por ${PRO_PLANS[plan]}! Válido até ${fmtDate(DB.license.expiresAt)}`);
 }
 function deactivatePro(){
-  if(!confirm('Desativar o Pro neste aparelho?')) return;
+  vfcConfirm({icon:'✨', title:'Desativar o Pro?',
+    msg:'Os recursos Pro (despesas, fluxo, cobrança WhatsApp, receita de controle…) ficarão bloqueados neste aparelho.',
+    note:'💡 Seus dados NÃO serão apagados — você pode reativar com o mesmo código.', noteColor:'var(--vac)',
+    noLabel:'Manter Pro', yesLabel:'Sim, desativar', yes:'doDeactivatePro()'});
+}
+function doDeactivatePro(){
   DB.license = { pro:false, code:'', activatedAt:null };
   save(); render(); toast('Pro desativado');
 }
@@ -1936,6 +2181,53 @@ function renderHome(){
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
 
+  // ⏳ Aviso de vencimento do plano Pro (7 dias antes + vencido)
+  const _L = DB.license;
+  if(_L && _L.expiresAt && localStorage.getItem('vfc_pro_snooze') !== todayISO()){
+    const _dl = daysUntil(_L.expiresAt);
+    const _venc = proExpired();
+    if(_venc || (isPro() && _dl <= 7)){
+      h += `<div class="card" style="border-color:${_venc?'var(--danger)':'var(--rx)'};margin-bottom:12px;padding:13px 14px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:20px">⏳</span>
+          <div style="flex:1;font-size:12.5px;line-height:1.6">
+            ${_venc
+              ? `<b style="color:var(--danger)">Seu plano Pro venceu em ${fmtDate(_L.expiresAt)}.</b><br><span style="color:var(--muted)">Os recursos Pro estão pausados, mas <b>todos os seus dados continuam salvos</b>. Renove para reativar!</span>`
+              : `<b>Seu plano Pro vence em ${_dl === 0 ? 'HOJE' : _dl + (_dl===1?' dia':' dias')}</b> (${fmtDate(_L.expiresAt)}).<br><span style="color:var(--muted)">Renove sem pressa e sem perder nada — é só falar com a gente!</span>`}
+          </div>
+          <button style="background:none;color:var(--muted);font-size:15px;padding:2px" onclick="localStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button>
+        </div>
+        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
+          onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Meu plano Pro do VetFlowCare está vencendo e quero renovar. Pode me ajudar?'))">
+          💬 Renovar pelo WhatsApp da VetFlowCare</button>
+      </div>`;
+    }
+  }
+  // Aviso de renovação do Pro (7 dias antes do vencimento, ou vencido)
+  const _lic = DB.license;
+  if(_lic?.expiresAt && localStorage.getItem('vfc_pro_snooze') !== todayISO()){
+    const _dl = daysUntil(_lic.expiresAt);
+    const _renovaMsg = encodeURIComponent('Oi! Meu plano Pro do VetFlowCare está vencendo e quero renovar. Pode me ajudar?');
+    if(isPro() && _dl >= 0 && _dl <= 7){
+      h += `<div class="card" style="border-color:var(--rx);background:var(--rxbg);margin-bottom:12px;padding:13px 14px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:20px">⏳</span>
+          <div style="flex:1;font-size:13px"><b>Seu plano Pro vence ${_dl===0?'HOJE':_dl===1?'amanhã':'em '+_dl+' dias'}</b> (${fmtDate(_lic.expiresAt)})<br>
+          <span style="color:var(--muted);font-size:12px">Renove para não perder os recursos Pro — seus dados ficam sempre seguros.</span></div>
+          <button style="background:none;color:var(--muted);font-size:16px" onclick="localStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button></div>
+        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
+          onclick="window.open('https://wa.me/5511912659906?text=${_renovaMsg}')">💬 Renovar pelo WhatsApp da VetFlowCare</button></div>`;
+    } else if(proExpired()){
+      h += `<div class="card" style="border-color:var(--danger);margin-bottom:12px;padding:13px 14px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:20px">⚠️</span>
+          <div style="flex:1;font-size:13px"><b style="color:var(--danger)">Seu plano Pro venceu</b> em ${fmtDate(_lic.expiresAt)}<br>
+          <span style="color:var(--muted);font-size:12px">Seus dados estão intactos — renove para reativar os recursos Pro.</span></div>
+          <button style="background:none;color:var(--muted);font-size:16px" onclick="localStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button></div>
+        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
+          onclick="window.open('https://wa.me/5511912659906?text=${_renovaMsg}')">💬 Renovar pelo WhatsApp da VetFlowCare</button></div>`;
+    }
+  }
   if(DB.pets.length && daysSinceBackup() > 7 && localStorage.getItem('vfc_bk_snooze') !== todayISO()){
     h += `<div class="card" style="border-color:var(--warning);display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 14px">
       <span style="font-size:20px">🛡️</span>
@@ -2005,8 +2297,8 @@ function renderPetsList(q=''){
       <button class="chip ${pplView==='tutores'?'on':''}" onclick="pplView='tutores';render()">👤 Tutores (${DB.tutors.length})</button>
     </div>
     <input placeholder="🔍 Buscar por nome, raça ou tutor…" style="margin-bottom:10px"
-      oninput="document.getElementById('mainContent').innerHTML=renderPetsList(this.value.toLowerCase());
-      const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)" value="${esc(q)}">
+      oninput="const q=this.value.toLowerCase();debQ(()=>{document.getElementById('mainContent').innerHTML=renderPetsList(q);
+      const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)})" value="${esc(q)}">
     ${pplView==='animais'?`<div class="chips" style="margin-bottom:12px">
       <button class="chip ${petSort==='az'?'on':''}" onclick="petSort='az';render()">A-Z</button>
       <button class="chip ${petSort==='saude'?'on':''}" onclick="petSort='saude';render()">❤️ Saúde</button>
@@ -2018,7 +2310,24 @@ function renderPetsList(q=''){
 
   if(pplView === 'tutores'){
     const tutors = DB.tutors.filter(t =>
-      t.name.toLowerCase().includes(q) || (t.cpf||'').includes(q) || (t.phone||'').includes(q));
+      t.name.toLowerCase().includes(q) || (t.cpf||'').includes(q) || (t.phone||'').includes(q) ||
+      (t.bairro||'').toLowerCase().includes(q) || (t.cep||'').includes(q) ||
+      (t.address||'').toLowerCase().includes(q));
+    if(window.tutBairro && window.tutBairro !== 'all')
+      tutors = tutors.filter(t => (t.bairro||'').trim().toLowerCase() === window.tutBairro);
+    // Chips de bairros (gerados automaticamente dos cadastros)
+    const bairroCount = {};
+    DB.tutors.forEach(t => {
+      const b = (t.bairro||'').trim();
+      if(b) bairroCount[b.toLowerCase()] = {n:(bairroCount[b.toLowerCase()]?.n||0)+1, label:b};
+    });
+    const bairros = Object.entries(bairroCount).sort((a,b)=>b[1].n-a[1].n).slice(0,10);
+    if(bairros.length >= 2){
+      h += `<div class="chips" style="margin-bottom:12px">
+        <button class="chip ${(!window.tutBairro||window.tutBairro==='all')?'on':''}" onclick="window.tutBairro='all';render()">📍 Todos</button>
+        ${bairros.map(([k,v])=>`<button class="chip ${window.tutBairro===k?'on':''}" onclick="window.tutBairro='${k}';render()">${esc(v.label)} (${v.n})</button>`).join('')}
+      </div>`;
+    }
     if(!tutors.length) return h + `<div class="card empty"><div class="big">👤</div>
       <b>Nenhum tutor cadastrado</b><br><small>Cadastre o responsável para vincular animais</small><br><br>
       <button class="btn sm" onclick="openTutorForm()">+ Cadastrar Tutor</button></div>`;
@@ -2028,7 +2337,7 @@ function renderPetsList(q=''){
         <div style="width:52px;height:52px;border-radius:50%;background:var(--vacbg);color:var(--vac);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;flex-shrink:0">${esc((t.name[0]||'?').toUpperCase())}</div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:800;font-size:15px">${esc(t.name)}</div>
-          <div style="color:var(--muted);font-size:12px;margin-top:2px">${t.phone?'📞 '+fmtPhone(t.phone):''}${t.cpf?' · CPF '+fmtCPF(t.cpf):''}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:2px">${t.phone?'📞 '+fmtPhone(t.phone):''}${t.bairro?' · 📍 '+esc(t.bairro):''}</div>
           <div style="color:var(--primary);font-size:11px;font-weight:700;margin-top:4px">🐾 ${count} ${count===1?'animal':'animais'}</div></div>
         <div style="color:var(--muted);font-size:16px">›</div></div>`;
     });
@@ -2087,6 +2396,7 @@ function renderTutorProfile(){
         <div class="irow"><span class="k">Nome completo</span><span class="v">${esc(t.name)}</span></div>
         <div class="irow"><span class="k">CPF</span><span class="v">${fmtCPF(t.cpf)}</span></div>
         <div class="irow"><span class="k">CEP</span><span class="v">${fmtCEP(t.cep)}</span></div>
+        <div class="irow"><span class="k">Bairro</span><span class="v">${esc(t.bairro||'—')}</span></div>
         <div class="irow"><span class="k">Endereço</span><span class="v">${esc(t.address||'—')}</span></div>
         ${t.email?`<div class="irow"><span class="k">E-mail</span><span class="v">${esc(t.email)}</span></div>`:''}
       </div></div>
@@ -2165,9 +2475,11 @@ async function viewTutorFicha(tid){
   w.document.write(`<title>${esc(t.ficha.name)}</title><body style="margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh"><img src="${data}" style="max-width:100%;max-height:100vh"></body>`);
 }
 function delTutorFicha(tid){
-  if(!confirm('Remover a ficha anexada?')) return;
+  askDel('📎 Excluir ficha', 'Deseja excluir <b>a ficha anexada</b> deste tutor?', `doDelTutorFicha('${tid}')`);
+}
+function doDelTutorFicha(tid){
   const t = DB.tutors.find(x=>x.id===tid);
-  if(t.ficha){ idbDel(t.ficha.id); t.ficha = null; save(); render(); }
+  if(t.ficha){ idbDel(t.ficha.id); t.ficha = null; save(); render(); toast('🗑️ Ficha excluída'); }
 }
 function openTutorForm(tutorId){
   const t = tutorId ? DB.tutors.find(x=>x.id===tutorId) : null;
@@ -2176,7 +2488,8 @@ function openTutorForm(tutorId){
     <label>CPF</label><input id="tCpf" value="${fmtCPF(t?.cpf||'')==='—'?'':fmtCPF(t?.cpf||'')}" placeholder="000.000.000-00" inputmode="numeric" maxlength="14" oninput="maskCPF(this)">
     <label>Telefone / WhatsApp *</label><input id="tPhone" value="${fmtPhone(t?.phone||'')==='—'?'':fmtPhone(t?.phone||'')}" placeholder="(11) 94031-8855" inputmode="tel" maxlength="15" oninput="maskPhone(this)">
     <label>CEP</label><input id="tCep" value="${fmtCEP(t?.cep||'')==='—'?'':fmtCEP(t?.cep||'')}" placeholder="00000-000 (preenche o endereço)" inputmode="numeric" maxlength="9" oninput="maskCEP(this)">
-    <label>Endereço</label><input id="tAddr" value="${esc(t?.address||'')}" placeholder="Rua, número, bairro, cidade">
+    <label>Bairro</label><input id="tBairro" value="${esc(t?.bairro||'')}" placeholder="Preenchido pelo CEP (ou digite)">
+    <label>Endereço</label><input id="tAddr" value="${esc(t?.address||'')}" placeholder="Rua, número, cidade">
     <label>E-mail</label><input id="tEmail" type="email" value="${esc(t?.email||'')}" placeholder="opcional">`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveTutorForm('${tutorId||''}')">💾 Salvar</button>`);
@@ -2190,8 +2503,10 @@ async function buscaCEP(cep){
     const d = await r.json();
     if(d.erro){ toast('⚠ CEP não encontrado'); return; }
     const addr = document.getElementById('tAddr');
+    const bai = document.getElementById('tBairro');
+    if(bai && !bai.value.trim() && d.bairro) bai.value = d.bairro;
     if(addr && !addr.value.trim()){
-      addr.value = `${d.logradouro||''}${d.bairro?', '+d.bairro:''}${d.localidade?' — '+d.localidade:''}${d.uf?'/'+d.uf:''}`.replace(/^, /,'');
+      addr.value = `${d.logradouro||''}${d.localidade?' — '+d.localidade:''}${d.uf?'/'+d.uf:''}`.replace(/^ — /,'');
       toast('✅ Endereço preenchido — adicione o número');
       addr.focus();
     }
@@ -2201,7 +2516,7 @@ function saveTutorForm(tutorId){
   const name = val('tName');
   if(!name){ toast('⚠ Informe o nome do tutor'); return; }
   const fields = { name, cpf:val('tCpf'), phone:val('tPhone'),
-    cep:val('tCep'), address:val('tAddr'), email:val('tEmail') };
+    cep:val('tCep'), bairro:val('tBairro'), address:val('tAddr'), email:val('tEmail') };
   if(tutorId){
     Object.assign(DB.tutors.find(x=>x.id===tutorId), fields);
   } else {
@@ -2218,8 +2533,13 @@ function saveTutorForm(tutorId){
   save(); closeSheet(); render(); toast(tutorId?'✏️ Tutor atualizado!':'👤 Tutor cadastrado!');
 }
 function delTutor(id){
+  const t = DB.tutors.find(x=>x.id===id);
   const count = DB.pets.filter(p=>p.tutorId===id).length;
-  if(!confirm(`Remover este tutor?${count?` Os ${count} animais dele NÃO serão apagados, apenas desvinculados.`:''}`)) return;
+  askDel('👤 Excluir tutor',
+    `Deseja excluir o tutor <b>${esc(t?.name||'')}</b>?${count?`<br><span style="font-size:12px;color:var(--muted)">Os ${count} ${count===1?'animal dele NÃO será apagado':'animais dele NÃO serão apagados'}, apenas desvinculado${count===1?'':'s'}.</span>`:''}`,
+    `doDelTutor('${id}')`);
+}
+function doDelTutor(id){
   DB.pets.forEach(p => { if(p.tutorId===id) p.tutorId=''; });
   DB.tutors = DB.tutors.filter(t=>t.id!==id);
   currentTutorId = null;
@@ -2357,7 +2677,7 @@ function renderPetHealth(pet){
         <div style="color:var(--muted);font-size:11px;margin-top:1px">${PROTOCOLS[g.protocol]?.label||''}</div></div>
         <span style="display:flex;gap:6px;align-items:center">
         ${g.next ? (late?'<span class="st bad">⚠ Atrasada</span>':'<span class="st prog">📅 Programada</span>') : '<span class="st ok">✓ Em dia</span>'}
-        <button style="background:none;color:var(--muted)" onclick="delVaccineGroup('${pet.id}','${esc(g.name)}')">🗑</button></span></div>
+        <button style="background:none;color:var(--muted)" onclick="delVaccineGroup('${pet.id}','${escJS(g.name)}')" aria-label="Excluir vacina">🗑</button></span></div>
 
       ${g.applied.length ? `<div style="margin-top:9px;border-top:1px solid var(--border)">
         ${g.applied.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
@@ -2394,22 +2714,24 @@ function renderPetHealth(pet){
       return `<div class="card" style="border-left:4px solid ${past?'var(--vac)':'var(--warning)'}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div style="flex:1;min-width:0">
-          <div class="tl-date ${past?'past':''}">${fmtDate(a.date)} às ${a.time||'—'}</div>
-          <b style="font-size:14px">${esc(a.title)}</b>
+          <div class="tl-date ${past?'past':''}">${fmtDate(a.date)}${a.time?` às ${a.time}`:''}</div>
+          <b style="font-size:14px">${a.phone?'📞 ':''}${esc(a.title)}</b>
           ${a.resumo?`<div style="color:var(--muted);font-size:12px;margin-top:2px">${esc(a.resumo)}</div>`:''}
         </div>
         <span style="display:flex;gap:6px;flex-shrink:0">
 
-        <button style="background:none;font-size:14px" onclick="openApptForm('${pet.id}','${a.id}')">✏️</button><button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','appointments','${a.id}')">🗑</button></span></div>
+        <button style="background:none;font-size:14px" onclick="${a.phone?`openPhoneForm('${pet.id}','${a.id}')`:`openApptForm('${pet.id}','${a.id}')`}">✏️</button><button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','appointments','${a.id}')">🗑</button></span></div>
       ${a.clinic?`<div style="color:var(--muted);font-size:11px;margin-top:5px">📍 ${esc(a.clinic)}</div>`:''}
       ${a.itens?.length?`<div style="margin-top:8px;border-top:1px dashed var(--border);padding-top:7px;font-size:12px">
         ${a.itens.map(it=>`<div style="display:flex;justify-content:space-between;padding:1px 0"><span style="color:var(--muted)">${esc(it.desc)}</span><span>${fmtBRL(it.valor)}</span></div>`).join('')}
         <div style="display:flex;justify-content:space-between;font-weight:800;margin-top:3px"><span>Total</span>
         <span style="color:${a.payStatus==='pago'?'var(--success)':'var(--warning)'}">${fmtBRL(a.valor)}${a.parcelas?` · ${a.parcelas.filter(p=>p.status==='pago').length}/${a.parcelas.length} pagas`:a.payStatus==='pago'?' ✓':''}</span></div></div>`
       : a.valor>0?`<div style="margin-top:7px;font-size:12px;font-weight:800;color:${a.payStatus==='pago'?'var(--success)':'var(--warning)'}">💰 ${fmtBRL(a.valor)}${a.parcelas?` · ${a.parcelas.filter(p=>p.status==='pago').length}/${a.parcelas.length} pagas`:a.payStatus==='pago'?' ✓ pago':''}</div>`:''}
-      ${a.record?`<div class="rxcontent" style="margin-top:10px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase">📋 Prontuário</b><br>${esc(a.record).slice(0,260)}${a.record.length>260?'…':''}</div>`:''}
+      ${a.record?`<div class="rxcontent" style="margin-top:10px"><b style="font-size:11px;color:var(--muted);text-transform:uppercase">${a.phone?'📞 Orientações':'📋 Prontuário'}</b><br>${esc(a.record).slice(0,260)}${a.record.length>260?'…':''}</div>`:''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn sm outline" onclick="openRecordForm('${pet.id}','${a.id}')">📋 ${a.record?'Editar':'Preencher'} Prontuário</button>
+        ${a.phone
+          ? `<button class="btn sm outline" onclick="openPhoneForm('${pet.id}','${a.id}')">📞 Editar Orientações</button>`
+          : `<button class="btn sm outline" onclick="openRecordForm('${pet.id}','${a.id}')">📋 ${a.record?'Editar':'Preencher'} Prontuário</button>`}
         ${a.record?`<button class="btn sm gray" onclick="printRecord('${pet.id}','${a.id}')">🖨️ Imprimir</button>`:''}
       </div></div>`;}),
     'Nenhum atendimento registrado', '+ Novo Atendimento');
@@ -2600,6 +2922,7 @@ function renderPetDocs(pet){
         <div class="irow"><span class="k">CPF</span><span class="v">${fmtCPF(t.cpf)}</span></div>
         <div class="irow"><span class="k">Telefone</span><span class="v">${fmtPhone(t.phone)}</span></div>
         <div class="irow"><span class="k">CEP</span><span class="v">${fmtCEP(t.cep)}</span></div>
+        <div class="irow"><span class="k">Bairro</span><span class="v">${esc(t.bairro||'—')}</span></div>
         <div class="irow"><span class="k">Endereço</span><span class="v">${esc(t.address||'—')}</span></div>
         <div style="display:flex;gap:8px;margin-top:10px">
           <button class="btn sm outline" onclick="openTutorForm('${t.id}')">✏️ Editar dados</button>
@@ -2969,6 +3292,8 @@ function renderSettings(){
 
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
     <div class="card" style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn outline" style="border-color:var(--vac);color:var(--vac)" onclick="openBackupHelp()">❓ Como funcionam os backups?</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Guia rápido de cada botão abaixo: qual usar, quando e onde guardar.</div>
       <button class="btn outline" onclick="exportJSON()">💾 Fazer Backup Completo</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Salva TUDO (pacientes, tutores, financeiro, receitas) em um arquivo. Guarde no Google Drive ou envie para você mesmo no WhatsApp — é sua garantia se trocar de celular ou esquecer a senha.</div>
       ${getAuth()?`<button class="btn outline" onclick="exportEncBackup()">🔐 Backup Criptografado (.vfcbak)</button>
@@ -2988,9 +3313,29 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.7 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.7:</b><br>
+      <b>Novidades da v9.9:</b><br>
+      • 🔐 <b>Antifraude do Pro</b>: código de ativação vinculado ao ID do aparelho — não funciona em outro celular<br>
+      • 🔑 ID do Aparelho visível na tela do Pro (o WhatsApp de assinatura já envia o ID automaticamente)<br>
+      • 🛡️ Blindagem de segurança (esc/escJS), buscas mais fluidas (debounce) e validação de valores<br>
+      <br><b>v9.8:</b><br>
+      • 🔐 <b>CORREÇÃO CRÍTICA</b>: restauração do Backup Criptografado (.vfcbak) — dados, senha e Pro voltam 100%<br>
+      • 💾 Backup Completo agora deixa escolher o destino (pasta/Drive/WhatsApp) no celular<br>
+      • ❓ Guia dos Backups em Ajustes — qual usar, quando e onde guardar<br>
+      • 🎨 Todos os avisos importantes no padrão elegante do app (fim das caixas cinzas do navegador)<br>
+      • 📅 Financeiro confere datas no passado ("2010? Confirma?") em cobranças, parcelas e despesas<br>
+      • 🔎 Análise por Período no Financeiro: <b>Previsão × Realizado</b>, taxa de realização e saldo<br>
+      • 💰 Financeiro na barra inferior + filtros fixos (sem esteira) + "Recebidos"<br>
+      • ✏️ Editar Cobrança completo com <b>parcelamento em até 5×</b><br>
+      • 🧾 Despesas do atendimento (sala de cirurgia, anestesista…) direto no Novo Atendimento → caem no Financeiro<br>
+      • 📞 Novo tipo: <b>Orientações via Telefone</b> — registro rápido com lápis/lixeira na linha do tempo<br>
+      • 🐱 Vacinas comuns do gato: V4, V3, V5, FeLV e Antirrábica<br>
+      • ✏️ Editar Atendimento agora inclui o <b>prontuário completo</b><br>
+      • 🖊️+💻 Receituário com as <b>duas assinaturas</b> (imagem + ICP-Brasil) no mesmo documento<br>
+      • 👤 Tutorial no cadastro quando ainda não há tutor cadastrado<br>
+      <br><b>v9.7:</b><br>
+      • 🏘️ Bairro no cadastro do tutor (preenchido pelo CEP) + busca e filtros por bairro <i>(sugestão de um testador beta!)</i><br>
       • 🔐 Login e senha direto na tela de entrada (com convite da fase Beta)<br>
       • ✏️ Editar tudo: doses de vacina, medicações e atendimentos<br>
       • 🗑️ Confirmações elegantes (Sim/Não) em todas as exclusões<br>
@@ -3054,7 +3399,7 @@ function exportTutoresTXT(){
       <span style="font-size:12px;line-height:1.9">
       📞 ${fmtPhone(t.phone)}${t.cpf ? ' &nbsp;·&nbsp; CPF ' + fmtCPF(t.cpf) : ''}<br>
       ${t.email ? '✉️ ' + esc(t.email) + '<br>' : ''}
-      ${t.address ? '📍 ' + esc(t.address) + (t.cep ? ' · CEP ' + fmtCEP(t.cep) : '') + '<br>' : ''}
+      ${t.bairro || t.address ? '📍 ' + [t.bairro, t.address].filter(Boolean).map(esc).join(' · ') + (t.cep ? ' · CEP ' + fmtCEP(t.cep) : '') + '<br>' : ''}
       🐾 <b>Animais (${animals.length}):</b> ${animals.length
         ? animals.map(p => `${esc(p.name)} (${esc(p.species)}, ${esc(p.breed||'SRD')}, ${esc(p.gender)}, ${calcAge(p.birth)})`).join(' · ')
         : '—'}</span></div>`;
@@ -3105,6 +3450,7 @@ const IMP_FIELDS = [
   {k:'tFone',  label:'📞 Telefone / WhatsApp', rx:/fone|celular|whats|contato/i},
   {k:'tEmail', label:'✉️ E-mail', rx:/mail/i},
   {k:'tCpf',   label:'🪪 CPF', rx:/cpf/i},
+  {k:'tBairro',label:'🏘️ Bairro', rx:/bairro/i},
   {k:'tEnd',   label:'📍 Endereço', rx:/endere|logradouro|rua/i},
   {k:'tCep',   label:'📮 CEP', rx:/cep/i},
   {k:'pNome',  label:'🐾 Nome do animal', rx:/animal|pet|paciente/i},
@@ -3157,10 +3503,10 @@ function openImportWizard(){
      <button class="btn" onclick="document.getElementById('impFile').click()">📂 Enviar arquivo CSV</button>`);
 }
 function impModelo(){
-  const csv = 'Nome do Tutor;Telefone;Nome do Animal;Especie;Raca;Sexo;Nascimento;Peso\n' +
-    'Maria Silva;11955551234;Rex;Cão;Labrador;Macho;10/03/2020;28\n' +
-    'Maria Silva;11955551234;Mel;Gato;SRD;Fêmea;05/07/2022;4.2\n' +
-    'João Souza;11944443333;Thor;Cão;SRD;Macho;;15';
+  const csv = 'Nome do Tutor;Telefone;Bairro;Nome do Animal;Especie;Raca;Sexo;Nascimento;Peso\n' +
+    'Maria Silva;11955551234;Vila Mariana;Rex;Cão;Labrador;Macho;10/03/2020;28\n' +
+    'Maria Silva;11955551234;Vila Mariana;Mel;Gato;SRD;Fêmea;05/07/2022;4.2\n' +
+    'João Souza;11944443333;Santana;Thor;Cão;SRD;Macho;;15';
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8'}));
   a.download = 'modelo-importacao-vetflowcare.csv';
@@ -3221,7 +3567,7 @@ function impStep3(){
       if(existing){ tutMap[key] = {id: existing.id, existing: true}; reusedT++; }
       else tutMap[key] = {id: null, existing: false,
         data: {name: nome, phone: g(row,'tFone'), email: g(row,'tEmail'),
-               cpf: g(row,'tCpf'), address: g(row,'tEnd'), cep: g(row,'tCep')}};
+               cpf: g(row,'tCpf'), bairro: g(row,'tBairro'), address: g(row,'tEnd'), cep: g(row,'tCep')}};
     }
     const pNome = g(row,'pNome');
     if(pNome){
@@ -3289,6 +3635,7 @@ async function doImport(){
 }
 
 async function saveFileSAF(name, blob){
+  // 1) Desktop/Chrome com seletor de arquivo nativo
   if(window.showSaveFilePicker){
     try{
       const h = await showSaveFilePicker({suggestedName:name});
@@ -3298,23 +3645,79 @@ async function saveFileSAF(name, blob){
       return true;
     }catch(e){ if(e.name === 'AbortError') return true; }
   }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name; a.click();
+  // 2) Android/celular: oferece escolher o destino (Arquivos/Drive/WhatsApp) ou baixar direto
+  window._pendFile = {name, blob};
+  let canShare = false;
+  try{ canShare = !!(navigator.canShare && navigator.canShare({files:[new File([blob], name, {type:'application/json'})]})); }catch(e){}
+  if(canShare){
+    vfcConfirm({icon:'💾', title:'Onde salvar o backup?',
+      msg:`<b style="font-size:12px;word-break:break-all">${esc(name)}</b>`,
+      note:'📤 "Escolher destino" abre o menu do celular: salve numa pasta (app Arquivos), no Google Drive ou envie no WhatsApp.', noteColor:'var(--vac)',
+      noLabel:'⬇️ Baixar direto', no:'dlPendFile()',
+      yesLabel:'📤 Escolher destino', yesBg:'var(--primary)', yes:'sharePendFile()'});
+    return true;
+  }
+  dlPendFile();
   return true;
 }
+function dlPendFile(){
+  const p = window._pendFile; if(!p) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(p.blob);
+  a.download = p.name; a.click();
+  toast('📥 Backup salvo em Downloads');
+}
+async function sharePendFile(){
+  const p = window._pendFile; if(!p) return;
+  try{
+    await navigator.share({files:[new File([p.blob], p.name, {type:'application/json'})], title:p.name});
+    toast('💾 Backup enviado ao destino escolhido!');
+  }catch(e){ if(e.name !== 'AbortError') dlPendFile(); }
+}
 function exportEncBackup(){
-  const auth = getAuth();
+  // CORREÇÃO CRÍTICA v9.8: auth deve ir como STRING crua do localStorage.
+  // Antes ia como objeto e, ao restaurar, virava "[object Object]" — credenciais
+  // corrompidas faziam o app zerar tudo como se fosse usuário novo.
+  const authStr = localStorage.getItem(LS_AUTH);
   const blob = localStorage.getItem(LS_KEY);
-  if(!auth || !blob){ toast('⚠ Ative a senha primeiro (Segurança)'); return; }
+  if(!getAuth() || !blob){ toast('⚠ Ative a senha primeiro (Segurança)'); return; }
   localStorage.setItem('vfc_last_backup', todayISO());
-  const pack = JSON.stringify({__vfcbak:1, exportedAt:todayISO(), auth, blob});
+  const pack = JSON.stringify({__vfcbak:2, exportedAt:todayISO(), auth:authStr, blob});
   saveFileSAF('vetflowcare_backup_criptografado_' + todayISO() + '.vfcbak',
     new Blob([pack], {type:'application/json'}));
 }
+// ═══ TUTORIAL: como funcionam os backups ═══
+function openBackupHelp(){
+  showSheet('❓ Guia dos Backups', `
+    <div style="font-size:13px;line-height:1.8">
+    <b>💾 Backup Completo (JSON)</b><br>
+    Salva <b>tudo</b> (pacientes, tutores, financeiro, receitas, licença Pro) num arquivo <b>sem senha</b>. É o backup universal: abre em qualquer aparelho, mesmo que você esqueça a senha do app.<br>
+    <span style="color:var(--muted);font-size:12px">📍 Guarde no Google Drive ou envie para você mesmo no WhatsApp.</span><br><br>
+    <b>🔐 Backup Criptografado (.vfcbak)</b><br>
+    Mesmo conteúdo, porém <b>trancado com a sua senha</b> — ninguém abre sem ela. Ideal para nuvem (LGPD). Ao restaurar, o app pedirá a <b>senha da época do backup</b>.<br>
+    <span style="color:var(--warning);font-size:12px">⚠ Se esquecer a senha, este backup NÃO abre — por isso mantenha também um JSON guardado.</span><br><br>
+    <b>📂 Restaurar Backup</b><br>
+    Aceita os dois formatos (.json e .vfcbak). Substitui os dados atuais do aparelho pelos do arquivo — use ao trocar de celular.<br><br>
+    <b>📥 Importar de Outro Sistema (CSV)</b><br>
+    Migra tutores e animais de planilhas/outros sistemas — não substitui, apenas adiciona.<br><br>
+    <b>📸 Pontos automáticos</b><br>
+    Todo dia o app guarda um retrato dos dados dentro do próprio aparelho (Proteção de Dados). Servem para desfazer acidentes — mas <b>não substituem</b> um backup externo, pois somem se o app for desinstalado.<br><br>
+    <b>🧭 Rotina recomendada:</b> 1× por semana → Backup Completo no Drive/WhatsApp. Antes de trocar de celular → Backup + Restaurar no aparelho novo.
+    </div>`,
+    `<button class="btn" onclick="closeSheet()">Entendi</button>`);
+}
 function exportJSON(){
+  if(getAuth()){
+    vfcConfirm({icon:'🔓', title:'Backup sem criptografia',
+      msg:'O backup JSON é exportado <b>SEM criptografia</b> — assim ele pode ser importado depois em qualquer aparelho.<br>Guarde o arquivo em local seguro.',
+      note:'💡 Para guardar na nuvem, prefira o Backup Criptografado (.vfcbak).', noteColor:'var(--vac)',
+      noLabel:'Cancelar', yesLabel:'📥 Continuar', yesBg:'var(--primary)', yes:'doExportJSON()'});
+    return;
+  }
+  doExportJSON();
+}
+function doExportJSON(){
   localStorage.setItem('vfc_last_backup', todayISO());
-  if(getAuth() && !confirm('O backup JSON é exportado SEM criptografia (para poder ser importado depois). Guarde o arquivo em local seguro. Continuar?')) return;
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   if(true){ saveFileSAF('vetflowcare_backup_' + todayISO() + '.json', blob); return; }
   const a = document.createElement('a');
@@ -3330,11 +3733,12 @@ function importJSON(input){
       const data = JSON.parse(e.target.result);
       // Backup criptografado (.vfcbak): restaura credenciais + dados cifrados
       if(data.__vfcbak){
-        if(!confirm('Restaurar backup CRIPTOGRAFADO? Os dados atuais deste aparelho serão substituídos e a senha do backup será exigida.')) return;
-        localStorage.setItem(LS_AUTH, data.auth);
-        localStorage.setItem(LS_KEY, data.blob);
-        toast('🔐 Backup restaurado! Recarregando…');
-        setTimeout(()=>location.reload(), 900);
+        if(!data.auth || !data.blob){ toast('⚠ Arquivo de backup incompleto'); return; }
+        window._pendBak = data;
+        vfcConfirm({icon:'🔐', title:'Restaurar backup criptografado?',
+          msg:'Os dados atuais deste aparelho serão <b>substituídos</b> pelos do backup.<br>Ao reabrir, será pedida a <b>senha da época do backup</b>.',
+          note:'✅ Pacientes, financeiro, receitas e licença Pro do backup voltam junto.', noteColor:'var(--success)',
+          noLabel:'Cancelar', yesLabel:'🔐 Sim, restaurar', yesBg:'var(--primary)', yes:'doRestoreVfcbak()'});
         return;
       }
       DB = data.version >= 4 ? migrate(data) : migrateV3(data);
@@ -3342,25 +3746,82 @@ function importJSON(input){
     }catch(err){ toast('⚠ Arquivo inválido'); }
   };
   r.readAsText(f);
+  input.value = '';
+}
+function doRestoreVfcbak(){
+  const data = window._pendBak; if(!data) return;
+  // Compatibilidade: backups v1 exportavam auth como OBJETO (bug) — normaliza para string.
+  const authStr = typeof data.auth === 'string' ? data.auth : JSON.stringify(data.auth);
+  const blobStr = typeof data.blob === 'string' ? data.blob : JSON.stringify(data.blob);
+  try{
+    const a = JSON.parse(authStr);
+    if(!a || !a.salt || !a.check) throw 0;
+  }catch(e){ toast('⚠ Credenciais do backup inválidas — use um backup .vfcbak novo'); return; }
+  localStorage.setItem(LS_AUTH, authStr);
+  localStorage.setItem(LS_KEY, blobStr);
+  window._pendBak = null;
+  toast('🔐 Backup restaurado! Recarregando…');
+  setTimeout(()=>location.reload(), 900);
 }
 function wipeAll(){
-  if(!confirm('Apagar TODOS os dados? Esta ação não pode ser desfeita.')) return;
-  if(!confirm('Tem certeza absoluta? Faça um backup antes!')) return;
-  DB = defaultDB(); save(); applyDark(); render(); toast('Dados apagados');
+  vfcConfirm({icon:'🗑️', title:'Apagar TODOS os dados?',
+    msg:'Pacientes, tutores, financeiro, receitas e ajustes deste aparelho serão apagados.',
+    note:'Faça um backup antes! Esta ação não pode ser desfeita.',
+    noLabel:'Cancelar', yesLabel:'Continuar', yes:'wipeAll2()'});
+}
+function wipeAll2(){
+  vfcConfirm({icon:'🚨', title:'Tem certeza ABSOLUTA?',
+    msg:'Esta é a última confirmação. Tudo será apagado <b>agora</b>.',
+    note:'Irreversível.',
+    noLabel:'Não, manter', yesLabel:'Sim, apagar tudo', yes:'doWipeAll()'});
+}
+function doWipeAll(){
+  DB = defaultDB(); save(); applyDark(); render(); toast('🗑️ Dados apagados');
+}
+
+// ═══════════ CONFIRMAÇÕES ELEGANTES (camada acima dos formulários) ═══════════
+// Substitui todos os confirm()/alert() nativos por diálogos no padrão visual do app.
+// Renderiza em #modals2: aparece POR CIMA de qualquer formulário aberto, sem destruí-lo.
+function vfcConfirm(o){
+  document.getElementById('modals2').innerHTML = `
+  <div class="modal ov" onclick="if(event.target===this)closeConfirm()">
+    <div class="sheet" role="alertdialog" aria-modal="true" aria-label="${String(o.title||'Confirmar').replace(/<[^>]*>/g,'')}">
+      <div class="mb" style="text-align:center;padding:24px 20px 8px">
+        <div style="font-size:44px">${o.icon||'⚠️'}</div>
+        <div style="font-size:17px;font-weight:900;margin-top:10px;letter-spacing:-.2px">${o.title||'Confirmar?'}</div>
+        <div style="font-size:14px;margin-top:10px;line-height:1.7">${o.msg||''}</div>
+        ${o.note?`<div style="font-size:12px;font-weight:700;margin-top:10px;color:${o.noteColor||'var(--danger)'}">${o.note}</div>`:''}
+      </div>
+      <div class="mf">
+        ${o.single?'':`<button class="btn gray" onclick="closeConfirm();${o.no||''}">${o.noLabel||'Cancelar'}</button>`}
+        <button class="btn" style="background:${o.yesBg||'var(--danger)'}" onclick="closeConfirm();${o.yes||''}">${o.yesLabel||'Sim, confirmar'}</button>
+      </div></div></div>`;
+}
+function closeConfirm(){ document.getElementById('modals2').innerHTML = ''; }
+// Confirmação de data no passado (financeiro): "digitou 2010? Confirma?"
+function confirmPastDate(dateISO, yesCall, ctx){
+  const dias = Math.abs(daysUntil(dateISO));
+  const anos = Math.floor(dias/365);
+  vfcConfirm({icon:'📅', title:'Confirma esta data?',
+    msg:`A data informada é <b>${fmtDate(dateISO)}</b> — ela <b>já passou</b> há <b>${dias} dia${dias>1?'s':''}</b>${anos>=1?` (≈ ${anos} ano${anos>1?'s':''})`:''}.${ctx?`<br><span style="font-size:12px;color:var(--muted)">${ctx}</span>`:''}`,
+    note:'Se confirmar, o lançamento entrará como ATRASADO.', noteColor:'var(--warning)',
+    noLabel:'← Corrigir data', yesLabel:'Sim, confirmar', yesBg:'var(--warning)', yes:yesCall});
 }
 
 // ═══════════ FORMULÁRIOS ═══════════
 function showSheet(title, bodyHTML, footHTML){
   document.getElementById('modals').innerHTML = `
   <div class="modal" onclick="if(event.target===this)closeSheet()">
-    <div class="sheet">
-      <div class="mh"><h2>${title}</h2><button class="x" onclick="closeSheet()">✕</button></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-label="${String(title).replace(/<[^>]*>/g,'')}">
+      <div class="mh"><h2>${title}</h2><button class="x" onclick="closeSheet()" aria-label="Fechar">✕</button></div>
       <div class="mb">${bodyHTML}</div>
       ${footHTML?`<div class="mf">${footHTML}</div>`:''}
     </div></div>`;
 }
 function closeSheet(){ document.getElementById('modals').innerHTML=''; }
 const val = id => document.getElementById(id)?.value.trim() || '';
+// Debounce compartilhado das buscas: re-renderiza 200ms após a última tecla
+function debQ(fn){ clearTimeout(window._debQT); window._debQT = setTimeout(fn, 200); }
 
 // ── Paciente (novo/editar) ──
 function openPetForm(petId){
@@ -3389,8 +3850,11 @@ function openPetForm(petId){
       onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on')">${SPECIES_EMOJI[s]} ${s}</button>`).join('')}</div>
     <label>Nome *</label><input id="fName" value="${esc(pet?.name||'')}" placeholder="Ex: Vicky">
     <label>Tutor / Responsável</label>
-    ${tutorPickerHTML('fTutor', (pet?.tutorId) || window._presetTutor)}
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">Para cadastrar um novo tutor: Pacientes → aba Tutores</div>
+    ${DB.tutors.length ? tutorPickerHTML('fTutor', (pet?.tutorId) || window._presetTutor) + `
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Somente tutores já cadastrados podem ser escolhidos. Novo tutor: Pacientes → aba 👤 Tutores</div>`
+    : `<div style="background:var(--vacbg);border:1.5px dashed var(--vac);border-radius:12px;padding:11px 13px;font-size:12px;color:var(--vac);line-height:1.7">
+        👤 <b>Nenhum tutor cadastrado ainda</b> — este campo fica bloqueado até existir um tutor.<br>
+        <b>Como fazer:</b> 1️⃣ Finalize o cadastro do paciente normalmente · 2️⃣ Vá em <b>Pacientes → aba 👤 Tutores → Cadastrar Tutor</b> · 3️⃣ Volte no ✏️ do paciente e vincule o tutor.</div>`}
     <label>Raça</label><input id="fBreed" value="${esc(pet?.breed||'')}" placeholder="Ex: Shih tzu · SRD">
     <label>Sexo *</label><div class="chips" id="fGender">${chipRow('g',['Macho','Fêmea'], pet?.gender||'Macho')}</div>
     <label>Fertilidade *</label><div class="chips" id="fFert">${chipRow('f',['Fértil','Castrado'], pet?.fertility||'Fértil')}</div>
@@ -3428,9 +3892,19 @@ function savePetForm(petId){
   const birthTxt = val('fBirth');
   const birth = birthTxt ? parseBRDate(birthTxt) : '';
   if(birthTxt && !birth){ toast('⚠ Data de nascimento inválida — use DD/MM/AAAA'); return; }
-  if(!name || !birth || !weight){ toast('⚠ Preencha nome, nascimento e peso'); return; }
+  if(!name || !weight){ toast('⚠ Preencha nome e peso'); return; }
+  if(!(weight > 0 && weight <= 500)){ toast('⚠ Peso fora da faixa válida (0,01 a 500 kg)'); return; }
+  const _tutorId = resolveTutorId('fTutor');
+  if(_tutorId === null){
+    vfcConfirm({icon:'👤', title:'Tutor não encontrado',
+      msg:'O nome digitado não corresponde a nenhum <b>tutor cadastrado</b> — o campo só aceita tutores da lista.<br><br><b>Como cadastrar:</b> 1️⃣ Salve o paciente sem tutor agora · 2️⃣ Vá em <b>Pacientes → aba 👤 Tutores → Cadastrar Tutor</b> · 3️⃣ Volte no ✏️ do paciente e vincule.',
+      note:'💡 Ou toque em "Corrigir" e escolha um tutor existente na lista.', noteColor:'var(--vac)',
+      noLabel:'← Corrigir', yesLabel:'Salvar sem tutor', yesBg:'var(--primary)',
+      yes:`var _ft=document.getElementById('fTutor');if(_ft)_ft.value='';savePetForm('${petId||''}')`});
+    return;
+  }
   const pick = sel => document.querySelector(sel+' .chip.on')?.dataset.v;
-  const fields = { name, species:pick('#fSpecies')||'Cão', tutorId:(function(){ const r = resolveTutorId('fTutor'); if(r===null){ toast('⚠ Tutor não encontrado — escolha um da lista'); throw 'tutor'; } return r; })(), tutor:'',
+  const fields = { name, species:pick('#fSpecies')||'Cão', tutorId:_tutorId, tutor:'',
     breed:val('fBreed'), gender:pick('#fGender')||'Macho', fertility:pick('#fFert')||'Fértil',
     birth, weight, porte:pick('#fPorte')||'Médio',
     chip:val('fChip'), registry:val('fReg'), notes:val('fNotes'), photo:window._photoData };
@@ -3470,7 +3944,7 @@ function openVaccineForm(petId){
   const pet = DB.pets.find(p=>p.id===petId);
   const bySpecies = {
     'Cão':  ['V10 (Décupla)','V8','Antirrábica','Giárdia','Gripe Canina','ProHeart','Bravecto 360','Librela','Cytopoint'],
-    'Gato': ['Tríplice Felina','Quádrupla Felina','Quíntupla Felina','FeLV','Antirrábica'],
+    'Gato': ['V4 (Quádrupla)','V3 (Tríplice)','V5 (Quíntupla)','FeLV','Antirrábica'],
     'Ave':  ['Bouba Aviária','Newcastle']
   };
   const common = bySpecies[pet.species] || bySpecies['Cão'];
@@ -3549,14 +4023,9 @@ function saveApplyVaccine(petId, vid){
   toast(days>0 ? `✓ Aplicada! Próxima: ${fmtDate(addDays(dt,days))}` : '✓ Vacina aplicada!');
 }
 function askDel(title, msg, yesCall){
-  showSheet(title, `
-    <div style="text-align:center;padding:8px 0">
-      <div style="font-size:40px">🗑️</div>
-      <div style="font-size:14px;margin-top:10px;line-height:1.7">${msg}</div>
-      <div style="font-size:12px;color:var(--danger);font-weight:700;margin-top:8px">Esta ação não pode ser desfeita.</div>
-    </div>`,
-    `<button class="btn gray" onclick="closeSheet()">Não, manter</button>
-     <button class="btn" style="background:var(--danger)" onclick="closeSheet();${yesCall}">Sim, excluir</button>`);
+  vfcConfirm({icon:'🗑️', title, msg,
+    note:'Esta ação não pode ser desfeita.',
+    noLabel:'Não, manter', yesLabel:'Sim, excluir', yes:yesCall});
 }
 function openVacDoseEdit(petId, vid){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -3586,7 +4055,7 @@ function saveVacDose(petId, vid, aplicada){
   save(); closeSheet(); render(); toast('✏️ Vacina corrigida!');
 }
 function delVaccineGroup(petId, name){
-  askDel('💉 Excluir vacina', `Remover a vacina <b>"${esc(name)}"</b> e todo o histórico de doses?`, `doDelVaccineGroup('${petId}','${esc(name)}')`);
+  askDel('💉 Excluir vacina', `Remover a vacina <b>"${esc(name)}"</b> e todo o histórico de doses?`, `doDelVaccineGroup('${petId}','${escJS(name)}')`);
 }
 function doDelVaccineGroup(petId, name){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -3626,8 +4095,9 @@ function openApptForm(petId, editId){
   window._apptEdit = editId || null;
   const eA = editId ? DB.pets.find(p=>p.id===petId).appointments.find(x=>x.id===editId) : null;
   const types = ['Consulta','Retorno','Vacinação','Exame','Cirurgia','Emergência'];
+  if(!editId) types.push('Orientações via Telefone');
   showSheet(eA ? '✏️ Editar Atendimento' : 'Novo Atendimento', `
-    <label>Tipo do atendimento *</label><select id="fPTitle">${types.map(t=>`<option ${eA?.title===t?'selected':''}>${t}</option>`).join('')}</select>
+    <label>Tipo do atendimento *</label><select id="fPTitle" onchange="if(this.value==='Orientações via Telefone'){closeSheet();openPhoneForm('${petId}')}">${types.map(t=>`<option ${eA?.title===t?'selected':''}>${t}</option>`).join('')}</select>
     <label>Resumo</label><input id="fPResumo" value="${esc(eA?.resumo||'')}" placeholder="Ex: Claudicação membro posterior direito">
     <label>Data *</label><input id="fPDate" type="date" value="${eA?.date||window._presetDate||todayISO()}">
     <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
@@ -3650,9 +4120,19 @@ function openApptForm(petId, editId){
     <div style="display:none">` : ''}
     <label>Pagamento</label>
     <div class="chips" id="fPPay">
-      <button class="chip ${(!eA || eA.payStatus!=='pendente')?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
-      <button class="chip" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
+      <button class="chip ${(!eA || eA.payStatus!=='pendente')?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
+      <button class="chip" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
+      ${eA?'':`<button class="chip" type="button" style="border-style:dashed" onclick="toggleApptDesp(this)">🧾 Despesas</button>`}
     </div>
+    ${eA?'':`<div id="fPDespWrap" style="display:none;background:var(--vetbg);border:1.5px dashed var(--vet);border-radius:12px;padding:10px 12px;margin-top:8px">
+      <div style="font-size:11px;font-weight:800;color:var(--vet);text-transform:uppercase">🧾 Despesas deste atendimento</div>
+      <div style="font-size:11px;color:var(--muted);margin:3px 0 6px">Custos que VOCÊ teve (sala, anestesista, equipamentos…). Entram automaticamente na aba <b>Despesas do Financeiro</b> na data do atendimento.</div>
+      <div class="chips">${['Sala de cirurgia','Anestesista','Equipamentos','Materiais','Medicamentos','Laboratório','Outros'].map(k=>
+        `<button class="chip" type="button" onclick="addApptDesp('${k}')">${k}</button>`).join('')}</div>
+      <div id="fPDespRows"></div>
+      <button type="button" class="btn sm outline" style="margin-top:8px" onclick="addApptDesp('')">➕ Despesa manual</button>
+      <div id="fPDespTot" style="font-size:12px;font-weight:800;margin-top:8px;display:none">Total de despesas: <span id="fPDespTotTxt"></span></div>
+    </div>`}
     <div id="fPPayDueWrap" style="display:none">
       <label>Parcelamento</label>
       <select id="fPParc" onchange="buildParcelas()">
@@ -3670,9 +4150,9 @@ function openApptForm(petId, editId){
       <div id="fPParcResto" style="display:none;background:var(--vacbg);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--vac);margin-top:10px"></div>
     </div>
     ${eA?.parcelas?.length ? '</div>' : ''}
-    ${eA ? '' : `<label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
-    <textarea id="fPRecord" rows="6" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta:"></textarea>
-    <label>📅 Agendamento de retorno (opcional)</label>
+    <label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
+    <textarea id="fPRecord" rows="6" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta:">${esc(eA?.record||'')}</textarea>
+    ${eA ? '' : `<label>📅 Agendamento de retorno (opcional)</label>
     <input id="fPRetorno" type="date">`}
     <div style="background:var(--vetbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vet);margin-top:12px">
       Se informar a data, um atendimento "Retorno" será criado automaticamente na linha do tempo e na agenda.</div>`,
@@ -3687,6 +4167,52 @@ function servItemRow(i, desc='', valor=''){
 }
 function addServItem(){
   document.getElementById('fPItens').insertAdjacentHTML('beforeend', servItemRow(1));
+}
+// ── Despesas do atendimento (alimentam o Financeiro → Despesas) ──
+const DESP_CAT_MAP = {'Sala de cirurgia':'Serviços/Procedimentos','Anestesista':'Serviços/Procedimentos',
+  'Equipamentos':'Equipamentos','Materiais':'Materiais','Medicamentos':'Medicamentos','Laboratório':'Laboratório','Outros':'Outros'};
+function toggleApptDesp(btn){
+  if(!isPro()){ openProModal('As despesas do atendimento alimentam a aba Despesas do Financeiro — recurso Pro.'); return; }
+  const w = document.getElementById('fPDespWrap');
+  const show = w.style.display === 'none';
+  w.style.display = show ? 'block' : 'none';
+  btn.classList.toggle('on', show);
+}
+function addApptDesp(nome){
+  document.getElementById('fPDespRows').insertAdjacentHTML('beforeend', `
+    <div class="drow" style="margin-top:8px;padding-top:8px;border-top:1px dashed var(--border)">
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="dDesc" placeholder="Ex: Sala de cirurgia · Anestesista" value="${nome}" style="flex:1">
+        <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.parentElement.remove();recalcApptDesp()">✕</button></div>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <input class="dVal" type="number" step="0.01" inputmode="decimal" placeholder="R$ valor" style="flex:1" oninput="recalcApptDesp()">
+        <input class="dDate" placeholder="📅 Data (DD/MM/AAAA)" inputmode="numeric" maxlength="10" style="flex:1.2;font-size:13px" oninput="maskDate(this)"></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:3px">Data em branco = data do atendimento. Pode ser futura (ex: anestesista a pagar).</div></div>`);
+}
+function recalcApptDesp(){
+  let t = 0;
+  document.querySelectorAll('#fPDespRows .dVal').forEach(el => { t += parseFloat(el.value)||0; });
+  const box = document.getElementById('fPDespTot');
+  box.style.display = t > 0 ? 'block' : 'none';
+  document.getElementById('fPDespTotTxt').textContent = fmtBRL(t);
+}
+function collectApptDesp(dateISO, petName){
+  const out = []; let bad = 0;
+  document.querySelectorAll('#fPDespRows .drow').forEach((row, i) => {
+    const d = row.querySelector('.dDesc').value.trim();
+    const v = parseFloat(row.querySelector('.dVal').value)||0;
+    if(!d && !v) return; // linha vazia — ignora
+    if(v < 0){ bad = i+1; return; }
+    const dtTxt = row.querySelector('.dDate')?.value.trim() || '';
+    let dt = dateISO; // padrão: data do atendimento
+    if(dtTxt){
+      const p = parseBRDate(dtTxt);
+      if(!p){ bad = i+1; return; }
+      dt = p; // aceita passado ou FUTURO (ex: anestesista a pagar)
+    }
+    if(d && v) out.push({id:uid(), desc:`${d} — ${petName}`, cat: DESP_CAT_MAP[d]||'Serviços/Procedimentos', valor:v, date:dt});
+  });
+  return {list: out, bad};
 }
 function recalcServTotal(){
   let total = 0;
@@ -3776,7 +4302,7 @@ function recalcParcelas(){
     ? `✓ Parcelas fecham o total de ${fmtBRL(total)}`
     : `Total: ${fmtBRL(total)} · Parcelado: ${fmtBRL(soma)} · <b>Restante: ${fmtBRL(resto)}</b>`;
 }
-function saveAppt(petId){
+function saveAppt(petId, force){
   const title = val('fPTitle');
   let date = val('fPDate');
   // Data digitada tem prioridade (DD/MM/AAAA → ISO)
@@ -3794,8 +4320,10 @@ function saveAppt(petId){
   document.querySelectorAll('#fPItens .srow').forEach(row => {
     const d = row.querySelector('.sDesc').value.trim();
     const v = parseFloat(row.querySelector('.sVal').value)||0;
-    if(d || v) itens.push({desc: d||'Serviço', valor: v});
+    if(v < 0){ window._negServ = 1; }
+    if(d || v > 0) itens.push({desc: d||'Serviço', valor: v});
   });
+  if(window._negServ){ window._negServ = 0; toast('⚠ Valor negativo em um serviço — corrija'); return; }
   const valor = itens.reduce((s,i)=>s+i.valor, 0);
   let payStatus = null, payDue = null, paidAt = null;
   if(valor > 0){
@@ -3818,15 +4346,22 @@ function saveAppt(petId){
         payDue = parseBRDate(val('fPPayDueTxt')) || val('fPPayDue');
         if(!payDue){ toast('⚠ Informe o vencimento do pagamento'); return; }
       }
+      // v9.8: vencimento no passado pede confirmação elegante
+      if(!force){
+        const pastP = window._parcelas?.find(p => daysUntil(p.due) < 0);
+        if(pastP){ confirmPastDate(pastP.due, `saveAppt('${petId}',1)`, 'Vencimento de uma das parcelas.'); return; }
+        if(payDue && daysUntil(payDue) < 0){ confirmPastDate(payDue, `saveAppt('${petId}',1)`, 'Vencimento do pagamento deste atendimento.'); return; }
+      }
     } else { paidAt = todayISO(); }
   }
   if(window._apptEdit){
     // Edição: atualiza no lugar, preservando parcelas e prontuário
     const a = pet.appointments.find(x=>x.id===window._apptEdit);
     if(a){
+      const rec = val('fPRecord');
       Object.assign(a, {title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
-        clinic:val('fPClinic'), valor,
-        done: date < todayISO() ? 1 : (a.record ? a.done : 0),
+        clinic:val('fPClinic'), valor, record: rec,
+        done: date < todayISO() ? 1 : (rec ? (a.done||1) : 0),
         itens: itens.length ? itens : null});
       if(!a.parcelas){
         a.payStatus = valor > 0 ? payStatus : null;
@@ -3839,6 +4374,10 @@ function saveAppt(petId){
     save(); closeSheet(); render(); toast('✏️ Atendimento atualizado!');
     return;
   }
+  // v9.8: despesas do atendimento → valida ANTES de gravar qualquer coisa
+  const dc = isPro() ? collectApptDesp(date, pet.name) : {list:[], bad:0};
+  if(dc.bad){ toast(`⚠ Data inválida na despesa ${dc.bad} — use DD/MM/AAAA ou deixe em branco`); return; }
+  const despesas = dc.list;
   pet.appointments.push({
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'),
@@ -3847,6 +4386,7 @@ function saveAppt(petId){
     itens: itens.length ? itens : null,
     parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
   window._parcelas = null;
+  if(despesas.length) DB.expenses.push(...despesas);
   const retorno = val('fPRetorno');
   if(retorno){
     pet.appointments.push({
@@ -3854,7 +4394,40 @@ function saveAppt(petId){
       time:val('fPTime')||'10:00', clinic:val('fPClinic'), record:''});
   }
   save(); closeSheet(); render();
-  toast(retorno ? `🩺 Salvo! Retorno agendado para ${fmtDate(retorno)}` : '🩺 Atendimento salvo!');
+  const dTxt = despesas.length ? ` · ${despesas.length} despesa${despesas.length>1?'s':''} → Financeiro` : '';
+  toast(retorno ? `🩺 Salvo! Retorno agendado para ${fmtDate(retorno)}${dTxt}` : `🩺 Atendimento salvo!${dTxt}`);
+}
+
+// ── 📞 Orientações via Telefone (registro rápido na linha do tempo) ──
+function openPhoneForm(petId, editId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const a = editId ? pet.appointments.find(x=>x.id===editId) : null;
+  showSheet(a ? '✏️ Editar Orientações via Telefone' : '📞 Orientações via Telefone', `
+    <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac);margin-bottom:4px">
+      📞 Registro de orientação passada ao tutor por telefone/WhatsApp — entra na linha do tempo de <b>${esc(pet.name)}</b>.</div>
+    <label>Data *</label>
+    <input id="fTelDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+      value="${fmtDate(a?.date||todayISO())}" oninput="maskDate(this)">
+    <label>📋 Orientações *</label>
+    <textarea id="fTelObs" rows="8" placeholder="Ex:&#10;Tutor relatou vômito único após ração nova.&#10;Orientado: jejum alimentar de 8h, água em pequenas quantidades.&#10;Retornar contato se persistir ou houver apatia.">${esc(a?.record||'')}</textarea>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="savePhone('${petId}','${editId||''}')">💾 Salvar</button>`);
+}
+function savePhone(petId, editId){
+  const d = parseBRDate(val('fTelDate'));
+  if(!d){ toast('⚠ Data inválida — use DD/MM/AAAA'); return; }
+  const obs = val('fTelObs');
+  if(!obs){ toast('⚠ Escreva as orientações'); return; }
+  const pet = DB.pets.find(p=>p.id===petId);
+  if(editId){
+    const a = pet.appointments.find(x=>x.id===editId);
+    Object.assign(a, {date:d, record:obs, done:1});
+    save(); closeSheet(); render(); toast('✏️ Orientações atualizadas!');
+  } else {
+    pet.appointments.push({id:uid(), title:'Orientações via Telefone', phone:1,
+      date:d, time:'', clinic:'', resumo:'', record:obs, valor:0, done:1});
+    save(); closeSheet(); render(); toast('📞 Orientações registradas!');
+  }
 }
 
 // Editar prontuário depois
@@ -3889,11 +4462,12 @@ function openRxForm(petId, rxId){
     </select>
     <label>Forma de assinatura</label>
     <select id="fRxSign">
-      <option value="imagem" ${(!rx||rx.sign!=='digital')?'selected':''}>🖊️ Assinatura em imagem (carimbo/manuscrita)</option>
+      <option value="imagem" ${(!rx||(rx.sign!=='digital'&&rx.sign!=='ambas'))?'selected':''}>🖊️ Assinatura em imagem (carimbo/manuscrita)</option>
       <option value="digital" ${rx?.sign==='digital'?'selected':''}>💻 Assinatura digital ICP-Brasil (assinar o PDF depois)</option>
+      <option value="ambas" ${rx?.sign==='ambas'?'selected':''}>🖊️+💻 As duas no mesmo documento (imagem + ICP-Brasil)</option>
     </select>
     <div style="font-size:11px;color:var(--muted);margin-top:4px">
-      ℹ️ Receita de controlados só tem validade digital com certificado <b>ICP-Brasil</b> (e-CPF) — <button style="background:none;color:var(--primary);font-weight:700;padding:0;font-size:11px" onclick="openSignInfo()">saiba como</button></div>
+      ℹ️ Receita de controlados só tem validade digital com certificado <b>ICP-Brasil</b> (e-CPF). Em receituário controlado que exija as duas assinaturas, use a opção <b>🖊️+💻</b> — <button style="background:none;color:var(--primary);font-weight:700;padding:0;font-size:11px" onclick="openSignInfo()">saiba como</button></div>
     <label>Data</label><input id="fRxDate" type="date" value="${rx?.date||todayISO()}">
     <label>Prescrição *</label>
     <textarea id="fRxContent" rows="10" placeholder="Ex:&#10;1) Amoxicilina 250mg — 1 comprimido a cada 12h por 7 dias&#10;2) Dipirona gotas — 15 gotas a cada 8h se dor&#10;&#10;Uso contínuo:&#10;...">${esc(rx?.content||'')}</textarea>
@@ -4060,11 +4634,15 @@ function printRx(petId, rxId){
       <div class="box"><b class="bt">IDENTIFICAÇÃO DO FORNECEDOR</b>
         <br><span class="fill" style="min-width:100%"></span><br><br>
         Assinatura do farmacêutico: <span class="fill"></span> Data: <span class="fill" style="min-width:90px"></span></div>
-      ${rx.sign==='digital' ? digitalSignHTML(rx.date) :
-      `<div style="text-align:center;margin-top:20px">
-        ${DB.vet.signature?`<img src="${DB.vet.signature}" style="height:48px;object-fit:contain;margin-bottom:-6px">`:''}
-        <div style="border-top:1.5px solid #1A2F5A;width:260px;margin:6px auto 4px"></div>
-        <div style="font-size:11px">${esc(DB.vet.name||'')} · ${crmvFull()||''} · ${fmtDate(rx.date)}</div></div>`}
+      ${(() => {
+        const imgSign = `<div style="text-align:center;margin-top:20px">
+          ${DB.vet.signature?`<img src="${DB.vet.signature}" style="height:48px;object-fit:contain;margin-bottom:-6px">`:''}
+          <div style="border-top:1.5px solid #1A2F5A;width:260px;margin:6px auto 4px"></div>
+          <div style="font-size:11px">${esc(DB.vet.name||'')} · ${crmvFull()||''} · ${fmtDate(rx.date)}</div></div>`;
+        return rx.sign==='digital' ? digitalSignHTML(rx.date)
+             : rx.sign==='ambas'  ? imgSign + digitalSignHTML(rx.date)
+             : imgSign;
+      })()}
     </div>`;
     printShell('Receita Controle Especial — '+pet.name,
       via('1ª VIA — RETENÇÃO DA FARMÁCIA') + via('2ª VIA — ORIENTAÇÃO AO PACIENTE'));
@@ -4077,7 +4655,9 @@ function printRx(petId, rxId){
     `<div class="doctitle">RECEITUÁRIO</div>` +
     rxHeaderBlockHTML(pet) +
     `<div class="content">${esc(rx.content)}</div>` +
-    (rx.sign==='digital' ? digitalSignHTML(rx.date) : vetFooterHTML(rx.date)));
+    (rx.sign==='digital' ? digitalSignHTML(rx.date)
+     : rx.sign==='ambas' ? vetFooterHTML(rx.date) + digitalSignHTML(rx.date)
+     : vetFooterHTML(rx.date)));
 }
 function printRecord(petId, apptId){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -4328,7 +4908,7 @@ function showLGPD(){
       <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:12px;cursor:pointer;color:var(--text,#1A2F5A)">
         <input type="checkbox" id="lgpdCk" style="width:20px;height:20px;accent-color:#2DC0AE;flex-shrink:0;margin-top:1px">
         <span>Li e concordo com os <b>Termos de Uso e a Política de Privacidade</b></span></label>
-      <button onclick="if(!document.getElementById('lgpdCk').checked){alert('Marque a caixa de aceite para continuar.');return;}
+      <button onclick="if(!document.getElementById('lgpdCk').checked){toast('⚠ Marque a caixa de aceite para continuar');return;}
         localStorage.setItem('vfc_lgpd', JSON.stringify({v:'2026-07-14', aceite:new Date().toISOString()}));
         document.getElementById('lgpdGate').remove();afterLGPD()"
         style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Aceitar e Continuar</button>
