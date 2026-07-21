@@ -289,7 +289,7 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.9';
+const APP_VER = '9.9.1';
 function showWhatsNew(){
   showSheet('🎉 Novidades no seu VetFlowCare!', `
     <div style="font-size:14px;line-height:1.85">
@@ -1194,8 +1194,8 @@ function renderFinance(){
           : `<button class="btn sm success" onclick="markPaid('${r.kind}','${r.id}')">✓ Recebido</button>
              <button class="btn sm" style="background:${isPro()?'#25D366':'var(--border)'};color:${isPro()?'#fff':'var(--muted)'}" onclick="cobrarWhats('${r.kind}','${r.id}')">💬 Cobrar${isPro()?'':' 🔒'}</button>`}
         ${!pago?`<button class="btn sm gray" onclick="openDueEdit('${r.kind}','${r.id}')">📅 Vencimento</button>`:''}
-        ${r.kind==='avulso'?`<button class="btn sm outline" onclick="openChargeForm('${r.id}')">✏️</button>
-          <button class="btn sm dangero" onclick="delChargeItem('${r.id}')">🗑</button>`:''}
+        <button class="btn sm outline" onclick="editReceivable('${r.kind}','${r.id}','${r.petId}')">✏️</button>
+        <button class="btn sm dangero" onclick="delReceivable('${r.kind}','${r.id}')">🗑</button>
       </div></div>`;
   });
   return h;
@@ -1359,6 +1359,60 @@ function delChargeItem(id){
 function doDelChargeItem(id){
   DB.charges = DB.charges.filter(c=>c.id!==id);
   save(); render(); toast('🗑️ Cobrança excluída');
+}
+// ── Editar/Excluir QUALQUER lançamento do financeiro (avulso, atendimento, parcela) ──
+function editReceivable(kind, id, petId){
+  if(kind==='avulso'){ openChargeForm(id); return; }
+  const aid = kind==='parc' ? id.split('#')[0] : id;
+  const pet = DB.pets.find(p => p.id===petId) || DB.pets.find(p => p.appointments.some(a=>a.id===aid));
+  if(!pet){ toast('⚠ Atendimento não encontrado'); return; }
+  openApptForm(pet.id, aid);
+}
+function delReceivable(kind, id){
+  if(kind==='avulso'){ delChargeItem(id); return; }
+  const r = allReceivables().find(x=>x.kind===kind && x.id===id);
+  if(!r){ toast('⚠ Lançamento não encontrado'); return; }
+  if(kind==='parc'){
+    askDel('💳 Excluir parcela',
+      `Excluir a parcela <b>${esc(r.desc)}</b> de <b>${fmtBRL(r.valor)}</b>?<br><span style="font-size:12px;color:var(--muted)">O atendimento continua na ficha do paciente. As demais parcelas são mantidas.</span>`,
+      `doDelReceivable('parc','${id}')`);
+  } else {
+    askDel('💰 Excluir cobrança do atendimento',
+      `Remover a cobrança de <b>${fmtBRL(r.valor)}</b> deste atendimento?<br><span style="font-size:12px;color:var(--muted)">O atendimento e o prontuário permanecem na ficha — só o valor sai do Financeiro.</span>`,
+      `doDelReceivable('atend','${id}')`);
+  }
+}
+function doDelReceivable(kind, id){
+  if(kind==='atend'){
+    for(const pet of DB.pets){
+      const a = pet.appointments.find(x=>x.id===id);
+      if(a){ a.valor = 0; a.payStatus = null; a.payDue = null; a.paidAt = null; a.parcelas = null; a.itens = null; break; }
+    }
+    save(); render(); toast('🗑️ Cobrança removida do Financeiro');
+    return;
+  }
+  const [aid, idxStr] = id.split('#');
+  const idx = parseInt(idxStr);
+  for(const pet of DB.pets){
+    const a = pet.appointments.find(x=>x.id===aid);
+    if(!a || !a.parcelas) continue;
+    a.parcelas.splice(idx, 1);
+    if(a.parcelas.length === 0){
+      a.valor = 0; a.payStatus = null; a.payDue = null; a.paidAt = null; a.parcelas = null; a.itens = null;
+    } else {
+      a.valor = a.parcelas.reduce((s,p)=>s+p.valor, 0);
+      a.payDue = a.parcelas[0].due;
+      if(a.parcelas.length === 1){
+        const p0 = a.parcelas[0];
+        a.payStatus = p0.status; a.payDue = p0.due; a.paidAt = p0.paidAt || null;
+        a.parcelas = null;
+      } else if(a.parcelas.every(p=>p.status==='pago')){
+        a.payStatus = 'pago';
+      }
+    }
+    break;
+  }
+  save(); render(); toast('🗑️ Parcela excluída');
 }
 function cobrarWhats(kind, id){
   if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
@@ -3313,9 +3367,13 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9.1 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.9:</b><br>
+      <b>Novidades da v9.9.1:</b><br>
+      • ✏️🗑 <b>Editar e excluir em TODO lançamento do Financeiro</b> — cobranças avulsas, atendimentos e parcelas (antes só o avulso tinha os botões)<br>
+      • ✏️ de atendimento/parcela abre o Editar Atendimento completo; 🗑 remove só o valor do Financeiro e mantém o atendimento na ficha<br>
+      • 🗑 de parcela remove só aquela parcela e reajusta o restante automaticamente<br>
+      <br><b>v9.9:</b><br>
       • 🔐 <b>Antifraude do Pro</b>: código de ativação vinculado ao ID do aparelho — não funciona em outro celular<br>
       • 🔑 ID do Aparelho visível na tela do Pro (o WhatsApp de assinatura já envia o ID automaticamente)<br>
       • 🛡️ Blindagem de segurança (esc/escJS), buscas mais fluidas (debounce) e validação de valores<br>

@@ -1,0 +1,59 @@
+═══════════════════════════════════════════════════════
+ VetFlowCare v9.9.1 — Pacote de Atualização (21/07/2026)
+═══════════════════════════════════════════════════════
+
+📦 CONTEÚDO DO ZIP
+  index.html    → o app completo (v9.8)
+  sw.js         → service worker NOVO (obrigatório atualizar!)
+  manifest.json → manifesto do PWA (Instalar App)
+  gerador.html  → gerador de códigos Pro + convites Beta
+                  ⚠ NÃO suba este no GitHub — é só seu!
+  LEIA-ME.txt   → este arquivo
+
+🚀 COMO ATUALIZAR NO GITHUB PAGES
+  1. Substitua index.html, sw.js e manifest.json no repositório
+     (o logo.jpg que já está lá continua valendo)
+  2. Commit → aguarde 1-2 min o Pages publicar
+  3. No celular: abra o app com internet, feche COMPLETAMENTE
+     (tirar da lista de recentes) e abra de novo → v9.8 no rodapé
+     de Ajustes confirma.
+
+🛡 SOBRE O ERRO "Uncaught tutor (linha 3433)"
+  Esse erro NÃO existe no código da v9.8 (auditado). Ele veio de
+  uma versão ANTIGA presa no cache do celular pelo service worker
+  antigo. O sw.js novo resolve de vez: agora o app é
+  "network-first" — sempre que houver internet ele busca a versão
+  mais nova do site, e o cache só responde offline. Além disso,
+  ao ativar, ele APAGA todos os caches antigos.
+  Bônus: durante a investigação encontrei e corrigi um travamento
+  parecido que aconteceria ao salvar paciente quando ainda não há
+  NENHUM tutor cadastrado — blindado na v9.8.
+
+🔑 GERADOR DE CÓDIGOS (gerador.html) — ANTIFRAUDE v9.9
+  Códigos PRO agora são VINCULADOS AO APARELHO do cliente:
+  1. O cliente abre a tela do Pro no app e copia o ID
+     (ex: AP-K7M2) — o botão do WhatsApp já envia o ID junto
+  2. Você digita esse ID no gerador e gera o código
+  3. O código SÓ ativa naquele aparelho — em outro celular
+     é recusado. Compartilhar código não funciona mais.
+  • O ID viaja dentro do backup: se o cliente trocar de
+    celular e RESTAURAR o backup, a licença dele continua.
+  • Convites BETA seguem universais (acesso grátis).
+  ⚠ Códigos Pro antigos (universais) deixaram de valer —
+    quem já está com Pro ATIVADO não é afetado; para novas
+    ativações, gere no formato novo.
+  Algoritmos idênticos aos do app v9.9.
+
+📋 RESUMO DA v9.8 (changelog completo em Ajustes, no app)
+  • CORREÇÃO CRÍTICA: restauração do backup criptografado
+  • Backup com escolha de destino + Guia dos Backups
+  • Avisos elegantes em 100% do app (zero caixas do navegador)
+  • Financeiro: datas no passado pedem confirmação; análise
+    Previsão × Realizado; botão fixo na barra; filtros em grade;
+    "Recebidos"; Editar Cobrança com parcelamento 5×
+  • Despesas do atendimento → caem no Financeiro
+  • 📞 Orientações via Telefone na linha do tempo
+  • Vacinas de gato V4/V3/V5/FeLV/Antirrábica
+  • Editar atendimento com prontuário completo
+  • Receituário com 2 assinaturas (imagem + ICP-Brasil)
+  • Tutorial de tutor no cadastro de paciente
