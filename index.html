@@ -289,7 +289,7 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.9.1';
+const APP_VER = '9.9.2';
 function showWhatsNew(){
   showSheet('🎉 Novidades no seu VetFlowCare!', `
     <div style="font-size:14px;line-height:1.85">
@@ -369,6 +369,23 @@ window.onerror = function(msg, s2, line){
 
 const LS_KEY = 'vetflowcare_v5';
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36);
+// ID do aparelho: 4 caracteres seguros. Tenta WebCrypto; se indisponível (iOS/Safari
+// em certos modos), usa Math.random. Nunca retorna vazio.
+function makeDevId(){
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let out = '';
+  try{
+    if(window.crypto && crypto.getRandomValues){
+      const r = crypto.getRandomValues(new Uint8Array(4));
+      out = [...r].map(b => A[b % A.length]).join('');
+    }
+  }catch(e){ /* iOS/Safari pode barrar — cai no fallback abaixo */ }
+  if(!/^[A-Z0-9]{4}$/.test(out)){
+    out = '';
+    for(let i=0;i<4;i++) out += A[Math.floor(Math.random()*A.length)];
+  }
+  return out;
+}
 const todayISO = () => new Date().toISOString().slice(0,10);
 
 let DB = loadDB();
@@ -445,11 +462,9 @@ function migrate(d){
   d.expenses = d.expenses || [];
   // ID do Aparelho (licença Pro vinculada): 4 caracteres, criado uma única vez.
   // Vive dentro do DB — sobrevive a backup/restauração junto com os dados da clínica.
-  if(!d.devId){
-    const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    const r = crypto.getRandomValues(new Uint8Array(4));
-    d.devId = [...r].map(b => A[b % A.length]).join('');
-  }
+  // v9.9.2: geração blindada — no iPhone/Safari o crypto.getRandomValues pode falhar
+  // (aba privada, iOS antigo), então caímos em Math.random para NUNCA ficar vazio.
+  if(!d.devId || !/^[A-Z0-9]{4}$/.test(d.devId)) d.devId = makeDevId();
   d.pets = (d.pets||[]).map(normalizePet);
   d.tutors = (d.tutors||[]).map(normalizeTutor);
   // Converte campo antigo "tutor" (texto livre) em cadastro de tutor
@@ -1819,7 +1834,13 @@ function vfcChecksum(seed, devId){
   for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
   return String(1000 + (h % 9000));
 }
-function myDevId(){ return DB?.devId || ''; }
+function myDevId(){
+  // Auto-reparo: se o ID estiver vazio ou inválido (ex: iPhone que abriu antes do
+  // fix), gera um agora e salva — assim a tela do Pro nunca mostra "AP-" vazio.
+  if(!DB) return '';
+  if(!/^[A-Z0-9]{4}$/.test(DB.devId||'')){ DB.devId = makeDevId(); try{ save(); }catch(e){} }
+  return DB.devId;
+}
 // ── Convites da fase de testes (desligue mudando para false ao abrir ao público) ──
 const BETA_GATE = true;
 function inviteChecksum(seed){
@@ -3367,9 +3388,11 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9.1 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.9.1:</b><br>
+      <b>Novidades da v9.9.2:</b><br>
+      • 🍎 <b>Correção iPhone/Safari</b>: o "ID deste aparelho" na tela do Pro aparecia vazio (só "AP-") em alguns iPhones — agora é gerado de forma blindada e se autorrepara sozinho ao abrir a tela<br>
+      <br><b>v9.9.1:</b><br>
       • ✏️🗑 <b>Editar e excluir em TODO lançamento do Financeiro</b> — cobranças avulsas, atendimentos e parcelas (antes só o avulso tinha os botões)<br>
       • ✏️ de atendimento/parcela abre o Editar Atendimento completo; 🗑 remove só o valor do Financeiro e mantém o atendimento na ficha<br>
       • 🗑 de parcela remove só aquela parcela e reajusta o restante automaticamente<br>
