@@ -289,7 +289,7 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.9.2';
+const APP_VER = '9.10';
 function showWhatsNew(){
   showSheet('🎉 Novidades no seu VetFlowCare!', `
     <div style="font-size:14px;line-height:1.85">
@@ -1429,6 +1429,100 @@ function doDelReceivable(kind, id){
   }
   save(); render(); toast('🗑️ Parcela excluída');
 }
+// ═══ AVISOS AO TUTOR PELO WHATSAPP ═══
+// Um só caminho para lembrar o tutor de atendimento, vacina, medicação ou
+// mandar um recado livre. Abre uma tela com o texto pronto e editável — o
+// veterinário confere antes de enviar, porque cada tutor tem um jeito.
+function waPhone(t){ return (t?.phone || '').replace(/\D/g, ''); }
+function firstName(t){ return (t?.name || '').trim().split(' ')[0] || 'tutor(a)'; }
+function vetSign(){
+  const n = DB.vet.name || '';
+  return n ? `\n\n${n}${crmvFull() ? ' · ' + crmvFull() : ''} 🐾` : '\n\n🐾';
+}
+// Monta o texto sugerido conforme o assunto
+function avisoTexto(pet, tipo, refId){
+  const t = tutorOf(pet);
+  const ola = `Olá, ${firstName(t)}! 😊`;
+  if(tipo === 'atend'){
+    const a = pet.appointments.find(x => x.id === refId);
+    if(!a) return ola + vetSign();
+    const quando = `${fmtDate(a.date)}${a.time ? ' às ' + a.time : ''}`;
+    const past = daysUntil(a.date) < 0;
+    return past
+      ? `${ola}\n\nEstou passando para saber como está o(a) ${pet.name} depois do atendimento de ${quando} (${a.title}).\n\nQualquer dúvida, é só me chamar!${vetSign()}`
+      : `${ola}\n\nLembrete do atendimento do(a) ${pet.name}: ${a.title}, no dia ${quando}.${a.clinic ? `\nLocal: ${a.clinic}` : ''}\n\nSe precisar remarcar, é só me avisar!${vetSign()}`;
+  }
+  if(tipo === 'vacina'){
+    const v = pet.vaccines.find(x => x.id === refId);
+    if(!v) return ola + vetSign();
+    const d = daysUntil(v.due);
+    const sit = d < 0
+      ? `está com a vacina *${v.name}* atrasada desde ${fmtDate(v.due)}`
+      : d === 0 ? `tem a vacina *${v.name}* marcada para hoje`
+      : `tem a vacina *${v.name}* prevista para ${fmtDate(v.due)}`;
+    return `${ola}\n\nO(A) ${pet.name} ${sit}.\n\nVamos agendar a aplicação? Me avise o melhor dia para você.${vetSign()}`;
+  }
+  if(tipo === 'med'){
+    const m = pet.medications.find(x => x.id === refId);
+    if(!m) return ola + vetSign();
+    return `${ola}\n\nLembrete da medicação do(a) ${pet.name}:\n*${m.name}* — ${m.dosage}, ${m.freq} às ${m.time}.\n\nQualquer reação diferente, me avise na hora.${vetSign()}`;
+  }
+  return `${ola}\n\nEstou entrando em contato sobre o(a) ${pet.name}.${vetSign()}`;
+}
+function openAvisarTutor(petId, tipo, refId){
+  const pet = DB.pets.find(p => p.id === petId);
+  if(!pet) return;
+  const t = tutorOf(pet);
+  const fone = waPhone(t);
+  if(!t){
+    vfcConfirm({icon:'👤', title:'Sem tutor vinculado',
+      msg:`O(A) <b>${esc(pet.name)}</b> ainda não tem tutor cadastrado, então não há para quem enviar.`,
+      note:'💡 Vincule um tutor na aba Arquivos da ficha do paciente.', noteColor:'var(--vac)',
+      single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
+    return;
+  }
+  if(!fone){
+    vfcConfirm({icon:'📞', title:'Tutor sem telefone',
+      msg:`<b>${esc(t.name)}</b> está cadastrado, mas sem número de telefone.`,
+      note:'Cadastre o WhatsApp dele para poder enviar avisos.', noteColor:'var(--warning)',
+      noLabel:'Agora não', yesLabel:'✏️ Cadastrar telefone', yesBg:'var(--primary)',
+      yes:`openTutorForm('${t.id}')`});
+    return;
+  }
+  const modelos = [
+    ['atend','🩺 Atendimento'], ['vacina','💉 Vacina'],
+    ['med','💊 Medicação'], ['livre','💬 Recado livre']
+  ];
+  window._avisaPet = petId;
+  showSheet('💬 Avisar o tutor', `
+    <div style="background:var(--medbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--med);margin-bottom:4px">
+      Para <b>${esc(t.name)}</b> · ${fmtPhone(t.phone)} — sobre o(a) <b>${esc(pet.name)}</b></div>
+    <label>Modelo de mensagem</label>
+    <div class="chips">${modelos.map(([k,l]) =>
+      `<button class="chip ${k===tipo?'on':''}" onclick="trocarModelo('${petId}','${k}','${refId||''}',this)">${l}</button>`).join('')}</div>
+    <label>Mensagem *</label>
+    <textarea id="fAvisoMsg" rows="9">${esc(avisoTexto(pet, tipo, refId))}</textarea>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">
+      Confira e ajuste o texto antes de enviar. O WhatsApp abre com a mensagem já escrita — você só toca em enviar.</div>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" style="background:#25D366" onclick="enviarAvisoTutor('${petId}')">💬 Abrir WhatsApp</button>`);
+}
+function trocarModelo(petId, tipo, refId, btn){
+  const pet = DB.pets.find(p => p.id === petId);
+  btn.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('fAvisoMsg').value = avisoTexto(pet, tipo, refId || '');
+}
+function enviarAvisoTutor(petId){
+  const pet = DB.pets.find(p => p.id === petId);
+  const t = tutorOf(pet);
+  const fone = waPhone(t);
+  const msg = val('fAvisoMsg');
+  if(!msg){ toast('⚠ Escreva a mensagem'); return; }
+  closeSheet();
+  window.open('https://wa.me/55' + fone + '?text=' + encodeURIComponent(msg));
+}
+
 function cobrarWhats(kind, id){
   if(!isPro()){ openProModal('A cobrança automática pelo WhatsApp é um recurso Pro.'); return; }
   markReminded(kind, id);
@@ -2480,8 +2574,14 @@ function renderTutorProfile(){
         <div style="color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase">Celular</div>
         <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
           <b style="font-size:15px;flex:1">${fmtPhone(t.phone)}</b>
-          ${wa?`<button class="btn sm success" onclick="window.open('https://wa.me/55${wa}')">💬 WhatsApp</button>`:''}
-        </div></div></div>
+          ${wa?`<button class="btn sm success" onclick="window.open('https://wa.me/55${wa}')">💬 Abrir conversa</button>`:''}
+        </div>
+        ${wa && animals.length ? `<div style="border-top:1px solid var(--border);margin-top:11px;padding-top:11px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:7px">Enviar um aviso com mensagem pronta sobre:</div>
+          <div class="chips">${animals.map(p =>
+            `<button class="chip" onclick="openAvisarTutor('${p.id}','livre','')">${petEmoji(p)} ${esc(p.name)}</button>`).join('')}</div>
+        </div>` : ''}
+        </div></div>
     <div class="sec"><div class="sec-h"><span>📎 Ficha de cadastro</span></div>
       <div class="card">
         ${t.ficha ? `<div style="display:flex;align-items:center;gap:10px">
@@ -2766,6 +2866,7 @@ function renderPetHealth(pet){
         <b style="font-size:13px;color:${late?'var(--danger)':'var(--vac)'}">${fmtDate(g.next.due)}</b></div>
         <span style="display:flex;gap:6px">
           <button style="background:none;font-size:14px" onclick="openVacDoseEdit('${pet.id}','${g.next.id}')">✏️</button>
+          <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','vacina','${g.next.id}')">💬</button>
           <button class="btn sm success" onclick="openApplyVaccineForm('${pet.id}','${g.next.id}')">✓ Aplicar</button>
         </span>
       </div>` : ''}
@@ -2778,6 +2879,7 @@ function renderPetHealth(pet){
       return `<div class="card" style="display:flex;align-items:center;gap:10px">
       <div style="flex:1"><b style="font-size:14px">${esc(m.name)}</b>
       <div style="color:var(--muted);font-size:12px">${esc(m.dosage)} · ${esc(m.freq)} às ${m.time}</div></div>
+      <button class="btn sm" style="background:#25D366;padding:6px 10px" onclick="openAvisarTutor('${pet.id}','med','${m.id}')">💬</button>
       <button style="background:none;font-size:15px" onclick="openMedForm('${pet.id}','${m.id}')">✏️</button>
       <button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','medications','${m.id}')">🗑</button></div>`;}),
     'Nenhuma medicação cadastrada');
@@ -2807,6 +2909,7 @@ function renderPetHealth(pet){
         ${a.phone
           ? `<button class="btn sm outline" onclick="openPhoneForm('${pet.id}','${a.id}')">📞 Editar Orientações</button>`
           : `<button class="btn sm outline" onclick="openRecordForm('${pet.id}','${a.id}')">📋 ${a.record?'Editar':'Preencher'} Prontuário</button>`}
+        <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','atend','${a.id}')">💬 Avisar tutor</button>
         ${a.record?`<button class="btn sm gray" onclick="printRecord('${pet.id}','${a.id}')">🖨️ Imprimir</button>`:''}
       </div></div>`;}),
     'Nenhum atendimento registrado', '+ Novo Atendimento');
@@ -3240,7 +3343,11 @@ function renderAlerts(f){
           <div style="color:var(--muted);font-size:12px">${e.emo} ${esc(e.pet)} · ${fmtDate(e.due)}</div></div>
         <button class="btn sm ${e.priority==='overdue'?'danger':'success'}"
           onclick="${e.type==='pay' ? 'goFinance()' : (e.type==='vet' && e.priority==='overdue') ? "markApptDone('"+e.petId+"','"+e.id.slice(2)+"')" : "openPet('"+e.petId+"');currentPetTab='health'"}">${(e.type==='vet'&&e.priority==='overdue')?'✓ Concluir':e.priority==='overdue'?'Resolver':'Ver'}</button>
-      </div></div>`;
+      </div>
+      ${e.type!=='pay' ? `<div style="padding:0 13px 12px">
+        <button class="btn sm" style="background:#25D366;width:100%"
+          onclick="openAvisarTutor('${e.petId}','${e.type==='vaccine'?'vacina':e.type==='medication'?'med':'atend'}','${e.id.slice(2)}')">💬 Avisar o tutor pelo WhatsApp</button></div>` : ''}
+      </div>`;
   });
   return h;
 }
@@ -3388,9 +3495,14 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.9.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.10 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.9.2:</b><br>
+      <b>Novidades da v9.10:</b><br>
+      • 💬 <b>Avisar o tutor pelo WhatsApp</b> — botão novo no atendimento, na vacina programada, na medicação, em cada alerta e no perfil do tutor<br>
+      • A mensagem já vem escrita com nome do tutor, nome do animal, data e horário — e você pode ajustar antes de enviar<br>
+      • O texto muda sozinho conforme a situação: lembrete se o atendimento é futuro, acompanhamento se já passou, cobrança de vacina atrasada<br>
+      • Se o tutor não tiver telefone cadastrado, o app avisa e leva direto para o cadastro<br>
+      <br><b>v9.9.2:</b><br>
       • 🍎 <b>Correção iPhone/Safari</b>: o "ID deste aparelho" na tela do Pro aparecia vazio (só "AP-") em alguns iPhones — agora é gerado de forma blindada e se autorrepara sozinho ao abrir a tela<br>
       <br><b>v9.9.1:</b><br>
       • ✏️🗑 <b>Editar e excluir em TODO lançamento do Financeiro</b> — cobranças avulsas, atendimentos e parcelas (antes só o avulso tinha os botões)<br>
