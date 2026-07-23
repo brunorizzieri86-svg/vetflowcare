@@ -35,7 +35,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--primary)}
 label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px}
 h2{font-size:20px;font-weight:900;letter-spacing:-.3px}
 .hidden{display:none!important}
-#splash{position:fixed;inset:0;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center}
+#splash{position:fixed;inset:0;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;justify-content:safe center;padding:32px 24px calc(32px + env(safe-area-inset-bottom));text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#splash>*{flex-shrink:0}
 #splash img{width:150px;height:150px;border-radius:30px;background:#fff;padding:10px;object-fit:contain;box-shadow:0 20px 60px rgba(0,0,0,.35)}
 #splash .wm{margin-top:24px;font-size:36px;font-weight:900;letter-spacing:-1px}
 #splash .wm .v{color:#fff}.wm .f{color:#2DC0AE}
@@ -97,14 +98,14 @@ main{padding:16px}
 .btn.gray{background:var(--border);color:var(--muted)}
 .btn.rx{background:var(--rx)}
 .modal{position:fixed;inset:0;background:rgba(15,27,46,.65);z-index:100;display:flex;align-items:flex-end;backdrop-filter:blur(3px)}
-.modal .sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;max-height:88vh;display:flex;flex-direction:column}
-.modal .mh{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 12px;border-bottom:1px solid var(--border)}
+.modal .sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column}
+.modal .mh{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
 .modal .mh h2{font-size:17px}
 .modal .mh .x{width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center}
-.modal .mb{overflow-y:auto;padding:14px 18px;flex:1}
-.modal .mf{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);display:flex;gap:10px}
+.modal .mb{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px;flex:1;min-height:0}
+.modal .mf{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0;background:var(--surface)}
 .modal.ov{z-index:300;align-items:center;justify-content:center;padding:22px}
-.modal.ov .sheet{border-radius:22px;max-height:80vh;max-width:400px;animation:vfcpop .18s ease;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.modal.ov .sheet{border-radius:22px;max-height:80vh;max-height:80dvh;max-width:400px;animation:vfcpop .18s ease;box-shadow:0 24px 70px rgba(0,0,0,.35)}
 .modal.ov .mf{border-top:none;padding-top:2px}
 @keyframes vfcpop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -289,14 +290,15 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.15';
+const APP_VER = '9.16';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.15',
+  ver: '9.16',
   titulo: 'Ditado por voz, Rota do dia e Proteção de Dados',
   itens: [
+    ['🍎','Correção para iPhone','O termo de uso ocupava a tela inteira e escondia o botão de aceitar, impedindo a entrada no app. Corrigido — junto com as telas de login e cadastro.'],
     ['🎙️','Ditado por voz','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta — sem repetir palavras e sem parar no meio da consulta.'],
     ['🗺️','Rota do dia','Na Agenda: seus atendimentos na ordem dos horários, com <b>Waze</b> e <b>Google Maps</b> em cada parada — e a quilometragem vira despesa sozinha.'],
     ['🛡️','Proteção de Dados','Cópia interna automática em dois lugares do aparelho, verificação de integridade ao abrir e pontos de restauração de até <b>6 meses</b>.'],
@@ -914,7 +916,9 @@ function showLockScreen(){
   document.getElementById('splash')?.classList.add('hidden');
   const div = document.createElement('div');
   div.id = 'lockScreen';
-  div.style.cssText = 'position:fixed;inset:0;z-index:998;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center';
+  div.style.cssText = 'position:fixed;inset:0;z-index:998;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);' +
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;justify-content:safe center;' +
+    'padding:32px 24px calc(32px + env(safe-area-inset-bottom));text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch';
   div.innerHTML = `
     <img src="logo.jpg" style="width:120px;height:120px;border-radius:26px;background:#fff;padding:9px;object-fit:contain;box-shadow:0 16px 48px rgba(0,0,0,.35)" onerror="this.style.display='none'">
     <div style="margin-top:18px;font-size:32px;font-weight:900;letter-spacing:-1px"><span style="color:#fff">Vet</span><span style="color:#2DC0AE">Flow</span></div>
@@ -1994,7 +1998,9 @@ function inviteCheck(code){
 function showInviteGate(next){
   const div = document.createElement('div');
   div.id = 'inviteGate';
-  div.style.cssText = 'position:fixed;inset:0;z-index:999;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center';
+  div.style.cssText = 'position:fixed;inset:0;z-index:999;background:linear-gradient(160deg,#1E3A6E 0%,#163260 55%,#2DC0AE 100%);' +
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;justify-content:safe center;' +
+    'padding:32px 24px calc(32px + env(safe-area-inset-bottom));text-align:center;overflow-y:auto;-webkit-overflow-scrolling:touch';
   div.innerHTML = `
     <img src="logo.jpg" style="width:104px;height:104px;border-radius:24px;background:#fff;padding:8px;object-fit:contain" onerror="this.style.display='none'">
     <div style="margin-top:16px;font-size:28px;font-weight:900"><span style="color:#fff">Vet</span><span style="color:#2DC0AE">Flow</span> <span style="font-family:Georgia,serif;font-style:italic;font-size:20px;color:#2DC0AE">Care</span></div>
@@ -3575,9 +3581,13 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.15 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.16 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.15:</b><br>
+      <b>Novidades da v9.16:</b><br>
+      • 🍎 <b>CORREÇÃO CRÍTICA no iPhone</b>: o termo de uso ocupava a tela inteira e o botão "Aceitar e Continuar" ficava fora do alcance — <b>ninguém conseguia entrar no app pelo iPhone</b><br>
+      • A mesma falha afetava as telas de <b>criar acesso</b>, <b>login</b> e <b>convite</b> em telas pequenas: todas agora rolam corretamente<br>
+      • Formulários do app ajustados para a área visível real do iPhone (o antigo cálculo incluía a barra do navegador)<br>
+      <br><b>v9.15:</b><br>
       • 🎙️ <b>Ditado por voz: repetição eliminada de vez</b>. A causa era o reinício automático — quando o navegador cortava por silêncio, transcrições atrasadas voltavam a escrever o mesmo trecho<br>
       • Agora cada sessão de escuta tem identificação própria e o que chega atrasado é <b>descartado</b><br>
       • Somou-se ainda uma <b>limpeza final</b> que colapsa qualquer trecho repetido em sequência, por garantia<br>
@@ -5769,11 +5779,15 @@ function viewTermsAgain(){
 function showLGPD(){
   const div = document.createElement('div');
   div.id = 'lgpdGate';
-  div.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(15,27,46,.96);display:flex;align-items:center;justify-content:center;padding:20px';
-  div.innerHTML = `<div style="background:var(--surface,#fff);border-radius:20px;max-width:440px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="padding:18px 20px 0"><b style="font-size:17px">📜 Termo de Uso e Privacidade</b></div>
-    <div style="padding:12px 20px;overflow-y:auto;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">${LGPD_HTML}</div>
-    <div style="padding:14px 20px 18px;border-top:1px solid var(--border,#E3EBF2)">
+  div.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(15,27,46,.96);' +
+    'display:flex;align-items:center;justify-content:center;justify-content:safe center;' +
+    'padding:14px;overflow-y:auto;-webkit-overflow-scrolling:touch';
+  div.innerHTML = `<div style="background:var(--surface,#fff);border-radius:20px;max-width:440px;width:100%;
+      max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);
+      display:flex;flex-direction:column;overflow:hidden;margin:auto">
+    <div style="padding:16px 20px 0;flex-shrink:0"><b style="font-size:17px">📜 Termo de Uso e Privacidade</b></div>
+    <div style="padding:12px 20px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:13px;line-height:1.75;color:var(--text,#1A2F5A)">${LGPD_HTML}</div>
+    <div style="padding:14px 20px calc(16px + env(safe-area-inset-bottom));border-top:1px solid var(--border,#E3EBF2);flex-shrink:0;background:var(--surface,#fff)">
       <label style="display:flex;align-items:flex-start;gap:10px;font-size:13px;margin-bottom:12px;cursor:pointer;color:var(--text,#1A2F5A)">
         <input type="checkbox" id="lgpdCk" style="width:20px;height:20px;accent-color:#2DC0AE;flex-shrink:0;margin-top:1px">
         <span>Li e concordo com os <b>Termos de Uso e a Política de Privacidade</b></span></label>
@@ -5783,6 +5797,15 @@ function showLGPD(){
         style="width:100%;background:var(--primary,#2DC0AE);color:#fff;padding:15px;border-radius:14px;font-size:15px;font-weight:800;border:none">✓ Aceitar e Continuar</button>
     </div></div>`;
   document.body.appendChild(div);
+  // Trava de segurança: sem isso, em iPhone o card podia ficar mais alto que a
+  // tela e esconder o botão "Aceitar e Continuar", travando o acesso ao app.
+  const card = div.firstElementChild;
+  const ajustarAltura = function(){
+    if(card) card.style.maxHeight = Math.max(320, window.innerHeight - 28) + 'px';
+  };
+  ajustarAltura();
+  window.addEventListener('resize', ajustarAltura);
+  window.addEventListener('orientationchange', function(){ setTimeout(ajustarAltura, 300); });
 }
 function maskCode(el){
   let v = el.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
