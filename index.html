@@ -289,15 +289,15 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.14';
+const APP_VER = '9.15';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.14',
+  ver: '9.15',
   titulo: 'Ditado por voz, Rota do dia e Proteção de Dados',
   itens: [
-    ['🎙️','Ditado por voz (corrigido)','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta. Agora sem repetir palavras e sem parar no meio da consulta.'],
+    ['🎙️','Ditado por voz','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta — sem repetir palavras e sem parar no meio da consulta.'],
     ['🗺️','Rota do dia','Na Agenda: seus atendimentos na ordem dos horários, com <b>Waze</b> e <b>Google Maps</b> em cada parada — e a quilometragem vira despesa sozinha.'],
     ['🛡️','Proteção de Dados','Cópia interna automática em dois lugares do aparelho, verificação de integridade ao abrir e pontos de restauração de até <b>6 meses</b>.'],
     ['💬','Avisar o tutor','Botão de WhatsApp no atendimento, na vacina, na medicação e em cada alerta — com a mensagem já escrita.']
@@ -3575,9 +3575,13 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.14 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.15 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.14:</b><br>
+      <b>Novidades da v9.15:</b><br>
+      • 🎙️ <b>Ditado por voz: repetição eliminada de vez</b>. A causa era o reinício automático — quando o navegador cortava por silêncio, transcrições atrasadas voltavam a escrever o mesmo trecho<br>
+      • Agora cada sessão de escuta tem identificação própria e o que chega atrasado é <b>descartado</b><br>
+      • Somou-se ainda uma <b>limpeza final</b> que colapsa qualquer trecho repetido em sequência, por garantia<br>
+      <br><b>v9.14:</b><br>
       • 🎙️ <b>CORREÇÃO do ditado por voz</b>: as palavras se repetiam ("principal principal principal") porque o navegador reenvia o mesmo trecho várias vezes — corrigido<br>
       • 🎙️ O ditado <b>não para mais sozinho</b> no meio da consulta: quando o navegador corta por silêncio, ele retoma automaticamente sem perder o que já foi falado<br>
       • ✨ Ditar de novo por cima de um prontuário já pronto agora <b>acrescenta</b>, sem embaralhar o que já estava escrito<br>
@@ -4509,7 +4513,24 @@ function estruturarPront(txt){
   return out.trim();
 }
 let _rec = null, _recCampo = null, _recBase = '', _recOrig = '', _recFinais = [],
-    _recAtivo = false, _recEstrut = 0, _recReinicios = 0, _recT0 = 0;
+    _recAtivo = false, _recEstrut = 0, _recReinicios = 0, _recT0 = 0, _recSessao = 0;
+
+// Rede de segurança: colapsa trechos repetidos em sequência. Serve de última
+// linha de defesa caso o navegador reenvie fala já transcrita.
+// Só age em trechos com 6+ caracteres — "sim sim" e "não não" são preservados.
+function tirarRepeticoes(txt){
+  if(!txt) return '';
+  const p = txt.trim().split(/\s+/);
+  const MAXN = Math.min(12, Math.floor(p.length / 2));
+  for(let n = MAXN; n >= 1; n--){
+    for(let i = 0; i + 2*n <= p.length; i++){
+      const a = p.slice(i, i+n).join(' ').toLowerCase();
+      const b = p.slice(i+n, i+2*n).join(' ').toLowerCase();
+      if(a === b && a.replace(/\s/g,'').length >= 6){ p.splice(i+n, n); i--; }
+    }
+  }
+  return p.join(' ');
+}
 
 function toggleDitado(campoId, estruturar){
   if(_rec && _recCampo === campoId){ _recAtivo = false; pararDitado(estruturar); return; }
@@ -4523,13 +4544,12 @@ function toggleDitado(campoId, estruturar){
       single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
     return;
   }
-  // Guarda o que já estava escrito: o ditado é sempre ACRESCENTADO a isso
-  _recCampo   = campoId;
-  _recBase    = campo.value ? campo.value.replace(/\s+$/, '') + '\n' : '';
-  _recOrig    = _recBase;      // fixo: o que já estava escrito antes de ditar
-  _recFinais  = [];
-  _recAtivo   = true;
-  _recEstrut  = estruturar ? 1 : 0;
+  _recCampo  = campoId;
+  _recBase   = campo.value ? campo.value.replace(/\s+$/, '') + '\n' : '';
+  _recOrig   = _recBase;
+  _recFinais = [];
+  _recAtivo  = true;
+  _recEstrut = estruturar ? 1 : 0;
   _recReinicios = 0;
   _recT0 = Date.now();
   iniciarRec();
@@ -4541,22 +4561,26 @@ function iniciarRec(){
   const st  = document.getElementById('micst_' + campoId);
   const btn = document.getElementById('mic_' + campoId);
   if(!campo){ _recAtivo = false; return; }
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  _rec = new SR();
-  _rec.lang = 'pt-BR';
-  _rec.continuous = true;
-  _rec.interimResults = true;
 
-  _rec.onstart = function(){
+  // Cada sessão tem um número. Eventos que chegam atrasados de uma sessão
+  // encerrada são IGNORADOS — era essa corrida que duplicava a fala.
+  const token = ++_recSessao;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const rec = new SR();
+  _rec = rec;
+  rec.lang = 'pt-BR';
+  rec.continuous = true;
+  rec.interimResults = true;
+
+  rec.onstart = function(){
+    if(token !== _recSessao) return;
     if(btn){ btn.textContent = '⏹️ Parar'; btn.style.background = 'var(--danger)';
       btn.style.color = '#fff'; btn.style.borderColor = 'var(--danger)'; }
     if(st){ st.textContent = '🔴 Ouvindo… pode falar'; st.style.color = 'var(--danger)'; }
   };
 
-  // CORREÇÃO v9.14: o Chrome reenvia o MESMO trecho final em vários eventos.
-  // Guardar por índice (em vez de somar) torna a operação idempotente —
-  // reprocessar o mesmo índice sobrescreve, nunca duplica.
-  _rec.onresult = function(ev){
+  rec.onresult = function(ev){
+    if(token !== _recSessao) return;          // sessão morta: descarta
     let parcial = '';
     for(let i = ev.resultIndex; i < ev.results.length; i++){
       const r = ev.results[i];
@@ -4569,43 +4593,54 @@ function iniciarRec(){
     campo.scrollTop = campo.scrollHeight;
   };
 
-  _rec.onerror = function(ev){
+  rec.onerror = function(ev){
+    if(token !== _recSessao) return;
     if(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'){
       if(st){ st.textContent = '⚠ Permita o microfone nas configurações do navegador'; st.style.color = 'var(--warning)'; }
       _recAtivo = false;
     } else if(ev.error === 'network'){
       if(st){ st.textContent = '⚠ O ditado precisa de internet — use o microfone do teclado'; st.style.color = 'var(--warning)'; }
       _recAtivo = false;
-    } else if(ev.error === 'no-speech' || ev.error === 'aborted'){
-      // silêncio ou corte normal: o onend cuida de retomar
-    } else {
+    } else if(ev.error !== 'no-speech' && ev.error !== 'aborted'){
       if(st){ st.textContent = '⚠ Não deu para ouvir (' + ev.error + ')'; st.style.color = 'var(--warning)'; }
       _recAtivo = false;
     }
   };
 
-  // O Chrome do Android encerra sozinho após alguns segundos de silêncio.
-  // Se o usuário não mandou parar, retomamos — consolidando o que já veio,
-  // porque a lista de resultados recomeça do zero a cada sessão.
-  _rec.onend = function(){
+  // O Chrome encerra sozinho após silêncio. Se o usuário não mandou parar,
+  // consolidamos o que veio (sem repetições) e abrimos uma sessão nova.
+  rec.onend = function(){
+    if(token !== _recSessao) return;
     if(_recAtivo && _recReinicios < 60 && (Date.now() - _recT0) < 15*60*1000){
       _recReinicios++;
-      const atual = campo.value.replace(/\s+$/, '');
-      _recBase = atual ? atual + ' ' : '';
+      rec.onresult = rec.onend = rec.onerror = rec.onstart = null;   // desliga o antigo
+      const limpo = tirarRepeticoes(campo.value.replace(/\s+$/, ''));
+      campo.value = limpo;
+      _recBase = limpo ? limpo + ' ' : '';
       _recFinais = [];
-      try{ iniciarRec(); return; }catch(e){}
+      if(st){ st.textContent = '🔴 Ouvindo… pode falar'; st.style.color = 'var(--danger)'; }
+      setTimeout(function(){ if(_recAtivo && token === _recSessao) iniciarRec(); }, 120);
+      return;
     }
     pararDitado(_recEstrut);
   };
 
-  try{ _rec.start(); }
-  catch(e){ if(st) st.textContent = '⚠ Não foi possível iniciar'; _rec = null; _recAtivo = false; }
+  try{ rec.start(); }
+  catch(e){
+    // "already started" é comum ao reiniciar rápido: tenta de novo em instantes
+    if(_recAtivo && _recReinicios < 60){ setTimeout(function(){ if(_recAtivo) iniciarRec(); }, 350); return; }
+    if(st) st.textContent = '⚠ Não foi possível iniciar';
+    _rec = null; _recAtivo = false;
+  }
 }
 
 function pararDitado(estruturar){
   const campoId = _recCampo;
   _recAtivo = false;
-  if(_rec){ try{ _rec.onend = null; _rec.onresult = null; _rec.stop(); }catch(e){} }
+  _recSessao++;                                  // invalida tudo que estiver pendente
+  if(_rec){
+    try{ _rec.onresult = _rec.onend = _rec.onerror = _rec.onstart = null; _rec.stop(); }catch(e){}
+  }
   _rec = null; _recCampo = null;
   if(!campoId) return;
   const campo = document.getElementById(campoId);
@@ -4617,18 +4652,16 @@ function pararDitado(estruturar){
     btn.style.color = 'var(--rx)';
     btn.style.borderColor = 'var(--rx)';
   }
-  // Organiza SÓ o trecho ditado agora — nunca mexe no que já estava escrito,
-  // assim ditar de novo não reprocessa (e não embaralha) o texto anterior.
-  if(campo && estruturar){
-    const jaTinha = _recOrig;    // sempre o texto anterior ao ditado, mesmo após reinícios
-    const ditado = campo.value.startsWith(jaTinha) ? campo.value.slice(jaTinha.length) : campo.value;
+  if(campo){
+    const jaTinha = _recOrig;
+    let ditado = campo.value.startsWith(jaTinha) ? campo.value.slice(jaTinha.length) : campo.value;
+    ditado = tirarRepeticoes(ditado);            // limpeza final
     if(ditado.trim()){
-      const org = estruturarPront(ditado);
-      if(org && org !== ditado.trim()){
-        // separa da parte anterior com linha em branco, para o texto respirar
-        const sep = jaTinha.trim() ? jaTinha.replace(/\s+$/, '') + '\n\n' : '';
-        campo.value = (sep + org).trim();
-        if(st){ st.textContent = '✨ Texto organizado em seções'; st.style.color = 'var(--success)'; }
+      const org = estruturar ? estruturarPront(ditado) : ditado.trim();
+      const sep = jaTinha.trim() ? jaTinha.replace(/\s+$/, '') + '\n\n' : '';
+      campo.value = (sep + org).trim();
+      if(st && estruturar && org !== ditado.trim()){
+        st.textContent = '✨ Texto organizado em seções'; st.style.color = 'var(--success)';
         _recBase = ''; _recOrig = '';
         return;
       }
