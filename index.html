@@ -289,20 +289,53 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.10';
+const APP_VER = '9.13';
+// Novidades desta versão — atualize este bloco a cada lançamento.
+// O aviso aparece automaticamente para TODO usuário que abrir o app numa
+// versão que ainda não viu (controle por APP_VER), uma única vez.
+const NOVIDADES = {
+  ver: '9.13',
+  titulo: 'Ditado por voz, Rota do dia e Proteção de Dados',
+  itens: [
+    ['🎙️','Ditado por voz','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta. Também na receita e nas orientações.'],
+    ['🗺️','Rota do dia','Na Agenda: seus atendimentos na ordem dos horários, com <b>Waze</b> e <b>Google Maps</b> em cada parada — e a quilometragem vira despesa sozinha.'],
+    ['🛡️','Proteção de Dados','Cópia interna automática em dois lugares do aparelho, verificação de integridade ao abrir e pontos de restauração de até <b>6 meses</b>.'],
+    ['💬','Avisar o tutor','Botão de WhatsApp no atendimento, na vacina, na medicação e em cada alerta — com a mensagem já escrita.']
+  ]
+};
+// Garante que o aviso apareça para TODO usuário, uma vez por versão.
+// Se houver outro formulário aberto na frente (ex: cadastro do profissional),
+// espera fechar em vez de simplesmente desistir — era assim que o aviso sumia.
+let _novTentativas = 0;
+function checarNovidades(delay){
+  if(!localStorage.getItem('vfc_tut_done')) return;              // novato: vê o tutorial
+  if(localStorage.getItem('vfc_seen_ver') === APP_VER) return;   // já viu esta versão
+  setTimeout(function(){
+    const ocupado = (document.getElementById('modals')?.innerHTML || '').trim()
+                 || (document.getElementById('modals2')?.innerHTML || '').trim();
+    if(ocupado && _novTentativas < 12){ _novTentativas++; checarNovidades(4000); return; }
+    showWhatsNew();
+  }, delay || 900);
+}
 function showWhatsNew(){
   showSheet('🎉 Novidades no seu VetFlowCare!', `
-    <div style="font-size:14px;line-height:1.85">
+    <div style="font-size:14px;line-height:1.8">
     👋 Olá! Aqui é o <b>Claudinho</b>, da equipe VetFlowCare.<br><br>
-    Nós ouvimos vocês — cada sugestão vira melhoria. Esta atualização trouxe:<br><br>
-    🔐 <b>Entrada repaginada</b>: login e senha logo na primeira tela — proteção desde o primeiro segundo<br>
-    ✏️ <b>Edite tudo</b>: doses de vacina (a carteirinha perfeita!), medicações e atendimentos<br>
-    💰 <b>Financeiro PRO</b>: produção clínica, ticket médio e taxa de recebimento<br>
-    📥 <b>Migração fácil</b> de qualquer sistema (Ajustes → Importar)<br><br>
-    Continue mandando ideias — este app é construído junto com quem usa. 💙<br><br>
+    Cada sugestão de vocês vira melhoria. A <b>versão ${NOVIDADES.ver}</b> trouxe
+    <b>${esc(NOVIDADES.titulo)}</b>:</div>
+    ${NOVIDADES.itens.map(([e,t,d]) => `
+      <div class="card" style="margin-top:10px;display:flex;gap:11px;align-items:flex-start">
+        <span style="font-size:22px;flex-shrink:0">${e}</span>
+        <div><b style="font-size:14px">${t}</b>
+        <div style="font-size:13px;color:var(--muted);margin-top:3px;line-height:1.6">${d}</div></div>
+      </div>`).join('')}
+    <div style="font-size:14px;line-height:1.8;margin-top:14px">
+    Quer ver como usar? O guia completo está em <b>Ajustes → 📖 Ver Tutorial do App</b>.<br><br>
+    Continue mandando ideias — este app é construído junto com quem usa. 💙<br>
     Bom trabalho e ótimos atendimentos! 🐾<br>
     <span style="color:var(--muted);font-size:12px">— Claudinho & equipe B&G Systems</span></div>`,
-    `<button class="btn" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet()">Vamos lá! ✨</button>`);
+    `<button class="btn gray" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet();openTutorial(0)">📖 Ver tutorial</button>
+     <button class="btn" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet()">Vamos lá! ✨</button>`);
   localStorage.setItem('vfc_seen_ver', APP_VER);
 }
 
@@ -600,10 +633,16 @@ async function persistDB(){
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const ct = await crypto.subtle.encrypt({name:'AES-GCM', iv}, window._cryptoKey,
         new TextEncoder().encode(JSON.stringify(DB)));
-      localStorage.setItem(LS_KEY, JSON.stringify({__enc:1, iv:b64e(iv), ct:b64e(new Uint8Array(ct))}));
+      const raw = JSON.stringify({__enc:1, iv:b64e(iv), ct:b64e(new Uint8Array(ct))});
+      localStorage.setItem(LS_KEY, raw);
+      agendarEspelho(raw);
     } else {
-      localStorage.setItem(LS_KEY, JSON.stringify(DB));
+      const raw = JSON.stringify(DB);
+      localStorage.setItem(LS_KEY, raw);
+      agendarEspelho(raw);
     }
+    marcarAlteracao();
+    salvarAssinatura();
   }catch(e){ console.warn('persist', e); toast('⚠ Erro ao salvar — armazenamento cheio?'); }
 }
 function b64e(u8){ let s=''; u8.forEach(b=>s+=String.fromCharCode(b)); return btoa(s); }
@@ -613,11 +652,12 @@ function b64d(str){ const s=atob(str); const u=new Uint8Array(s.length); for(let
 let _idb = null;
 function idbOpen(){
   return new Promise((res, rej) => {
-    const r = indexedDB.open('vetflowcare', 2);
+    const r = indexedDB.open('vetflowcare', 3);
     r.onupgradeneeded = () => {
       const db = r.result;
       if(!db.objectStoreNames.contains('docs')) db.createObjectStore('docs');
       if(!db.objectStoreNames.contains('snap')) db.createObjectStore('snap');
+      if(!db.objectStoreNames.contains('mirror')) db.createObjectStore('mirror');
     };
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
@@ -766,8 +806,12 @@ async function initDataProtection(){
       window._persistOK = await navigator.storage.persisted() || await navigator.storage.persist();
     }
   }catch(e){ window._persistOK = false; }
-  // 2) Snapshot automático diário (mantém os últimos 10)
-  try{ await dailySnapshot(); }catch(e){ console.warn('snap', e); }
+  // 2) Pontos de restauração escalonados (7 diários + 4 semanais + 6 mensais)
+  try{ await snapshotEscalonado(); }catch(e){ console.warn('snap', e); }
+  // 2b) Se o armazenamento principal sumiu, resgata da cópia interna
+  try{ await checarEspelhoNaAbertura(); }catch(e){ console.warn('espelho', e); }
+  // 2c) Confere se algum volume de dados despencou desde a última sessão
+  try{ conferirIntegridade(); }catch(e){ console.warn('integridade', e); }
   // 3) Estado corrompido resgatado?
   if(window._RESCUE){
     setTimeout(()=>{
@@ -2082,6 +2126,7 @@ function enterApp(){
   render();
   if(!localStorage.getItem('vfc_tut_done')){ setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500); }
   else if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
+  checarNovidades();
 }
 
 // Modal obrigatório de primeiro acesso — dados do profissional
@@ -2171,7 +2216,20 @@ const TUT_STEPS = [
    • Tipo, resumo, prontuário completo e <b>retorno automático</b> na agenda<br>
    • <b>💰 Itens do atendimento</b>: consulta, vacina, exame… cada um com valor — o total soma sozinho<br>
    • <b>Parcele em até 5x</b>: valores e vencimentos individuais<br>
-   • Imprima o prontuário timbrado quando precisar`},
+   • <b>🧾 Despesas do atendimento</b> (sala, anestesista…) caem sozinhas no Financeiro<br>
+   • <b>💬 Avisar tutor</b>: manda lembrete no WhatsApp com a mensagem já escrita<br>
+   • Imprima o prontuário timbrado quando precisar<br><br>
+   💡 Tem também o tipo <b>📞 Orientações via Telefone</b>, para registrar aquele atendimento que você resolveu por ligação.`},
+
+  {emo:'🎙️', title:'Ditado por voz — escreva falando',
+   body:`Nunca mais digite prontuário com o dedo sujo de luva. No prontuário, na receita e nas orientações há o botão <b>🎙️ Ditar</b>.<br><br>
+   <b>Como usar:</b><br>
+   1. Toque em <b>🎙️ Ditar</b> e autorize o microfone (só na primeira vez)<br>
+   2. <b>Fale naturalmente</b>, dizendo o nome de cada parte:<br>
+   <span style="color:var(--muted);font-size:13px">"queixa principal o animal está mancando há três dias… anamnese sem trauma aparente… exame físico dor à palpação do joelho… diagnóstico suspeita de ruptura de ligamento… conduta repouso e anti-inflamatório por sete dias"</span><br>
+   3. Toque em <b>⏹️ Parar</b><br><br>
+   ✨ O texto se <b>organiza sozinho</b> em QUEIXA PRINCIPAL, ANAMNESE, EXAME FÍSICO, DIAGNÓSTICO e CONDUTA — formatadinho, pronto para imprimir.<br><br>
+   <span style="color:var(--muted);font-size:12px">💡 Se o botão avisar que não há reconhecimento de voz (comum no iPhone), use o <b>microfone do teclado</b> do celular: funciona do mesmo jeito.</span>`},
   {emo:'📝', title:'Receituário — passo a passo de cada tipo',
    body:`Na aba <b>Receita</b> do animal, o fluxo completo para cada situação:<br><br>
    <b>1️⃣ Receita Simples</b> (dia a dia)<br>
@@ -2201,22 +2259,40 @@ const TUT_STEPS = [
    • <b>✏️ Editar</b>: altera os dados do paciente<br>
    • <b>📤 Compartilhar</b>: envia o resumo do animal por <b>WhatsApp</b>, <b>Copiar</b> (cola em qualquer lugar), <b>E-mail</b> ou <b>Nativo</b> (menu de apps do celular) — e o botão <b>Exportar/Imprimir Ficha (PDF)</b> gera o documento timbrado escolhendo as seções<br>
    • <b>🗑️ Excluir</b>: remove o paciente (pede confirmação)`},
-  {emo:'📅', title:'Agenda e Alertas',
+  {emo:'📅', title:'Agenda, Rota do dia e Alertas',
    body:`<b>📅 Agenda</b>: calendário com pontinhos coloridos por dia (vermelho = vencido). Toque no dia → <b>"➕ Novo Atendimento"</b> já com a data.<br><br>
-   <b>🔔 Alertas</b>: tudo que vence — vacinas, medicações, atendimentos e <b>pagamentos</b> — avisado com 7, 3 e 1 dia de antecedência (você configura).`},
+   <b>🗺️ Rota do dia</b> — para quem atende em domicílio, o botão ao lado:<br>
+   • Lista os atendimentos <b>na ordem dos horários</b>, com o endereço do tutor<br>
+   • Cada parada abre direto no <b>🚗 Waze</b> ou no <b>🗺️ Google Maps</b><br>
+   • <b>Rota completa</b> num toque: todas as paradas em sequência no Maps<br>
+   • <b>🚗 Quilometragem</b>: lance os km rodados e o valor por km — vira despesa automática no Financeiro<br><br>
+   <b>🔔 Alertas</b>: tudo que vence — vacinas, medicações, atendimentos e <b>pagamentos</b> — avisado com 7, 3 e 1 dia de antecedência. Cada alerta tem o botão <b>💬 Avisar o tutor</b>.`},
   {emo:'💰', title:'Financeiro — controle total',
    body:`Pelo botão no Início:<br><br>
    • <b>A Receber</b>: filtros (atrasados/hoje/próximos), busca, alterar vencimento e <b>💬 Cobrar no WhatsApp</b> com mensagem pronta (Pro)<br>
    • <b>🔔 Lembrete</b> automático 3 dias antes do vencimento<br>
    • <b>Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
    • <b>Fluxo</b>: gráfico de evolução mensal/trimestral/anual + relatório em <b>PDF</b> (Pro)`},
-  {emo:'🔐', title:'Segurança e Backup — não perca nada!',
-   body:`Em <b>Ajustes</b>:<br><br>
-   • <b>Crie login e senha</b>: dados criptografados (AES-256) — o 👁 mostra a senha ao digitar<br>
-   • <b>💾 Backup Completo</b> toda semana — guarde no Drive/WhatsApp<br>
-   • <b>🔐 Backup Criptografado</b>: versão que só abre com sua senha<br>
-   • O app cria <b>pontos de restauração diários</b> sozinho<br>
-   ⚠️ <b>Nunca</b> limpe "dados de navegação" do navegador — isso apaga o app!`},
+  {emo:'🔐', title:'Segurança — login e criptografia',
+   body:`Em <b>Ajustes → Segurança</b>:<br><br>
+   • <b>Crie login e senha</b>: tudo passa a ser gravado com <b>criptografia AES-256</b> — o 👁 mostra a senha ao digitar<br>
+   • Protege tutores, CPFs, telefones e prontuários caso alguém pegue seu celular<br>
+   • Os dados <b>nunca saem do aparelho</b>: não existe servidor guardando prontuário de ninguém<br><br>
+   ⚠️ <b>Guarde bem a senha.</b> Sem ela, os dados criptografados não podem ser recuperados — por isso o backup do próximo passo é tão importante.`},
+
+  {emo:'🛡️', title:'Proteção de Dados — o passo mais importante',
+   body:`Prontuário é documento legal: o <b>CFMV exige guardar por 20 anos</b>. Por isso o app protege em camadas — e uma delas depende de você.<br><br>
+   <b>O app faz sozinho:</b><br>
+   • <b>🔄 Cópia interna</b>: grava em <b>dois lugares</b> do aparelho. Se o navegador limpar um, ele recupera do outro<br>
+   • <b>🚨 Integridade</b>: ao abrir, confere se algum dado sumiu e avisa <b>antes</b> de você gravar por cima<br>
+   • <b>📸 Pontos de restauração</b>: 7 diários + 4 semanais + 6 mensais — dá para voltar até <b>6 meses</b><br><br>
+   <b>Você precisa fazer:</b><br>
+   • <b>💾 Backup Completo</b> uma vez por semana — Drive ou WhatsApp para você mesmo<br>
+   • É a <b>única</b> proteção contra perder, quebrar ou ter o celular roubado<br><br>
+   Tudo isso fica em <b>Ajustes → 🛡️ Central de Proteção</b>: mostra onde seus dados estão, quando foi o último backup e permite restaurar qualquer ponto.<br><br>
+   🍎 <b>Usa iPhone?</b> <b>Instale na Tela de Início</b> (Compartilhar → Adicionar à Tela de Início). Sem isso, o Safari pode apagar os dados após dias sem uso.<br>
+   ⚠️ <b>Nunca</b> limpe "dados de navegação" do navegador — isso apaga o app.`,
+   action:{label:'🛡️ Abrir a Central de Proteção', fn:'finishTutorial(true);openCentralProtecao()'}},
   {emo:'✨', title:'VetFlowCare Pro',
    body:`A versão gratuita permite até <b>5 pacientes</b>. O <b>Pro</b> libera:<br><br>
    • Pacientes ilimitados · Controle Especial · sem marca-d'água<br>
@@ -2397,13 +2473,26 @@ function renderHome(){
           onclick="window.open('https://wa.me/5511912659906?text=${_renovaMsg}')">💬 Renovar pelo WhatsApp da VetFlowCare</button></div>`;
     }
   }
-  if(DB.pets.length && daysSinceBackup() > 7 && localStorage.getItem('vfc_bk_snooze') !== todayISO()){
-    h += `<div class="card" style="border-color:var(--warning);display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:12px 14px">
-      <span style="font-size:20px">🛡️</span>
-      <div style="flex:1;font-size:12px"><b>Proteja seu trabalho!</b><br>
-      <span style="color:var(--muted)">${daysSinceBackup()>999?'Você ainda não fez nenhum backup.':'Último backup há '+daysSinceBackup()+' dias.'}</span></div>
-      <button class="btn sm" onclick="exportJSON()">💾 Backup</button>
-      <button style="background:none;color:var(--muted)" onclick="localStorage.setItem('vfc_bk_snooze','${todayISO()}');render()">✕</button></div>`;
+  const _risco = DB.pets.length ? nivelRisco() : 0;
+  if(_risco >= 2 && localStorage.getItem('vfc_bk_snooze') !== todayISO()){
+    const _cor = _risco === 3 ? 'var(--danger)' : 'var(--warning)';
+    const _alt = altsSemBackup(), _d = daysSinceBackup();
+    h += `<div class="card" style="border-color:${_cor};margin-bottom:12px;padding:13px 14px">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <span style="font-size:20px">${_risco===3?'🚨':'🛡️'}</span>
+        <div style="flex:1;font-size:12.5px;line-height:1.6">
+          <b style="color:${_cor}">${_risco===3?'Seus dados estão em risco':'Hora de fazer backup'}</b><br>
+          <span style="color:var(--muted)">${
+            iosSemInstalar() ? 'No iPhone pelo navegador, o Safari pode apagar os dados após dias sem uso. Instale na Tela de Início e faça um backup.'
+            : _d>999 ? `Você ainda não fez nenhum backup e já tem <b>${_alt}</b> alterações registradas.`
+            : `Último backup há <b>${_d} dias</b>${_alt?` · <b>${_alt}</b> alterações desde então`:''}. Se perder o celular, isso não volta.`}</span>
+        </div>
+        <button style="background:none;color:var(--muted);font-size:15px;padding:2px" onclick="localStorage.setItem('vfc_bk_snooze','${todayISO()}');render()">✕</button>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn sm" style="flex:1;background:${_cor}" onclick="exportJSON()">💾 Fazer backup</button>
+        <button class="btn sm outline" style="flex:1" onclick="openCentralProtecao()">🛡️ Central</button>
+      </div></div>`;
   }
   const _recLate = allReceivables().some(r=>r.status==='pendente' && daysUntil(r.due)<0);
   h += `<div class="card" style="display:flex;align-items:center;gap:11px;cursor:pointer;margin-bottom:16px;padding:13px 16px" onclick="goFinance()">
@@ -3304,8 +3393,12 @@ function renderCalendar(){
         <span><i style="background:var(--warning)"></i>Pagamento</span>
         <span><i style="background:var(--danger)"></i>Vencido</span></div>
     </div>
-    <button class="btn" style="margin-top:14px" onclick="openApptPicker(${calSelDay?`'${y}-${String(m+1).padStart(2,'0')}-${String(calSelDay).padStart(2,'0')}'`:'null'})">
-      ➕ Novo Atendimento${calSelDay?` em ${String(calSelDay).padStart(2,'0')}/${String(m+1).padStart(2,'0')}`:''}</button>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button class="btn" style="flex:1" onclick="openApptPicker(${calSelDay?`'${y}-${String(m+1).padStart(2,'0')}-${String(calSelDay).padStart(2,'0')}'`:'null'})">
+        ➕ Novo Atendimento</button>
+      <button class="btn" style="flex:1;background:var(--vet)" onclick="openRota(${calSelDay?`'${y}-${String(m+1).padStart(2,'0')}-${String(calSelDay).padStart(2,'0')}'`:'null'})">
+        🗺️ Rota do dia</button>
+    </div>
     <div class="sec" style="margin-top:16px"><div class="sec-h">
       <span>${calSelDay?`Dia ${calSelDay} de ${MONTHS[m]}`:'Próximos eventos'}</span></div>
       ${sel.length?sel.map(evtRow).join(''):'<div class="card empty">✅ Nenhum evento neste dia</div>'}</div>`;
@@ -3445,31 +3538,18 @@ function renderSettings(){
       <button class="btn sm outline" style="margin-top:10px;width:100%;display:block;text-align:center" onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Preciso de ajuda com o VetFlowCare.'))">💬 Suporte e Dúvidas (WhatsApp)</button></div></div>
 
   <div class="sec"><div class="sec-h"><span>🛡️ Proteção de Dados</span></div>
-    <div class="card">
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
-        <span>${window._persistOK ? '✅' : '⚠️'}</span>
-        <div style="flex:1"><b>${window._persistOK ? 'Armazenamento protegido' : 'Proteção não confirmada'}</b>
-        <div style="font-size:11px;color:var(--muted)">${window._persistOK
-          ? 'O navegador não apagará os dados automaticamente por falta de espaço.'
-          : 'Instale o app na tela inicial e use-o com frequência para o navegador garantir os dados.'}</div></div></div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:10px">
-        <span>${daysSinceBackup()<=7?'✅':'⚠️'}</span>
-        <div style="flex:1"><b>Backup manual</b>
-        <div style="font-size:11px;color:var(--muted)">${daysSinceBackup()>999?'Nunca feito — faça o primeiro!':'Último: há '+daysSinceBackup()+' dia(s)'}</div></div>
-        <button class="btn sm" onclick="exportJSON()">💾 Agora</button></div>
-      <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
-        <b style="font-size:12px">📸 Pontos de restauração automáticos</b>
-        <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">O app guarda sozinho os últimos 10 dias no aparelho. Se algo sumir, restaure aqui:</div>
-        ${(window._snapList||[]).slice().reverse().slice(0,5).map(k=>
-          `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
-            <span style="flex:1">📅 ${k}</span>
-            <button class="btn sm outline" onclick="restoreSnapshot('${k}')">↩ Restaurar</button></div>`).join('') || '<div style="font-size:12px;color:var(--muted)">Nenhum ponto ainda — será criado automaticamente.</div>'}
-        <button class="btn sm outline" style="margin-top:8px" onclick="makeSnapshotNow()">📸 Criar ponto agora</button>
-      </div>
-      ${localStorage.getItem('vetflowcare_rescue')?`<div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
-        <b style="font-size:12px;color:var(--danger)">🚑 Arquivo de resgate encontrado</b>
-        <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Dados que não puderam ser lidos foram preservados. Baixe e envie ao suporte.</div>
-        <button class="btn sm outline" onclick="downloadRescue()">⬇️ Baixar resgate</button></div>`:''}
+    <div class="card" style="cursor:pointer;border-color:${['var(--success)','var(--vac)','var(--warning)','var(--danger)'][nivelRisco()]}" onclick="openCentralProtecao()">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:27px">${['✅','🛡️','⚠️','🚨'][nivelRisco()]}</div>
+        <div style="flex:1">
+          <b style="font-size:15px">Central de Proteção</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            ${daysSinceBackup()>999 ? 'Você ainda não fez backup externo' :
+              `Backup há ${daysSinceBackup()} dia(s)${altsSemBackup()?` · ${altsSemBackup()} alterações desde então`:''}`}</div>
+        </div>
+        <span style="color:var(--muted);font-size:17px">›</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:9px;border-top:1px solid var(--border);padding-top:8px">
+        Cópia interna automática · pontos de restauração de 7 dias, 4 semanas e 6 meses · verificação de integridade</div>
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
@@ -3495,9 +3575,24 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.10 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.13 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.10:</b><br>
+      <b>Novidades da v9.13:</b><br>
+      • 📖 <b>Tutorial atualizado</b>: passos novos ensinando o <b>🎙️ ditado por voz</b> (com exemplo de fala real) e a <b>🗺️ rota do dia com GPS</b><br>
+      • 🛡️ Passo próprio sobre <b>Proteção de Dados</b>, com atalho para a Central e o aviso do iPhone<br>
+      • 🎉 <b>Aviso de novidades corrigido</b>: mostrava texto antigo e não aparecia para parte dos usuários — agora todo mundo recebe, uma vez por versão, com botão para abrir o tutorial<br>
+      <br><b>v9.12 — Proteção de Dados:</b><br>
+      • 🔄 <b>Cópia de segurança interna automática</b>: os dados passam a ser gravados em <b>dois lugares diferentes</b> do aparelho. Se o navegador limpar um, o app recupera do outro sozinho<br>
+      • 🚨 <b>Verificação de integridade</b>: ao abrir, o app confere se algum volume de dados despencou e avisa <b>antes</b> de você gravar por cima<br>
+      • 📸 <b>Pontos de restauração escalonados</b>: 7 diários + 4 semanais + 6 mensais — dá para voltar até 6 meses atrás<br>
+      • 🛡️ <b>Central de Proteção</b> (Ajustes): mostra num lugar só onde seus dados estão, quando foi o último backup e permite restaurar qualquer ponto<br>
+      • ⚠️ O aviso de backup agora conta as <b>alterações feitas</b>, não só os dias — e alerta quem usa iPhone pelo navegador sem instalar na Tela de Início<br>
+      <br><b>v9.11:</b><br>
+      • 🎙️ <b>Ditado por voz no prontuário</b> — fale e o texto aparece; ao parar, o app <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta<br>
+      • Ditado também na receita e nas orientações por telefone<br>
+      • 🗺️ <b>Rota do dia</b> (Agenda → Rota do dia): lista os atendimentos na ordem dos horários, com o endereço do tutor e botões de <b>Waze</b> e <b>Google Maps</b><br>
+      • 🚗 <b>Rota completa multi-parada</b> num toque, e registro de <b>quilometragem</b> que vira despesa automática no Financeiro<br>
+      <br><b>v9.10:</b><br>
       • 💬 <b>Avisar o tutor pelo WhatsApp</b> — botão novo no atendimento, na vacina programada, na medicação, em cada alerta e no perfil do tutor<br>
       • A mensagem já vem escrita com nome do tutor, nome do animal, data e horário — e você pode ajustar antes de enviar<br>
       • O texto muda sozinho conforme a situação: lembrete se o atendimento é futuro, acompanhamento se já passou, cobrança de vacina atrasada<br>
@@ -3874,7 +3969,7 @@ function exportEncBackup(){
   const authStr = localStorage.getItem(LS_AUTH);
   const blob = localStorage.getItem(LS_KEY);
   if(!getAuth() || !blob){ toast('⚠ Ative a senha primeiro (Segurança)'); return; }
-  localStorage.setItem('vfc_last_backup', todayISO());
+  zerarAlteracoes();
   const pack = JSON.stringify({__vfcbak:2, exportedAt:todayISO(), auth:authStr, blob});
   saveFileSAF('vetflowcare_backup_criptografado_' + todayISO() + '.vfcbak',
     new Blob([pack], {type:'application/json'}));
@@ -3910,7 +4005,7 @@ function exportJSON(){
   doExportJSON();
 }
 function doExportJSON(){
-  localStorage.setItem('vfc_last_backup', todayISO());
+  zerarAlteracoes();
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   if(true){ saveFileSAF('vetflowcare_backup_' + todayISO() + '.json', blob); return; }
   const a = document.createElement('a');
@@ -3999,6 +4094,494 @@ function confirmPastDate(dateISO, yesCall, ctx){
     msg:`A data informada é <b>${fmtDate(dateISO)}</b> — ela <b>já passou</b> há <b>${dias} dia${dias>1?'s':''}</b>${anos>=1?` (≈ ${anos} ano${anos>1?'s':''})`:''}.${ctx?`<br><span style="font-size:12px;color:var(--muted)">${ctx}</span>`:''}`,
     note:'Se confirmar, o lançamento entrará como ATRASADO.', noteColor:'var(--warning)',
     noLabel:'← Corrigir data', yesLabel:'Sim, confirmar', yesBg:'var(--warning)', yes:yesCall});
+}
+
+// ═══════════ 🛡️ PROTEÇÃO DE DADOS EM CAMADAS (v9.12) ═══════════
+// O prontuário é documento legal (CFMV exige guardar 20 anos). Perder dado
+// aqui não é perder arquivo: é perder histórico clínico. Por isso o app grava
+// em DOIS lugares diferentes, guarda pontos de restauração escalonados,
+// confere a integridade a cada abertura e cobra o backup externo.
+
+// ── Camada 1: espelho automático em IndexedDB ──
+// O localStorage pode ser limpo pelo navegador (pressão de espaço, "limpar
+// dados", ITP do Safari). O IndexedDB usa outro mecanismo e costuma sobreviver.
+// Gravar nos dois é a proteção mais barata contra o modo de falha mais comum.
+let _mirrorTimer = null;
+function agendarEspelho(raw){
+  clearTimeout(_mirrorTimer);
+  _mirrorTimer = setTimeout(() => gravarEspelho(raw), 1500);
+}
+async function gravarEspelho(raw){
+  try{
+    await idbStore('mirror', 'readwrite', s => s.put({
+      raw, at: new Date().toISOString(), ver: APP_VER, sig: assinaturaDB()
+    }, 'atual'));
+  }catch(e){ console.warn('espelho', e); }
+}
+function lerEspelho(){
+  return idbStore('mirror', 'readonly', s => s.get('atual')).catch(() => null);
+}
+
+// ── Camada 2: assinatura de integridade ──
+// Guarda quantos registros existem. Se na próxima abertura o número despencar,
+// algo deu errado — e o app avisa ANTES que o usuário grave por cima.
+function assinaturaDB(){
+  try{
+    return {
+      pets: DB.pets.length,
+      tutors: DB.tutors.length,
+      atend: DB.pets.reduce((s,p) => s + (p.appointments||[]).length, 0),
+      vac:   DB.pets.reduce((s,p) => s + (p.vaccines||[]).length, 0),
+      rx:    DB.pets.reduce((s,p) => s + (p.prescriptions||[]).length, 0),
+      fin:   (DB.charges||[]).length + (DB.expenses||[]).length
+    };
+  }catch(e){ return null; }
+}
+function salvarAssinatura(){
+  try{ localStorage.setItem('vfc_sig', JSON.stringify({...assinaturaDB(), at: todayISO()})); }catch(e){}
+}
+function conferirIntegridade(){
+  let ant;
+  try{ ant = JSON.parse(localStorage.getItem('vfc_sig') || 'null'); }catch(e){ return; }
+  if(!ant) { salvarAssinatura(); return; }
+  const ag = assinaturaDB();
+  if(!ag) return;
+  // Só alerta em perda relevante: nunca por 1 exclusão que o usuário fez de propósito
+  const perdas = [];
+  const cmp = (k, nome) => {
+    const a = ant[k] || 0, b = ag[k] || 0;
+    if(a >= 3 && b < a * 0.5) perdas.push(`${nome}: ${a} → ${b}`);
+  };
+  cmp('pets','pacientes'); cmp('tutors','tutores');
+  cmp('atend','atendimentos'); cmp('vac','vacinas'); cmp('rx','receitas');
+  if(perdas.length){
+    window._perdaDetectada = perdas;
+    setTimeout(() => {
+      vfcConfirm({icon:'🚨', title:'Parte dos dados pode ter sumido',
+        msg:`Comparando com a última vez que você usou o app:<br><br><b>${perdas.join('<br>')}</b><br><br>Isso pode ter sido você mesmo apagando — ou uma falha. <b>Não cadastre nada agora</b> até conferir.`,
+        note:'Abra a Central de Proteção para restaurar um ponto anterior.', noteColor:'var(--danger)',
+        noLabel:'Está certo, fui eu', yesLabel:'🛡️ Abrir Central', yesBg:'var(--danger)',
+        yes:'openCentralProtecao()'});
+    }, 1200);
+  } else {
+    salvarAssinatura();
+  }
+}
+
+// ── Camada 3: pontos de restauração escalonados ──
+// 7 diários + 4 semanais + 6 mensais. Cobre tanto o erro de hoje quanto o
+// "só percebi que sumiu dois meses depois".
+function semanaISO(d){
+  const t = new Date(d.getTime());
+  t.setHours(0,0,0,0);
+  t.setDate(t.getDate() + 3 - ((t.getDay() + 6) % 7));
+  const s1 = new Date(t.getFullYear(), 0, 4);
+  const n = 1 + Math.round(((t - s1) / 86400000 - 3 + ((s1.getDay() + 6) % 7)) / 7);
+  return `${t.getFullYear()}-W${String(n).padStart(2,'0')}`;
+}
+async function snapshotEscalonado(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw || raw.length < 60) return;
+  const hoje = new Date();
+  const chaves = {
+    ['d:' + todayISO()]: 7,
+    ['w:' + semanaISO(hoje)]: 4,
+    ['m:' + todayISO().slice(0,7)]: 6
+  };
+  const atuais = await listSnapshots();
+  for(const ch of Object.keys(chaves)){
+    if(!atuais.includes(ch)){
+      await idbStore('snap','readwrite', s => s.put(raw, ch));
+    }
+  }
+  // limpeza por tipo, mantendo a quantidade definida
+  const todas = await listSnapshots();
+  for(const [pref, manter] of [['d:',7], ['w:',4], ['m:',6]]){
+    const doTipo = todas.filter(k => String(k).startsWith(pref)).sort();
+    while(doTipo.length > manter){
+      const k = doTipo.shift();
+      await idbStore('snap','readwrite', s => s.delete(k));
+    }
+  }
+  // pontos antigos (formato anterior, sem prefixo) — mantém só os 3 mais novos
+  const antigos = todas.filter(k => !/^[dwm]:/.test(String(k))).sort();
+  while(antigos.length > 3){
+    const k = antigos.shift();
+    await idbStore('snap','readwrite', s => s.delete(k));
+  }
+  window._snapList = await listSnapshots();
+}
+function rotuloSnap(k){
+  const s = String(k);
+  if(s.startsWith('d:')) return '📅 Dia ' + fmtDate(s.slice(2));
+  if(s.startsWith('w:')) return '🗓️ Semana ' + s.slice(2).replace('-W','/');
+  if(s.startsWith('m:')){
+    const [y,m] = s.slice(2).split('-');
+    return '📆 ' + (MONTHS[parseInt(m)-1] || m) + '/' + y;
+  }
+  return '💾 ' + s;
+}
+
+// ── Camada 4: cobrança do backup externo ──
+// Nenhuma proteção local salva de celular perdido, roubado ou quebrado.
+// O app conta as alterações desde o último backup e aumenta o tom.
+function marcarAlteracao(){
+  try{
+    const n = parseInt(localStorage.getItem('vfc_alt') || '0') + 1;
+    localStorage.setItem('vfc_alt', String(n));
+  }catch(e){}
+}
+function altsSemBackup(){ return parseInt(localStorage.getItem('vfc_alt') || '0') || 0; }
+function zerarAlteracoes(){
+  localStorage.setItem('vfc_alt', '0');
+  localStorage.setItem('vfc_last_backup', todayISO());
+}
+// Risco específico do iPhone: no Safari, dados de site NÃO instalado podem ser
+// apagados após ~7 dias sem uso. Instalar na Tela de Início elimina o risco.
+function iosSemInstalar(){
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent||'');
+  const inst = window.navigator.standalone === true ||
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  return ios && !inst;
+}
+function nivelRisco(){
+  const alt = altsSemBackup(), dias = daysSinceBackup();
+  if(iosSemInstalar()) return 3;
+  if(dias > 14 || alt >= 40) return 3;
+  if(dias > 7  || alt >= 15) return 2;
+  if(dias > 3  || alt >= 5)  return 1;
+  return 0;
+}
+
+// ── Central de Proteção: tudo num lugar só ──
+function openCentralProtecao(){
+  const alt = altsSemBackup(), dias = daysSinceBackup(), risco = nivelRisco();
+  const snaps = (window._snapList || []).slice().sort().reverse();
+  const CORES = ['var(--success)','var(--vac)','var(--warning)','var(--danger)'];
+  const TXT = ['Tudo protegido','Atenção leve','Faça um backup','Risco alto — faça o backup agora'];
+  showSheet('🛡️ Central de Proteção', `
+    <div class="card" style="border-color:${CORES[risco]};border-width:1.5px">
+      <div style="display:flex;align-items:center;gap:11px">
+        <div style="font-size:30px">${['✅','🛡️','⚠️','🚨'][risco]}</div>
+        <div style="flex:1">
+          <b style="font-size:15px;color:${CORES[risco]}">${TXT[risco]}</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            ${dias > 999 ? 'Nenhum backup externo feito ainda' : `Último backup há ${dias} dia${dias===1?'':'s'}`}
+            ${alt ? ` · <b>${alt}</b> alteraç${alt===1?'ão':'ões'} desde então` : ''}</div>
+        </div></div>
+      ${risco >= 2 ? `<button class="btn" style="margin-top:11px;background:${CORES[risco]}" onclick="closeSheet();exportJSON()">💾 Fazer backup agora</button>` : ''}
+    </div>
+
+    ${iosSemInstalar() ? `<div class="card" style="border-color:var(--danger);margin-top:10px">
+      <b style="font-size:13px;color:var(--danger)">🍎 Atenção, usuário de iPhone</b>
+      <div style="font-size:12px;margin-top:5px;line-height:1.6">O Safari pode <b>apagar sozinho</b> os dados de sites que ficam ~7 dias sem uso. Isso <b>não acontece</b> se o app estiver instalado na Tela de Início.</div>
+      <button class="btn sm outline" style="margin-top:9px" onclick="closeSheet();promptInstall()">📲 Como instalar</button></div>` : ''}
+
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin:16px 0 7px">Onde seus dados estão agora</div>
+    <div class="card">
+      <div class="irow"><span class="k">📱 Neste aparelho</span><span class="v" style="color:var(--success)">✓ Ativo</span></div>
+      <div class="irow"><span class="k">🔄 Cópia de segurança interna</span><span class="v" id="stEspelho">verificando…</span></div>
+      <div class="irow"><span class="k">🔒 Armazenamento protegido</span><span class="v" style="color:${window._persistOK?'var(--success)':'var(--warning)'}">${window._persistOK?'✓ Sim':'⚠ Não confirmado'}</span></div>
+      <div class="irow"><span class="k">💾 Backup externo</span><span class="v" style="color:${dias<=7?'var(--success)':'var(--danger)'}">${dias>999?'Nunca':fmtDate(localStorage.getItem('vfc_last_backup'))}</span></div>
+      <div class="irow"><span class="k">📸 Pontos de restauração</span><span class="v">${snaps.length}</span></div>
+    </div>
+
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin:16px 0 7px">Restaurar um ponto anterior</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Guardamos os últimos 7 dias, 4 semanas e 6 meses. Antes de restaurar, o app salva o estado atual — dá para voltar atrás.</div>
+    ${snaps.length ? snaps.slice(0,12).map(k =>
+      `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="flex:1">${rotuloSnap(k)}</span>
+        <button class="btn sm outline" onclick="restoreSnapshot('${escJS(k)}')">↩ Restaurar</button></div>`).join('')
+      : '<div style="font-size:12px;color:var(--muted)">Nenhum ponto ainda — o primeiro é criado automaticamente.</div>'}
+
+    <button class="btn outline" style="margin-top:14px" onclick="makeSnapshotNow()">📸 Criar ponto agora</button>
+    <button class="btn outline" style="margin-top:8px;border-color:var(--vac);color:var(--vac)" onclick="recuperarDoEspelho()">🔄 Recuperar da cópia interna</button>
+    ${localStorage.getItem('vetflowcare_rescue') ? `<button class="btn outline" style="margin-top:8px;border-color:var(--danger);color:var(--danger)" onclick="downloadRescue()">🚑 Baixar arquivo de resgate</button>` : ''}`,
+    `<button class="btn gray" onclick="closeSheet()">Fechar</button>
+     <button class="btn" onclick="closeSheet();exportJSON()">💾 Backup</button>`);
+  // estado do espelho, assíncrono
+  lerEspelho().then(m => {
+    const el = document.getElementById('stEspelho');
+    if(!el) return;
+    if(m && m.raw){
+      const q = new Date(m.at);
+      el.textContent = '✓ ' + fmtDate(m.at.slice(0,10)) + ' ' + String(q.getHours()).padStart(2,'0') + ':' + String(q.getMinutes()).padStart(2,'0');
+      el.style.color = 'var(--success)';
+    } else { el.textContent = '— ainda não criada'; el.style.color = 'var(--muted)'; }
+  });
+}
+// Recuperação manual a partir do espelho interno
+async function recuperarDoEspelho(){
+  const m = await lerEspelho();
+  if(!m || !m.raw){ toast('⚠ Nenhuma cópia interna encontrada'); return; }
+  const q = new Date(m.at);
+  window._espRaw = m.raw;
+  vfcConfirm({icon:'🔄', title:'Recuperar da cópia interna?',
+    msg:`A cópia interna é de <b>${fmtDate(m.at.slice(0,10))} às ${String(q.getHours()).padStart(2,'0')}:${String(q.getMinutes()).padStart(2,'0')}</b>.<br>Ela contém ${m.sig ? `<b>${m.sig.pets}</b> pacientes e <b>${m.sig.atend}</b> atendimentos` : 'os dados salvos naquele momento'}.`,
+    note:'O estado atual será guardado antes, por segurança.', noteColor:'var(--vac)',
+    noLabel:'Cancelar', yesLabel:'🔄 Recuperar', yesBg:'var(--primary)', yes:'doRecuperarEspelho()'});
+}
+async function doRecuperarEspelho(){
+  const raw = window._espRaw; if(!raw) return;
+  const cur = localStorage.getItem(LS_KEY);
+  if(cur) await idbStore('snap','readwrite', s => s.put(cur, 'antes-recuperar ' + new Date().toTimeString().slice(0,5)));
+  localStorage.setItem(LS_KEY, raw);
+  toast('🔄 Recuperado! Recarregando…');
+  setTimeout(() => location.reload(), 900);
+}
+// Na abertura: se o armazenamento principal sumiu mas o espelho existe, oferece resgate
+async function checarEspelhoNaAbertura(){
+  const raw = localStorage.getItem(LS_KEY);
+  const vazio = !raw || raw.length < 60;
+  if(!vazio) return;
+  const m = await lerEspelho();
+  if(!m || !m.raw || m.raw.length < 60) return;
+  window._espRaw = m.raw;
+  vfcConfirm({icon:'🛟', title:'Encontramos seus dados!',
+    msg:`Os dados principais deste aparelho estão vazios — provavelmente o navegador limpou.<br><br>Mas a <b>cópia de segurança interna</b> está intacta, de <b>${fmtDate(m.at.slice(0,10))}</b>${m.sig ? `, com <b>${m.sig.pets}</b> pacientes e <b>${m.sig.atend}</b> atendimentos` : ''}.`,
+    note:'Recupere agora e depois faça um backup externo.', noteColor:'var(--success)',
+    noLabel:'Agora não', yesLabel:'🛟 Recuperar tudo', yesBg:'var(--success)', yes:'doRecuperarEspelho()'});
+}
+
+// ═══════════ 🗺️ ROTA DO DIA + QUILOMETRAGEM ═══════════
+// Monta o roteiro dos atendimentos do dia com os endereços dos tutores,
+// abre no Waze/Google Maps e registra o KM rodado como despesa.
+function endTutor(t){
+  if(!t) return '';
+  const p = [t.address, t.bairro].filter(Boolean).join(', ');
+  return p + (t.cep ? ' - CEP ' + t.cep : '');
+}
+function atendsDoDia(iso){
+  const out = [];
+  DB.pets.forEach(pet => {
+    pet.appointments.forEach(a => {
+      if(a.date !== iso || a.phone) return;   // orientação por telefone não entra na rota
+      const t = tutorOf(pet);
+      out.push({a, pet, tutor:t, end: a.clinic || endTutor(t)});
+    });
+  });
+  return out.sort((x,y) => (x.a.time||'').localeCompare(y.a.time||''));
+}
+function openRota(iso){
+  const dia = iso || todayISO();
+  const lista = atendsDoDia(dia);
+  const comEnd = lista.filter(x => x.end.trim());
+  let corpo = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+      <input id="fRotaDia" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
+        value="${fmtDate(dia)}" oninput="maskDate(this)" style="flex:1">
+      <button class="btn sm gray" onclick="const d=parseBRDate(val('fRotaDia'));if(d){closeSheet();openRota(d)}else toast('⚠ Data inválida')">Ver</button>
+    </div>`;
+
+  if(!lista.length){
+    corpo += `<div class="card empty"><div class="big">🗺️</div>Nenhum atendimento neste dia</div>`;
+  } else {
+    corpo += `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-bottom:8px">${lista.length} parada${lista.length>1?'s':''}</div>`;
+    lista.forEach((x, i) => {
+      const semEnd = !x.end.trim();
+      corpo += `<div class="card" style="border-left:4px solid var(--primary)">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="width:26px;height:26px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex-shrink:0">${i+1}</div>
+          <div style="flex:1;min-width:0">
+            <b style="font-size:14px">${x.a.time||'—'} · ${petEmoji(x.pet)} ${esc(x.pet.name)}</b>
+            <div style="font-size:12px;color:var(--muted)">${esc(x.a.title)}${x.tutor?' · '+esc(x.tutor.name):''}</div>
+            <div style="font-size:12px;margin-top:4px;color:${semEnd?'var(--warning)':'var(--text)'}">
+              ${semEnd ? '⚠ Sem endereço cadastrado' : '📍 ' + esc(x.end)}</div>
+          </div></div>
+        ${semEnd ? (x.tutor ? `<button class="btn sm outline" style="margin-top:8px" onclick="closeSheet();openTutorForm('${x.tutor.id}')">✏️ Cadastrar endereço</button>` : '')
+        : `<div style="display:flex;gap:7px;margin-top:9px">
+            <button class="btn sm" style="background:#33ccff;flex:1" onclick="abrirWaze('${escJS(x.end)}')">🚗 Waze</button>
+            <button class="btn sm" style="background:#4285F4;flex:1" onclick="abrirMaps('${escJS(x.end)}')">🗺️ Maps</button>
+          </div>`}
+      </div>`;
+    });
+    if(comEnd.length > 1){
+      corpo += `<button class="btn" style="margin-top:10px" onclick="rotaCompleta('${dia}')">🗺️ Abrir rota completa (${comEnd.length} paradas)</button>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">Abre o Google Maps com todas as paradas na ordem dos horários.</div>`;
+    }
+  }
+
+  // Registro de quilometragem — vira despesa no Financeiro
+  const kmPad = parseFloat(localStorage.getItem('vfc_km_valor') || '') || '';
+  corpo += `
+    <div style="background:var(--vetbg);border:1.5px dashed var(--vet);border-radius:12px;padding:12px;margin-top:16px">
+      <div style="font-size:11px;font-weight:800;color:var(--vet);text-transform:uppercase">🚗 Quilometragem do dia</div>
+      <div style="font-size:11px;color:var(--muted);margin:3px 0 8px">Lance o KM rodado — vira despesa automática no Financeiro, com o custo do deslocamento.</div>
+      <div style="display:flex;gap:8px">
+        <div style="flex:1"><label style="margin-top:0">KM rodados</label>
+          <input id="fKmTot" type="number" step="0.1" inputmode="decimal" placeholder="Ex: 42" oninput="calcKm()"></div>
+        <div style="flex:1"><label style="margin-top:0">R$ por KM</label>
+          <input id="fKmVal" type="number" step="0.01" inputmode="decimal" placeholder="Ex: 1.50" value="${kmPad}" oninput="calcKm()"></div>
+      </div>
+      <div id="fKmTotal" style="font-size:13px;font-weight:800;margin-top:8px;display:none"></div>
+      <button class="btn sm" style="background:var(--vet);margin-top:9px;width:100%" onclick="salvarKm('${dia}')">🧾 Lançar como despesa</button>
+    </div>`;
+
+  showSheet('🗺️ Rota do dia', corpo,
+    `<button class="btn gray" onclick="closeSheet()">Fechar</button>`);
+}
+function abrirWaze(end){
+  window.open('https://www.waze.com/ul?q=' + encodeURIComponent(end) + '&navigate=yes', '_blank');
+}
+function abrirMaps(end){
+  window.open('https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(end), '_blank');
+}
+function rotaCompleta(iso){
+  const paradas = atendsDoDia(iso).filter(x => x.end.trim()).map(x => x.end);
+  if(paradas.length < 2){ toast('⚠ Precisa de pelo menos 2 endereços'); return; }
+  const destino = paradas[paradas.length - 1];
+  const meio = paradas.slice(0, -1);
+  let url = 'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(destino);
+  if(meio.length) url += '&waypoints=' + meio.map(encodeURIComponent).join('%7C');
+  window.open(url, '_blank');
+}
+function calcKm(){
+  const km = parseFloat(val('fKmTot')) || 0;
+  const vl = parseFloat(val('fKmVal')) || 0;
+  const box = document.getElementById('fKmTotal');
+  if(!box) return;
+  const tot = km * vl;
+  box.style.display = tot > 0 ? 'block' : 'none';
+  box.innerHTML = `Custo do deslocamento: <b style="color:var(--vet)">${fmtBRL(tot)}</b>`;
+}
+function salvarKm(iso){
+  const km = parseFloat(val('fKmTot')) || 0;
+  const vl = parseFloat(val('fKmVal')) || 0;
+  if(!(km > 0)){ toast('⚠ Informe os KM rodados'); return; }
+  if(!(vl > 0)){ toast('⚠ Informe o valor por KM'); return; }
+  if(!isPro()){ openProModal('O controle de despesas (onde o KM é lançado) é um recurso Pro.'); return; }
+  localStorage.setItem('vfc_km_valor', String(vl));
+  DB.expenses.push({id:uid(), desc:`Deslocamento — ${km} km`, cat:'Transporte',
+    valor: Math.round(km * vl * 100) / 100, date: iso});
+  save(); closeSheet(); render();
+  toast(`🚗 ${km} km lançados: ${fmtBRL(km * vl)}`);
+}
+
+// ═══════════ 🎙️ DITADO POR VOZ + ESTRUTURAÇÃO AUTOMÁTICA ═══════════
+// Usa o reconhecimento de voz do próprio aparelho (Web Speech API) — sem
+// servidor e sem mensalidade de API. O texto ditado é organizado sozinho
+// nas seções do prontuário, por palavras-chave, aqui mesmo no celular.
+function voiceOK(){
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+function micBtn(campoId, estruturar){
+  return `<button type="button" id="mic_${campoId}" class="btn sm outline"
+    style="border-color:var(--rx);color:var(--rx);margin-top:6px"
+    onclick="toggleDitado('${campoId}',${estruturar?1:0})">🎙️ Ditar</button>
+    <span id="micst_${campoId}" style="font-size:11px;color:var(--muted);margin-left:8px"></span>`;
+}
+const SECOES_PRONT = [
+  {k:'QUEIXA PRINCIPAL', rx:/\b(queixa principal|queixa|motivo da consulta)\b/i},
+  {k:'ANAMNESE',         rx:/\b(anamnese|hist[óo]rico|relato do tutor)\b/i},
+  {k:'EXAME FÍSICO',     rx:/\b(exame f[íi]sico|ao exame|exame cl[íi]nico)\b/i},
+  {k:'DIAGNÓSTICO',      rx:/\b(diagn[óo]stico|suspeita|hip[óo]tese diagn[óo]stica)\b/i},
+  {k:'CONDUTA',          rx:/\b(conduta|tratamento|prescri[çc][ãa]o|prescrevo|orienta[çc][õo]es)\b/i},
+  {k:'OBSERVAÇÕES',      rx:/\b(observa[çc][õo]es|observa[çc][ãa]o)\b/i}
+];
+function estruturarPront(txt){
+  if(!txt || !txt.trim()) return '';
+  const t = ' ' + txt.trim().replace(/\s+/g, ' ');
+  const marcas = [];
+  SECOES_PRONT.forEach(s => {
+    const m = s.rx.exec(t);
+    if(m) marcas.push({k:s.k, pos:m.index, len:m[0].length});
+  });
+  if(!marcas.length) return txt.trim();
+  marcas.sort((a,b) => a.pos - b.pos);
+  let out = '';
+  const antes = t.slice(0, marcas[0].pos).trim();
+  if(antes) out += antes + '\n\n';
+  marcas.forEach((mk, i) => {
+    const fim = i + 1 < marcas.length ? marcas[i+1].pos : t.length;
+    let corpo = t.slice(mk.pos + mk.len, fim).trim()
+      .replace(/^[:\-–,\s]+/, '')
+      .replace(/\s+([.,;])/g, '$1');
+    if(corpo){
+      corpo = corpo.charAt(0).toUpperCase() + corpo.slice(1);
+      if(!/[.!?]$/.test(corpo)) corpo += '.';
+      out += mk.k + ':\n' + corpo + '\n\n';
+    }
+  });
+  return out.trim();
+}
+let _rec = null, _recCampo = null;
+function toggleDitado(campoId, estruturar){
+  if(_rec && _recCampo === campoId){ pararDitado(estruturar); return; }
+  if(_rec) pararDitado(0);
+  const campo = document.getElementById(campoId);
+  const st = document.getElementById('micst_' + campoId);
+  const btn = document.getElementById('mic_' + campoId);
+  if(!campo) return;
+  if(!voiceOK()){
+    vfcConfirm({icon:'🎙️', title:'Ditado por voz',
+      msg:'Este navegador não tem reconhecimento de voz próprio.<br><br><b>Mas dá para ditar do mesmo jeito:</b> toque no campo de texto e use o <b>ícone de microfone do teclado do celular</b> — funciona em qualquer aparelho.',
+      note:'💡 No Android pelo Chrome, o ditado embutido do app funciona direto.', noteColor:'var(--vac)',
+      single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  _rec = new SR();
+  _recCampo = campoId;
+  _rec.lang = 'pt-BR';
+  _rec.continuous = true;
+  _rec.interimResults = true;
+  const baseTxt = campo.value ? campo.value.replace(/\s+$/, '') + '\n' : '';
+  let finalTxt = '';
+  _rec.onstart = function(){
+    if(btn){ btn.textContent = '⏹️ Parar'; btn.style.background = 'var(--danger)';
+      btn.style.color = '#fff'; btn.style.borderColor = 'var(--danger)'; }
+    if(st){ st.textContent = '🔴 Ouvindo… pode falar'; st.style.color = 'var(--danger)'; }
+  };
+  _rec.onresult = function(ev){
+    let parcial = '';
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      const txt = ev.results[i][0].transcript;
+      if(ev.results[i].isFinal) finalTxt += txt + ' ';
+      else parcial += txt;
+    }
+    campo.value = baseTxt + finalTxt + parcial;
+    campo.scrollTop = campo.scrollHeight;
+  };
+  _rec.onerror = function(ev){
+    if(st){
+      if(ev.error === 'not-allowed' || ev.error === 'service-not-allowed')
+        st.textContent = '⚠ Permita o microfone nas configurações do navegador';
+      else if(ev.error === 'network')
+        st.textContent = '⚠ O ditado precisa de internet — use o microfone do teclado';
+      else if(ev.error !== 'aborted' && ev.error !== 'no-speech')
+        st.textContent = '⚠ Não deu para ouvir (' + ev.error + ')';
+      st.style.color = 'var(--warning)';
+    }
+    var e2 = estruturar; _rec = null; pararDitado(e2);
+  };
+  _rec.onend = function(){ if(_rec){ pararDitado(estruturar); } };
+  try{ _rec.start(); }
+  catch(e){ if(st) st.textContent = '⚠ Não foi possível iniciar'; _rec = null; }
+}
+function pararDitado(estruturar){
+  const campoId = _recCampo;
+  if(_rec){ try{ _rec.onend = null; _rec.stop(); }catch(e){} }
+  _rec = null; _recCampo = null;
+  if(!campoId) return;
+  const campo = document.getElementById(campoId);
+  const btn = document.getElementById('mic_' + campoId);
+  const st = document.getElementById('micst_' + campoId);
+  if(btn){
+    btn.textContent = '🎙️ Ditar';
+    btn.style.background = 'transparent';
+    btn.style.color = 'var(--rx)';
+    btn.style.borderColor = 'var(--rx)';
+  }
+  if(campo && estruturar && campo.value.trim()){
+    const antes = campo.value;
+    const depois = estruturarPront(antes);
+    if(depois !== antes.trim()){
+      campo.value = depois;
+      if(st){ st.textContent = '✨ Texto organizado em seções'; st.style.color = 'var(--success)'; }
+      return;
+    }
+  }
+  if(st && st.textContent.indexOf('⚠') !== 0) st.textContent = '';
 }
 
 // ═══════════ FORMULÁRIOS ═══════════
@@ -4345,6 +4928,8 @@ function openApptForm(petId, editId){
     ${eA?.parcelas?.length ? '</div>' : ''}
     <label>📋 Prontuário (anamnese, diagnóstico, conduta)</label>
     <textarea id="fPRecord" rows="6" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta:">${esc(eA?.record||'')}</textarea>
+    ${micBtn('fPRecord', 1)}
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">💡 Fale naturalmente: "queixa principal… anamnese… exame físico… diagnóstico… conduta…". Ao parar, o texto se organiza em seções sozinho.</div>
     ${eA ? '' : `<label>📅 Agendamento de retorno (opcional)</label>
     <input id="fPRetorno" type="date">`}
     <div style="background:var(--vetbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vet);margin-top:12px">
@@ -4602,7 +5187,8 @@ function openPhoneForm(petId, editId){
     <input id="fTelDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
       value="${fmtDate(a?.date||todayISO())}" oninput="maskDate(this)">
     <label>📋 Orientações *</label>
-    <textarea id="fTelObs" rows="8" placeholder="Ex:&#10;Tutor relatou vômito único após ração nova.&#10;Orientado: jejum alimentar de 8h, água em pequenas quantidades.&#10;Retornar contato se persistir ou houver apatia.">${esc(a?.record||'')}</textarea>`,
+    <textarea id="fTelObs" rows="8" placeholder="Ex:&#10;Tutor relatou vômito único após ração nova.&#10;Orientado: jejum alimentar de 8h, água em pequenas quantidades.&#10;Retornar contato se persistir ou houver apatia.">${esc(a?.record||'')}</textarea>
+    ${micBtn('fTelObs', 0)}`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="savePhone('${petId}','${editId||''}')">💾 Salvar</button>`);
 }
@@ -4631,7 +5217,9 @@ function openRecordForm(petId, apptId){
     <label>Resumo (motivo do atendimento)</label>
     <input id="fResumo" value="${esc(a.resumo||'')}" placeholder="Ex: Claudicação MPE · Vacinação anual">
     <label>Registro clínico</label>
-    <textarea id="fRecord" rows="10" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta / Tratamento:&#10;Observações:">${esc(a.record||'')}</textarea>`,
+    <textarea id="fRecord" rows="10" placeholder="Queixa principal:&#10;Anamnese:&#10;Exame físico:&#10;Diagnóstico:&#10;Conduta / Tratamento:&#10;Observações:">${esc(a.record||'')}</textarea>
+    ${micBtn('fRecord', 1)}
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">💡 Dite falando os nomes das seções — o app separa e formata para você.</div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveRecord('${petId}','${apptId}')">💾 Salvar Prontuário</button>`);
 }
@@ -4664,6 +5252,7 @@ function openRxForm(petId, rxId){
     <label>Data</label><input id="fRxDate" type="date" value="${rx?.date||todayISO()}">
     <label>Prescrição *</label>
     <textarea id="fRxContent" rows="10" placeholder="Ex:&#10;1) Amoxicilina 250mg — 1 comprimido a cada 12h por 7 dias&#10;2) Dipirona gotas — 15 gotas a cada 8h se dor&#10;&#10;Uso contínuo:&#10;...">${esc(rx?.content||'')}</textarea>
+    ${micBtn('fRxContent', 0)}
     <label>Observações internas (não sai na impressão)</label>
     <textarea id="fRxNotes" rows="2">${esc(rx?.notes||'')}</textarea>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
@@ -5068,7 +5657,7 @@ function bootApp(){
     render();
     if(!localStorage.getItem('vfc_tut_done')) setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500);
     else if(!DB.vet.name) setTimeout(openVetSetup, 500);
-    else if(localStorage.getItem('vfc_seen_ver') !== APP_VER) setTimeout(showWhatsNew, 900);
+    checarNovidades();
   }
 }
 const _enterOrig = enterApp;
