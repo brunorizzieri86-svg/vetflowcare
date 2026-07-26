@@ -290,14 +290,15 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.16';
+const APP_VER = '9.18';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.16',
+  ver: '9.18',
   titulo: 'Ditado por voz, Rota do dia e Proteção de Dados',
   itens: [
+    ['💰','Financeiro mais completo','Nova visão <b>"🗂️ Todas as datas"</b> nas Despesas — nenhuma some por estar em outro mês. Agora com <b>campo de observações</b>, aviso de despesa futura e edição total.'],
     ['🍎','Correção para iPhone','O termo de uso ocupava a tela inteira e escondia o botão de aceitar, impedindo a entrada no app. Corrigido — junto com as telas de login e cadastro.'],
     ['🎙️','Ditado por voz','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta — sem repetir palavras e sem parar no meio da consulta.'],
     ['🗺️','Rota do dia','Na Agenda: seus atendimentos na ordem dos horários, com <b>Waze</b> e <b>Google Maps</b> em cada parada — e a quilometragem vira despesa sozinha.'],
@@ -442,6 +443,7 @@ let finQ = '';
 let finPA = {ini:'', fim:'', open:false}; // análise por período (Previsão × Realizado)
 let finExpM = 0;
 let finExpCat = 'all';
+let finExpView = 'mes'; // 'mes' = mês selecionado · 'all' = todas as datas
 let deferredPrompt = null;
 
 function defaultDB(){
@@ -1594,58 +1596,104 @@ function renderExpenses(){
   const now = new Date();
   const md = new Date(now.getFullYear(), now.getMonth() + finExpM, 1);
   const ym = md.toISOString().slice(0,7);
-  let mes = DB.expenses.filter(e => (e.date||'').startsWith(ym));
-  const totMes = mes.reduce((s,e)=>s+e.valor,0);
-  // Totais por categoria (do mês)
+  const todas = finExpView === 'all';
+
+  // Base do período: mês selecionado OU todas as datas (corrige a despesa "sumida")
+  let base = todas ? DB.expenses.slice() : DB.expenses.filter(e => (e.date||'').startsWith(ym));
+  const totPeriodo = base.reduce((s,e)=>s+e.valor,0);
+
+  // Totais por categoria, calculados sobre o período todo (antes do filtro de categoria)
   const byCat = {};
-  mes.forEach(e => { byCat[e.cat||'Outros'] = (byCat[e.cat||'Outros']||0) + e.valor; });
+  base.forEach(e => { byCat[e.cat||'Outros'] = (byCat[e.cat||'Outros']||0) + e.valor; });
   const maxCat = Math.max(1, ...Object.values(byCat));
-  if(finExpCat !== 'all') mes = mes.filter(e => (e.cat||'Outros') === finExpCat);
 
-  // Comparativo com o mês anterior + acumulado do ano
-  const mdPrev = new Date(md.getFullYear(), md.getMonth()-1, 1);
-  const ymPrev = mdPrev.toISOString().slice(0,7);
-  const totPrev = DB.expenses.filter(e=>(e.date||'').startsWith(ymPrev)).reduce((s,e)=>s+e.valor,0);
-  const totAno = DB.expenses.filter(e=>(e.date||'').startsWith(String(md.getFullYear()))).reduce((s,e)=>s+e.valor,0);
-  const delta = totPrev > 0 ? Math.round((totMes - totPrev) / totPrev * 100) : null;
-  let h = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-    <button class="btn sm gray" onclick="finExpM--;render()">‹</button>
-    <b style="flex:1;text-align:center;font-size:15px">${MONTHS[md.getMonth()]} ${md.getFullYear()}</b>
-    <button class="btn sm gray" ${finExpM>=0?'disabled style="opacity:.4"':''} onclick="finExpM++;render()">›</button></div>
+  let lista = base.slice();
+  if(finExpCat !== 'all') lista = lista.filter(e => (e.cat||'Outros') === finExpCat);
 
-  <div class="card" style="margin-bottom:12px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Total de despesas</div>
-      <b style="font-size:18px;color:var(--danger)">${fmtBRL(totMes)}</b></div>
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px">
-      <span>${delta === null ? 'Sem despesas no mês anterior' :
-        delta > 0 ? `<b style="color:var(--danger)">↑ ${delta}%</b> vs mês anterior` :
-        delta < 0 ? `<b style="color:var(--success)">↓ ${Math.abs(delta)}%</b> vs mês anterior` : '= igual ao mês anterior'}</span>
-      <span>Ano ${md.getFullYear()}: <b style="color:var(--text)">${fmtBRL(totAno)}</b></span></div>
-    ${Object.keys(byCat).length ? `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-      ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
-        <div style="margin-top:6px">
-          <div style="display:flex;justify-content:space-between;font-size:11px"><span>${c}</span><b>${fmtBRL(v)}</b></div>
-          <div style="height:7px;background:var(--bg);border-radius:4px;margin-top:3px">
-            <div style="height:100%;width:${Math.round(v/maxCat*100)}%;background:var(--danger);border-radius:4px;opacity:.75"></div></div>
-        </div>`).join('')}</div>` : ''}
-  </div>
+  // Cabeçalho: alterna entre "por mês" e "todas as datas"
+  let h = `<div class="chips" style="margin-bottom:10px">
+    <button class="chip ${!todas?'on':''}" onclick="finExpView='mes';render()">📅 Por mês</button>
+    <button class="chip ${todas?'on':''}" onclick="finExpView='all';render()">🗂️ Todas as datas</button>
+  </div>`;
 
-  <div class="chips" style="margin-bottom:10px">
+  if(!todas){
+    const mdPrev = new Date(md.getFullYear(), md.getMonth()-1, 1);
+    const ymPrev = mdPrev.toISOString().slice(0,7);
+    const totPrev = DB.expenses.filter(e=>(e.date||'').startsWith(ymPrev)).reduce((s,e)=>s+e.valor,0);
+    const totAno = DB.expenses.filter(e=>(e.date||'').startsWith(String(md.getFullYear()))).reduce((s,e)=>s+e.valor,0);
+    const delta = totPrev > 0 ? Math.round((totPeriodo - totPrev) / totPrev * 100) : null;
+    h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <button class="btn sm gray" onclick="finExpM--;render()">‹</button>
+      <b style="flex:1;text-align:center;font-size:15px">${MONTHS[md.getMonth()]} ${md.getFullYear()}</b>
+      <button class="btn sm gray" ${finExpM>=0?'disabled style="opacity:.4"':''} onclick="finExpM++;render()">›</button></div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Total de despesas</div>
+        <b style="font-size:18px;color:var(--danger)">${fmtBRL(totPeriodo)}</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:5px">
+        <span>${delta === null ? 'Sem despesas no mês anterior' :
+          delta > 0 ? `<b style="color:var(--danger)">↑ ${delta}%</b> vs mês anterior` :
+          delta < 0 ? `<b style="color:var(--success)">↓ ${Math.abs(delta)}%</b> vs mês anterior` : '= igual ao mês anterior'}</span>
+        <span>Ano ${md.getFullYear()}: <b style="color:var(--text)">${fmtBRL(totAno)}</b></span></div>
+      ${cartaoCategorias(byCat, maxCat)}
+    </div>`;
+  } else {
+    h += `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Todas as despesas</div>
+        <b style="font-size:18px;color:var(--danger)">${fmtBRL(totPeriodo)}</b></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${base.length} lançamento${base.length===1?'':'s'} no total, de todas as datas</div>
+      ${cartaoCategorias(byCat, maxCat)}
+    </div>`;
+  }
+
+  h += `<div class="chips" style="margin-bottom:10px">
     <button class="chip ${finExpCat==='all'?'on':''}" onclick="finExpCat='all';render()">Todas</button>
     ${EXP_CATS.map(c=>`<button class="chip ${finExpCat===c?'on':''}" onclick="finExpCat='${c}';render()">${c}</button>`).join('')}
   </div>`;
 
-  if(!mes.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa ${finExpCat!=='all'?'nesta categoria':'neste mês'}<br><small>Toque em "➕ Despesa"</small></div>`;
-  [...mes].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).forEach(e => {
+  if(!lista.length) return h + `<div class="card empty"><div class="big">🧾</div>Nenhuma despesa ${finExpCat!=='all'?'nesta categoria':(todas?'cadastrada':'neste mês')}<br><small>${todas?'Toque em "➕ Despesa" para começar':'Tente "🗂️ Todas as datas" acima, ou toque em "➕ Despesa"'}</small></div>`;
+
+  // Agrupa por mês quando estiver na visão "Todas as datas"
+  const ordenada = [...lista].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  let mesAtual = '';
+  ordenada.forEach(e => {
+    if(todas){
+      const emes = (e.date||'').slice(0,7);
+      if(emes !== mesAtual){
+        mesAtual = emes;
+        const [yy,mm] = emes.split('-');
+        const rot = mm ? `${MONTHS[parseInt(mm)-1]} ${yy}` : 'Sem data';
+        const totDoMes = ordenada.filter(x=>(x.date||'').slice(0,7)===emes).reduce((s,x)=>s+x.valor,0);
+        h += `<div style="display:flex;justify-content:space-between;align-items:baseline;margin:14px 2px 6px">
+          <b style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em">${rot}</b>
+          <b style="font-size:12px;color:var(--danger)">${fmtBRL(totDoMes)}</b></div>`;
+      }
+    }
+    const futura = daysUntil(e.date) > 0;
     h += `<div class="card" style="display:flex;align-items:center;gap:10px">
-      <div style="flex:1;min-width:0"><b style="font-size:14px">${esc(e.desc)}</b>
-      <div style="font-size:11px;color:var(--muted)">${esc(e.cat||'Outros')} · ${fmtDate(e.date)}</div></div>
+      <div style="flex:1;min-width:0">
+        <b style="font-size:14px">${esc(e.desc)}</b>
+        ${e.obs ? `<div style="font-size:11px;color:var(--muted);margin-top:2px;white-space:pre-wrap">📝 ${esc(e.obs)}</div>` : ''}
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(e.cat||'Outros')} · ${fmtDate(e.date)}${futura?' <span style="color:var(--vac);font-weight:700">· futura</span>':''}</div></div>
       <b style="color:var(--danger);white-space:nowrap">- ${fmtBRL(e.valor)}</b>
       <button style="background:none;font-size:14px" onclick="openExpenseForm('${e.id}')">✏️</button>
       <button style="background:none;color:var(--muted)" onclick="delExpense('${e.id}')">🗑</button></div>`;
   });
   return h;
+}
+// Barras de categoria — reaproveitado nas duas visões
+function cartaoCategorias(byCat, maxCat){
+  const chaves = Object.keys(byCat);
+  if(!chaves.length) return '';
+  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+    ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
+      <div style="margin-top:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px"><span>${esc(c)}</span><b>${fmtBRL(v)}</b></div>
+        <div style="height:7px;background:var(--bg);border-radius:4px;margin-top:3px">
+          <div style="height:100%;width:${Math.round(v/maxCat*100)}%;background:var(--danger);border-radius:4px;opacity:.75"></div></div>
+      </div>`).join('')}</div>`;
 }
 function openExpenseForm(editId){
   const ex = editId ? DB.expenses.find(x=>x.id===editId) : null;
@@ -1654,7 +1702,9 @@ function openExpenseForm(editId){
     <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option ${ex?.cat===c?'selected':''}>${c}</option>`).join('')}</select>
     <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal" value="${ex?ex.valor:''}">
     <label>Data</label><input id="fEDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
-      value="${fmtDate(ex?.date||todayISO())}" oninput="maskDate(this)">`,
+      value="${fmtDate(ex?.date||todayISO())}" oninput="maskDate(this)">
+    <label>Observações</label>
+    <textarea id="fEObs" rows="3" placeholder="Anotações sobre esta despesa: fornecedor, nº da nota, forma de pagamento, o que mais precisar…">${esc(ex?.obs||'')}</textarea>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveExpense('${editId||''}')">💾 Salvar</button>`);
 }
@@ -1670,12 +1720,17 @@ function saveExpense(editId, force){
     confirmPastDate(date, `saveExpense('${editId||''}',1)`, 'Data da despesa — confira se não foi erro de digitação.');
     return;
   }
+  const obs = val('fEObs') || '';
   if(editId){
     Object.assign(e0,
-      {desc, cat:document.getElementById('fECat').value, valor, date});
+      {desc, cat:document.getElementById('fECat').value, valor, date, obs});
   } else {
-    DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value, valor, date});
+    DB.expenses.push({id:uid(), desc, cat:document.getElementById('fECat').value, valor, date, obs});
   }
+  // Leva a tela até o mês da despesa salva, para ela nunca "sumir" da vista
+  const now = new Date();
+  const alvo = new Date(date + 'T00:00:00');
+  finExpM = (alvo.getFullYear() - now.getFullYear()) * 12 + (alvo.getMonth() - now.getMonth());
   save(); closeSheet(); render(); toast(editId?'✏️ Despesa atualizada!':'🧾 Despesa registrada!');
 }
 function delExpense(id){
@@ -3581,9 +3636,18 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.16 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.18 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.16:</b><br>
+      <b>Novidades da v9.18 — Financeiro:</b><br>
+      • 🗂️ <b>Correção importante nas Despesas</b>: uma despesa lançada em outro mês (ex.: 2 meses à frente) não aparecia e não dava para editar. Agora há o botão <b>"Todas as datas"</b>, que mostra tudo, agrupado por mês<br>
+      • 📝 <b>Campo de observações</b> na despesa: anote fornecedor, nº da nota, forma de pagamento — o que precisar<br>
+      • Ao salvar, a tela já <b>pula para o mês da despesa</b>, então ela nunca "some"<br>
+      • Despesas com data futura ganham a marca <b>"futura"</b> para você reconhecer de relance<br>
+      • ✏️🗑 Editar e excluir funcionam em qualquer visão (por mês ou todas as datas)<br>
+      <br><b>v9.17:</b><br>
+      • 🎙️ <b>Ativação do microfone explicada</b>: antes do pedido do navegador, o app avisa o que vai acontecer e orienta a tocar em "Permitir ao acessar o site" — assim ele não pergunta mais<br>
+      • 🔇 Se o microfone for bloqueado por engano, o app agora ensina o <b>passo a passo para liberar</b>, diferente para iPhone e Android<br>
+      <br><b>v9.16:</b><br>
       • 🍎 <b>CORREÇÃO CRÍTICA no iPhone</b>: o termo de uso ocupava a tela inteira e o botão "Aceitar e Continuar" ficava fora do alcance — <b>ninguém conseguia entrar no app pelo iPhone</b><br>
       • A mesma falha afetava as telas de <b>criar acesso</b>, <b>login</b> e <b>convite</b> em telas pequenas: todas agora rolam corretamente<br>
       • Formulários do app ajustados para a área visível real do iPhone (o antigo cálculo incluía a barra do navegador)<br>
@@ -4554,6 +4618,32 @@ function toggleDitado(campoId, estruturar){
       single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
     return;
   }
+  // Na primeira vez, explica ANTES o pedido de microfone do navegador.
+  // A caixa do navegador é do sistema e não pode ser personalizada (ela mostra
+  // o endereço do site por segurança) — mas assim o vet já sabe o que esperar.
+  if(!localStorage.getItem('vfc_mic_ok')){
+    prepararMicrofone(campoId, estruturar);
+    return;
+  }
+  comecarDitado(campoId, estruturar);
+}
+// Explicação amigável antes da permissão do sistema
+function prepararMicrofone(campoId, estruturar){
+  const seguir = function(){
+    localStorage.setItem('vfc_mic_ok', '1');
+    comecarDitado(campoId, estruturar ? 1 : 0);
+  };
+  window._micSeguir = seguir;
+  vfcConfirm({icon:'🎙️', title:'Vamos ativar o ditado',
+    msg:`Para escrever falando, o navegador vai pedir <b>uma única vez</b> permissão para usar o microfone.<br><br>Quando a caixa aparecer, toque em <b>"Permitir ao acessar o site"</b> — assim ele não pergunta mais.`,
+    note:'🔒 O áudio serve só para virar texto neste aparelho. Nada é gravado nem guardado pelo VetFlowCare.',
+    noteColor:'var(--vac)',
+    noLabel:'Agora não', yesLabel:'🎙️ Ativar microfone', yesBg:'var(--rx)',
+    yes:'window._micSeguir && window._micSeguir()'});
+}
+function comecarDitado(campoId, estruturar){
+  const campo = document.getElementById(campoId);
+  if(!campo) return;
   _recCampo  = campoId;
   _recBase   = campo.value ? campo.value.replace(/\s+$/, '') + '\n' : '';
   _recOrig   = _recBase;
@@ -4606,8 +4696,18 @@ function iniciarRec(){
   rec.onerror = function(ev){
     if(token !== _recSessao) return;
     if(ev.error === 'not-allowed' || ev.error === 'service-not-allowed'){
-      if(st){ st.textContent = '⚠ Permita o microfone nas configurações do navegador'; st.style.color = 'var(--warning)'; }
+      if(st){ st.textContent = '⚠ Microfone bloqueado'; st.style.color = 'var(--warning)'; }
       _recAtivo = false;
+      localStorage.removeItem('vfc_mic_ok');
+      const ios = /iphone|ipad|ipod/i.test(navigator.userAgent||'');
+      setTimeout(function(){
+        vfcConfirm({icon:'🔇', title:'Microfone bloqueado',
+          msg: ios
+            ? 'O acesso ao microfone foi negado.<br><br><b>Para liberar no iPhone:</b><br>1. Toque em <b>aA</b> na barra de endereço<br>2. Escolha <b>Ajustes do site</b><br>3. Marque <b>Microfone → Permitir</b>'
+            : 'O acesso ao microfone foi negado.<br><br><b>Para liberar no Android:</b><br>1. Toque no <b>🔒 cadeado</b> ao lado do endereço<br>2. Escolha <b>Permissões</b><br>3. Ative o <b>Microfone</b>',
+          note:'💡 Enquanto isso, o microfone do teclado do celular funciona normalmente no campo de texto.',
+          noteColor:'var(--vac)', single:1, yesLabel:'Entendi', yesBg:'var(--primary)', yes:''});
+      }, 400);
     } else if(ev.error === 'network'){
       if(st){ st.textContent = '⚠ O ditado precisa de internet — use o microfone do teclado'; st.style.color = 'var(--warning)'; }
       _recAtivo = false;
