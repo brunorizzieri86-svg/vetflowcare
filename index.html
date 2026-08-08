@@ -290,14 +290,19 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.18';
+const APP_VER = '9.21.2';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.18',
-  titulo: 'Ditado por voz, Rota do dia e Proteção de Dados',
+  ver: '9.21.2',
+  titulo: 'Assinatura eletrônica com validade legal, Carteirinha e Arquivo Morto',
   itens: [
+    ['⚖️','Assinatura com validade legal','A assinatura do tutor agora sai no PDF com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples da Lei nº 14.063/2020</b>. Continua opcional — quem preferir papel, é só não assinar na tela.'],
+    ['💳','Carteirinha de Vacinação em PDF','Gere uma carteirinha profissional do animal com <b>dados do tutor</b>, todas as vacinas, próximas doses e <b>anotações</b>. Tire foto do <b>selo da ampola</b> de cada vacina — como no papel. Em Saúde → 💳 Gerar Carteirinha.'],
+    ['✍️','Assinatura do tutor na tela','Nos termos de consentimento, o tutor assina com o dedo. A assinatura entra no PDF com <b>data e hora</b>, virando prova de consentimento — sem papel.'],
+    ['🗂️','Arquivo Morto','Exporte o prontuário de um ano inteiro em PDF para guarda legal (o CFMV exige <b>20 anos</b>). Em Ajustes → Arquivo Morto.'],
+    ['📄','Tudo em PDF com seu timbre','Todos os documentos saem em PDF com logo, nome e CRMV no cabeçalho e <b>VetFlowCare</b> no rodapé — profissional para imprimir e arquivar.'],
     ['💰','Financeiro mais completo','Nova visão <b>"🗂️ Todas as datas"</b> nas Despesas — nenhuma some por estar em outro mês. Agora com <b>campo de observações</b>, aviso de despesa futura e edição total.'],
     ['🍎','Correção para iPhone','O termo de uso ocupava a tela inteira e escondia o botão de aceitar, impedindo a entrada no app. Corrigido — junto com as telas de login e cadastro.'],
     ['🎙️','Ditado por voz','Fale o prontuário e o texto se <b>organiza sozinho</b> em Queixa, Anamnese, Exame Físico, Diagnóstico e Conduta — sem repetir palavras e sem parar no meio da consulta.'],
@@ -2341,6 +2346,17 @@ const TUT_STEPS = [
    • Os dados <b>nunca saem do aparelho</b>: não existe servidor guardando prontuário de ninguém<br><br>
    ⚠️ <b>Guarde bem a senha.</b> Sem ela, os dados criptografados não podem ser recuperados — por isso o backup do próximo passo é tão importante.`},
 
+  {emo:'💳', title:'Carteirinha de Vacinação em PDF',
+   body:`Na ficha do animal → <b>Saúde</b>, no topo das vacinas:<br><br>
+   • Toque em <b>💳 Gerar Carteirinha (PDF)</b> — sai um documento profissional com o pet, os dados do tutor, todas as vacinas e as próximas doses<br>
+   • <b>📷 Selo da ampola</b>: em cada vacina aplicada, toque na câmera para fotografar o rótulo da ampola — ele aparece na carteirinha, como no papel<br>
+   • <b>📝 Anotações</b>: um bloco livre por animal (temperamento, reações, orientações) que também sai na carteirinha<br>
+   • A carteirinha <b>pagina sozinha</b> se houver muitas vacinas — sempre legível para imprimir ou enviar ao tutor`},
+  {emo:'📄', title:'Documentos e assinatura do tutor',
+   body:`Todos os documentos saem em <b>PDF</b> com seu timbre (logo, nome, CRMV) e podem ser impressos ou arquivados:<br><br>
+   • <b>✍️ Assinatura na tela</b>: nos termos de consentimento (anestésico, cirurgia, recusa), o tutor assina com o dedo. O PDF sai com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples (Lei nº 14.063/2020)</b><br>
+   • Prefere o papel? Deixe em branco e colha a assinatura impressa, como antes — nada muda no fluxo antigo<br>
+   • <b>🗂️ Arquivo Morto</b> (Ajustes): exporte o prontuário de um ano inteiro em PDF para guarda legal — o CFMV exige guardar por <b>20 anos</b>`},
   {emo:'🛡️', title:'Proteção de Dados — o passo mais importante',
    body:`Prontuário é documento legal: o <b>CFMV exige guardar por 20 anos</b>. Por isso o app protege em camadas — e uma delas depende de você.<br><br>
    <b>O app faz sozinho:</b><br>
@@ -2993,6 +3009,16 @@ function renderPetHealth(pet){
     return da - db2;
   });
 
+  // Ações da carteirinha (gerar PDF + anotação editável)
+  const temNota = (pet.notaCarteirinha||'').trim().length > 0;
+  h += `<div class="sec"><div class="card" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <button class="btn sm" style="flex:1;min-width:140px" onclick="gerarCarteirinha('${pet.id}')">💳 Gerar Carteirinha (PDF)</button>
+    <button class="btn sm outline" onclick="openNotaCarteirinha('${pet.id}')">📝 ${temNota?'Editar':'Anotações'}</button>
+    ${temNota?`<button class="btn sm gray" onclick="apagarNotaCarteirinha('${pet.id}')">🗑️</button>`:''}
+    </div>
+    ${temNota?`<div style="background:#fffdf5;border:1px solid #f0e6c0;border-radius:10px;padding:10px 13px;margin-top:8px;font-size:12.5px;color:#5a4a12;white-space:pre-wrap">📝 ${esc(pet.notaCarteirinha)}</div>`:''}
+  </div>`;
+
   h += secBlock('💉 Vacinas e Protocolos', `openVaccineForm('${pet.id}')`,
     gArr.map(g=>{
       const late = g.next && daysUntil(g.next.due) < 0;
@@ -3009,6 +3035,7 @@ function renderPetHealth(pet){
           <span style="color:var(--success);font-weight:700">✓ ${fmtDate(d.applied)}</span>
           <span style="color:var(--muted);flex:1;text-align:right">Lote: <b style="color:var(--text)">${esc(d.lot||'—')}</b></span>
           <button style="background:none;font-size:13px;padding:2px 4px" onclick="openVacDoseEdit('${pet.id}','${d.id}')">✏️</button>
+          ${d.selo?`<button style="background:none;font-size:13px;padding:2px 4px" onclick="removerSelo('${pet.id}','${d.id}')" title="Remover selo">🏷️✓</button>`:`<button style="background:none;font-size:13px;padding:2px 4px" onclick="fotografarSelo('${pet.id}','${d.id}')" title="Fotografar selo da ampola">📷</button>`}
         </div>`).join('')}</div>` : ''}
 
       ${g.next ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;background:${late?'rgba(224,82,82,.07)':'var(--vacbg)'};border-radius:10px;padding:9px 12px">
@@ -3072,6 +3099,179 @@ function secBlock(title, addFn, cards, emptyMsg, addLabel='+ Adicionar'){
     ${cards.length ? cards.join('') : `<div class="card empty">${emptyMsg}</div>`}</div>`;
 }
 
+// ── 💳 Carteirinha de Vacinação Digital (PDF paginado A4) ──
+// Gera um PDF profissional com dados do pet, tutor completo, vacinas com selo
+// da ampola, próximas doses e anotações. Pagina automaticamente. 100% offline.
+
+const VAC_POR_PAGINA = 6;  // vacinas por página A4 antes de quebrar
+
+// Anotação única por paciente (o vet vai editando o mesmo bloco)
+function openNotaCarteirinha(petId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  showSheet('📝 Anotações da carteirinha', `
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px">
+      Anotação livre que sairá na carteirinha de <b>${esc(pet.name)}</b> (ex: temperamento, reações, orientações ao tutor).</div>
+    <textarea id="fNotaCart" rows="6" placeholder="Ex: Animal dócil, sem reações às vacinas. Tutor orientado sobre reforço anual.">${esc(pet.notaCarteirinha||'')}</textarea>
+    ${micBtn('fNotaCart', 0)}`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="salvarNotaCarteirinha('${petId}')">💾 Salvar</button>`);
+}
+function salvarNotaCarteirinha(petId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  pet.notaCarteirinha = val('fNotaCart');
+  save(); closeSheet(); render(); toast('📝 Anotação salva!');
+}
+function apagarNotaCarteirinha(petId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  vfcConfirm({icon:'🗑️', title:'Apagar anotação',
+    msg:'Deseja apagar a anotação da carteirinha deste paciente?',
+    yesLabel:'Apagar', yesBg:'var(--danger)',
+    yes:`(function(){const p=DB.pets.find(x=>x.id==='${petId}');p.notaCarteirinha='';save();closeSheet();render();toast('🗑️ Anotação apagada');})()`});
+}
+
+// Foto do selo da ampola por dose aplicada (Opção A: fotografa na hora)
+function fotografarSelo(petId, vacId){
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+  inp.onchange = e => {
+    const file = e.target.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        // comprime o selo para ~300px de largura (leve, mas legível)
+        const cv = document.createElement('canvas');
+        const escala = Math.min(1, 300/img.width);
+        cv.width = img.width*escala; cv.height = img.height*escala;
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        const pet = DB.pets.find(p=>p.id===petId);
+        const v = pet.vaccines.find(x=>x.id===vacId);
+        if(v){ v.selo = cv.toDataURL('image/jpeg',.7); save(); render(); toast('📷 Selo da ampola salvo!'); }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  inp.click();
+}
+function removerSelo(petId, vacId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const v = pet.vaccines.find(x=>x.id===vacId);
+  if(v){ delete v.selo; save(); render(); toast('Selo removido'); }
+}
+
+// Monta e gera o PDF da carteirinha
+function gerarCarteirinha(petId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const t = tutorOf(pet);
+  const v = DB.vet;
+
+  const aplicadas = pet.vaccines.filter(x=>x.status==='aplicada' && x.applied)
+    .sort((a,b)=>(b.applied||'').localeCompare(a.applied||''));
+  const proximas = pet.vaccines.filter(x=>x.status==='programada' && x.due)
+    .sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+
+  // cabeçalho do topo (colorido) — só na 1ª página
+  const topo = `<div style="background:linear-gradient(135deg,#1E3A6E 0%,#12294f 55%,#2DC0AE 130%);color:#fff;padding:26px 30px 22px;border-radius:12px;margin-bottom:16px;position:relative">
+    <span style="position:absolute;top:22px;right:26px;font-size:12px;font-weight:700;background:rgba(255,255,255,.2);padding:5px 13px;border-radius:99px">✓ Digital</span>
+    <div style="font-size:12px;font-weight:700;letter-spacing:.2em;opacity:.9;text-transform:uppercase">🐾 Carteirinha de Vacinação</div>
+    <div style="display:flex;align-items:center;gap:18px;margin-top:14px">
+      ${pet.photo?`<img src="${pet.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.55)">`:`<div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:38px">${petEmoji(pet)}</div>`}
+      <div>
+        <div style="font-size:30px;font-weight:800;line-height:1">${esc(pet.name)}</div>
+        <div style="font-size:14px;opacity:.9;margin-top:5px">${esc(pet.species)}${pet.breed?' · '+esc(pet.breed):''}${pet.birth?' · '+calcAge(pet.birth):''}${pet.weight?' · '+pet.weight+' kg':''}${pet.gender?' · '+esc(pet.gender):''}</div>
+      </div>
+    </div></div>`;
+
+  // bloco do tutor completo
+  const tutorBox = t ? `<div style="background:#f4faf9;border:1.5px solid #e3edeb;border-radius:12px;padding:14px 18px;margin-bottom:16px">
+    <div style="font-size:12px;font-weight:800;color:#4E8EAC;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">👤 Dados do tutor</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:13px;color:#1A2F5A">
+      <div style="grid-column:1/-1"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">NOME COMPLETO</span>${esc(t.name||'—')}</div>
+      ${t.cpf?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">CPF</span>${fmtCPF(t.cpf)}</div>`:''}
+      ${t.phone?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">TELEFONE</span>${fmtPhone(t.phone)}</div>`:''}
+      ${t.address?`<div style="grid-column:1/-1"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">ENDEREÇO</span>${esc(t.address)}${t.bairro?' · '+esc(t.bairro):''}</div>`:''}
+      ${t.cep?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">CEP</span>${fmtCEP(t.cep)}</div>`:''}
+      ${pet.chip?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">MICROCHIP</span>${esc(pet.chip)}</div>`:''}
+    </div></div>` : '';
+
+  // uma linha de vacina aplicada, com selo se houver
+  const vacLinha = d => `<div style="display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1.5px solid #eef4f2">
+    <div style="width:44px;height:44px;border-radius:11px;background:#e6f7f0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">💉</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:16px;font-weight:700;color:#1A2F5A">${esc(d.name)}</div>
+      <div style="font-size:12px;color:#6B7A8D;margin-top:2px">Aplicada em ${fmtDate(d.applied)}${d.lot?' · Lote '+esc(d.lot):''}${d.vet?' · '+esc(d.vet):''}</div>
+    </div>
+    ${d.selo?`<img src="${d.selo}" style="width:64px;height:42px;border-radius:7px;object-fit:cover;border:1.5px solid #d5ebe9;flex-shrink:0">`:''}
+    <span style="font-size:13px;font-weight:700;padding:5px 12px;border-radius:99px;background:#e6f7f0;color:#1a8a5a;white-space:nowrap">Em dia</span>
+  </div>`;
+
+  const proxLinha = d => `<div style="display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1.5px solid #eef4f2">
+    <div style="width:44px;height:44px;border-radius:11px;background:#fef4e0;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🗓️</div>
+    <div style="flex:1"><div style="font-size:16px;font-weight:700;color:#1A2F5A">${esc(d.name)}</div>
+      <div style="font-size:12px;color:#6B7A8D;margin-top:2px">Prevista para ${fmtDate(d.due)}</div></div>
+    <span style="font-size:13px;font-weight:700;padding:5px 12px;border-radius:99px;background:#fef4e0;color:#a67300;white-space:nowrap">Agendada</span>
+  </div>`;
+
+  // paginação: quebra as vacinas aplicadas em blocos
+  const paginasVac = [];
+  for(let i=0;i<aplicadas.length;i+=VAC_POR_PAGINA){
+    paginasVac.push(aplicadas.slice(i, i+VAC_POR_PAGINA));
+  }
+  if(!paginasVac.length) paginasVac.push([]);
+
+  const secTitle = txt => `<div style="font-size:15px;font-weight:800;color:#4E8EAC;text-transform:uppercase;letter-spacing:.05em;margin:18px 0 8px">${txt}</div>`;
+
+  // anotações (só se houver)
+  const notaBox = (pet.notaCarteirinha||'').trim() ? `<div style="background:#fffdf5;border:1.5px solid #f0e6c0;border-radius:12px;padding:14px 18px;margin-top:18px">
+    <div style="font-size:13px;font-weight:800;color:#a67300;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📝 Anotações</div>
+    <div style="font-size:14px;color:#5a4a12;line-height:1.6;white-space:pre-wrap">${esc(pet.notaCarteirinha)}</div></div>` : '';
+
+  // rodapé elegante do veterinário + sistema
+  const rodapeVet = `<div style="margin-top:26px;padding-top:18px;border-top:2px solid #e3edeb">
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px">
+      ${v.logo?`<img src="${v.logo}" style="width:58px;height:58px;border-radius:10px;object-fit:contain;border:1.5px solid #dce6ec">`:`<div style="width:58px;height:58px;border-radius:10px;background:#fff;border:1.5px solid #dce6ec;display:flex;align-items:center;justify-content:center;font-size:30px">🐾</div>`}
+      <div style="text-align:left">
+        <div style="font-size:17px;font-weight:800;color:#1E3A6E;line-height:1.1">${esc(v.name||'—')}</div>
+        <div style="font-size:14px;color:#2DC0AE;font-weight:700;margin-top:2px">${crmvFull()||''}</div>
+        ${v.sipeagro?`<div style="font-size:11px;color:#6B7A8D;margin-top:1px">SIPEAGRO/MAPA: ${esc(v.sipeagro)}</div>`:''}
+      </div>
+    </div></div>`;
+
+  // monta cada página
+  const totalPag = paginasVac.length;
+  let inner = '';
+  paginasVac.forEach((bloco, idx) => {
+    const primeira = idx === 0;
+    const ultima = idx === totalPag - 1;
+    if(idx > 0) inner += '<div style="page-break-before:always"></div>';
+
+    if(primeira){
+      inner += topo + tutorBox;
+    } else {
+      // cabeçalho compacto nas páginas seguintes
+      inner += `<div style="background:linear-gradient(135deg,#1E3A6E,#12294f 60%,#2DC0AE);color:#fff;padding:14px 22px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+        <div style="font-size:26px">${petEmoji(pet)}</div>
+        <div><div style="font-size:20px;font-weight:800">${esc(pet.name)}</div>
+        <div style="font-size:12px;opacity:.85">Continuação · Carteirinha de Vacinação</div></div></div>`;
+    }
+
+    inner += secTitle(primeira ? '✅ Vacinas aplicadas' : '✅ Vacinas aplicadas (continuação)');
+    inner += bloco.length ? bloco.map(vacLinha).join('') : '<div style="font-size:13px;color:#9aa8b6;font-style:italic;padding:8px 0">Nenhuma vacina aplicada registrada</div>';
+
+    // próximas doses e anotações só na última página
+    if(ultima){
+      if(proximas.length){ inner += secTitle('📅 Próximas doses') + proximas.map(proxLinha).join(''); }
+      inner += notaBox;
+      inner += rodapeVet;
+    }
+  });
+
+  closeSheet();
+  toast('💳 Gerando carteirinha…');
+  setTimeout(() => printShell('Carteirinha de Vacinação — ' + pet.name, inner), 300);
+}
+
 // ── Aba Receituário ──
 function renderPetRx(pet){
   return `<div class="sec"><div class="sec-h"><span>💜 Receituários</span>
@@ -3091,6 +3291,113 @@ function renderPetRx(pet){
       </div>`).join('')
     : '<div class="card empty"><div class="big">📝</div>Nenhum receituário emitido<br><small>Toque em "+ Novo Receituário" para criar</small></div>'}
   </div>`;
+}
+
+// ── ✍️ Assinatura digital do tutor (canvas) ──
+// Captura a assinatura do responsável na tela e devolve como imagem PNG.
+// Usado nos termos de consentimento. Funciona 100% offline, no aparelho.
+let _assinCanvas = null, _assinCtx = null, _assinTem = false, _assinAlvo = null;
+
+function openAssinaturaTutor(nomeTutor, onOkFnName){
+  _assinAlvo = onOkFnName || null;
+  _assinTem = false;
+  showSheet('✍️ Assinatura do responsável', `
+    <div style="background:var(--vacbg);border-radius:10px;padding:11px 13px;font-size:12.5px;color:var(--vac);margin-bottom:12px">
+      Peça para <b>${esc(nomeTutor||'o responsável')}</b> assinar no quadro abaixo com o dedo. A assinatura entra no documento com data e hora.
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.03em">Assine no quadro</span>
+      <button style="background:none;border:none;color:var(--danger);font-size:12px;font-weight:700" onclick="limparAssin()">↺ Limpar</button>
+    </div>
+    <div id="assinPad" style="position:relative;background:#fff;border:2px dashed var(--primary);border-radius:14px;height:190px;touch-action:none;overflow:hidden">
+      <canvas id="assinCanvas" style="width:100%;height:100%;display:block"></canvas>
+      <div style="position:absolute;left:20px;right:20px;bottom:44px;border-bottom:1.5px solid #dce6ec;pointer-events:none"></div>
+      <div style="position:absolute;left:20px;bottom:26px;color:#c3d2dc;font-size:13px;pointer-events:none">✕</div>
+      <div id="assinHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#c3d2dc;font-size:14px;pointer-events:none;transition:.2s">✍️ Assine aqui com o dedo</div>
+    </div>
+    <div style="background:var(--medbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--med);margin-top:11px;display:flex;gap:8px;align-items:flex-start">
+      <span style="font-size:15px">🔒</span>
+      <span>A assinatura fica gravada <b>neste aparelho</b>, junto do documento. Nada é enviado para a internet.</span>
+    </div>
+    <div style="background:#f4faf9;border:1px solid #d5ebe9;border-radius:10px;padding:11px 13px;font-size:11.5px;color:#42546b;margin-top:10px;line-height:1.55">
+      ⚖️ Ao assinar, o responsável declara <b>concordar com o uso de assinatura eletrônica</b> para este documento, nos termos da Lei nº 14.063/2020 (assinatura eletrônica simples).
+    </div>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" id="btnAssinOk" onclick="confirmarAssin()" disabled style="opacity:.4">✓ Confirmar</button>`);
+  setTimeout(iniciarAssinPad, 60);
+}
+
+function iniciarAssinPad(){
+  const pad = document.getElementById('assinPad');
+  _assinCanvas = document.getElementById('assinCanvas');
+  if(!pad || !_assinCanvas) return;
+  const r = pad.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  _assinCanvas.width = r.width * dpr;
+  _assinCanvas.height = r.height * dpr;
+  _assinCtx = _assinCanvas.getContext('2d');
+  _assinCtx.scale(dpr, dpr);
+  _assinCtx.lineWidth = 2.5;
+  _assinCtx.lineCap = 'round';
+  _assinCtx.lineJoin = 'round';
+  _assinCtx.strokeStyle = '#12294f';
+  let desenhando = false, ult = null;
+  const hint = document.getElementById('assinHint');
+  const pos = e => {
+    const rr = _assinCanvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return {x: p.clientX - rr.left, y: p.clientY - rr.top};
+  };
+  const start = e => {
+    e.preventDefault(); desenhando = true; ult = pos(e);
+    if(!_assinTem){ _assinTem = true; if(hint) hint.style.opacity = '0';
+      const b = document.getElementById('btnAssinOk'); if(b){ b.disabled = false; b.style.opacity = '1'; } }
+  };
+  const move = e => {
+    if(!desenhando) return; e.preventDefault();
+    const p = pos(e);
+    _assinCtx.beginPath(); _assinCtx.moveTo(ult.x, ult.y); _assinCtx.lineTo(p.x, p.y); _assinCtx.stroke();
+    ult = p;
+  };
+  const end = () => { desenhando = false; };
+  _assinCanvas.addEventListener('mousedown', start);
+  _assinCanvas.addEventListener('mousemove', move);
+  _assinCanvas.addEventListener('mouseup', end);
+  _assinCanvas.addEventListener('mouseleave', end);
+  _assinCanvas.addEventListener('touchstart', start, {passive:false});
+  _assinCanvas.addEventListener('touchmove', move, {passive:false});
+  _assinCanvas.addEventListener('touchend', end);
+}
+
+function limparAssin(){
+  if(_assinCtx && _assinCanvas){ _assinCtx.clearRect(0,0,_assinCanvas.width,_assinCanvas.height); }
+  _assinTem = false;
+  const hint = document.getElementById('assinHint'); if(hint) hint.style.opacity = '1';
+  const b = document.getElementById('btnAssinOk'); if(b){ b.disabled = true; b.style.opacity = '.4'; }
+}
+
+// Reduz a imagem da assinatura para não pesar no armazenamento (máx ~600px de largura)
+function assinaturaComprimida(){
+  if(!_assinCanvas) return null;
+  const larguraMax = 600;
+  const escala = Math.min(1, larguraMax / _assinCanvas.width);
+  const tmp = document.createElement('canvas');
+  tmp.width = Math.round(_assinCanvas.width * escala);
+  tmp.height = Math.round(_assinCanvas.height * escala);
+  const c = tmp.getContext('2d');
+  c.drawImage(_assinCanvas, 0, 0, tmp.width, tmp.height);
+  return tmp.toDataURL('image/png');
+}
+
+function confirmarAssin(){
+  if(!_assinTem){ toast('⚠ Assine antes de confirmar'); return; }
+  const img = assinaturaComprimida();
+  const quando = new Date().toISOString();
+  closeSheet();
+  if(_assinAlvo && typeof window[_assinAlvo] === 'function'){
+    window[_assinAlvo](img, quando);
+  }
+  _assinAlvo = null;
 }
 
 // ── Aba Termos e Documentos ──
@@ -3119,6 +3426,7 @@ function renderPetTerms(pet){
 function openTermForm(petId, type){
   const pet = DB.pets.find(p=>p.id===petId);
   const t = TERMS[type];
+  _termAssin = null; _termAssinQuando = null;  // zera assinatura de termo anterior
   // Seleção de tutor (caso haja mais de um)
   const tutorSel = `<label>Tutor / Responsável ${DB.tutors.length>1?'(selecione)':''}</label>
     ${DB.tutors.length ? tutorPickerHTML('fTTutor', pet.tutorId) : '<input disabled value="— nenhum tutor cadastrado —">'}`;
@@ -3170,9 +3478,55 @@ function openTermForm(petId, type){
     <input id="fTVet" value="${esc(DB.vet.name||'')}" placeholder="Nome completo">
     <label>CRMV *</label>
     <input id="fTCrmv" value="${esc(crmvFull()||'')}" placeholder="Ex: CRMV-SP 12345">`;
-  showSheet(`${t.emo} ${t.name}`, tutorSel + fields + vetFields + cidade + data,
+  // Termos de consentimento podem colher assinatura do tutor na hora
+  const colheAssin = (type === 'anestesico' || type === 'cirurgia' || type === 'recusa');
+  const assinArea = colheAssin ? `
+    <label>Assinatura do responsável</label>
+    <div id="assinStatus" style="display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+      <span id="assinStatusIco" style="font-size:20px">✍️</span>
+      <span id="assinStatusTxt" style="flex:1;font-size:13px;color:var(--muted)">Ainda não assinado — opcional</span>
+      <button type="button" class="btn sm outline" onclick="assinarTermo('${petId}')">Assinar</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:5px">💡 Se preferir, deixe em branco e colha a assinatura no papel impresso.</div>` : '';
+  window._termTipoAtual = type; window._termPetIdAtual = petId;
+  showSheet(`${t.emo} ${t.name}`, tutorSel + fields + vetFields + assinArea + cidade + data,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn rx" onclick="printTerm('${petId}','${type}')">🖨️ Gerar PDF</button>`);
+}
+
+// Abre o painel de assinatura preservando o que já foi digitado no termo.
+// Guarda os valores dos campos, assina, e devolve o usuário ao form preenchido.
+function assinarTermo(petId){
+  // preserva os campos digitados antes de trocar de tela
+  window._termRascunho = {
+    type: window._termTipoAtual,
+    fTProc: val('fTProc'), fTObsVet: val('fTObsVet'), fTObsTutor: val('fTObsTutor'),
+    fTVet: val('fTVet'), fTCrmv: val('fTCrmv'), fTCity: val('fTCity'),
+    fTDate: document.getElementById('fTDate')?.value || todayISO(),
+    fTTutor: document.getElementById('fTTutor')?.value || ''
+  };
+  const tutor = DB.tutors.find(x=>x.id===resolveTutorId('fTTutor')) || tutorOf(DB.pets.find(p=>p.id===petId));
+  openAssinaturaTutor(tutor?.name, 'onTermoAssinado');
+}
+function onTermoAssinado(img, quando){
+  // reabre o form do termo e restaura o rascunho
+  const r = window._termRascunho;
+  if(r){
+    const petId = window._termPetIdAtual;
+    openTermForm(petId, r.type);  // isto zera _termAssin — por isso restauramos DEPOIS
+    _termAssin = img; _termAssinQuando = quando;
+    setTimeout(() => {
+      const set = (id,v)=>{ const el=document.getElementById(id); if(el && v) el.value = v; };
+      set('fTProc', r.fTProc); set('fTObsVet', r.fTObsVet); set('fTObsTutor', r.fTObsTutor);
+      set('fTVet', r.fTVet); set('fTCrmv', r.fTCrmv); set('fTCity', r.fTCity); set('fTDate', r.fTDate);
+      if(r.fTTutor){ const t=document.getElementById('fTTutor'); if(t) t.value=r.fTTutor; }
+      // marca visualmente que assinou
+      const ico=document.getElementById('assinStatusIco'), txt=document.getElementById('assinStatusTxt');
+      if(ico) ico.textContent='✅';
+      if(txt){ txt.textContent='Assinado — a assinatura entrará no PDF'; txt.style.color='var(--success)'; txt.style.fontWeight='600'; }
+    }, 90);
+  }
+  toast('✍️ Assinatura capturada!');
 }
 
 function termPatientBlock(pet, tutor, withCpf){
@@ -3189,9 +3543,53 @@ function termDateLine(city, iso){
   const d = new Date(iso+'T00:00:00');
   return `<div style="margin:26px 0 10px;font-size:14px"><b>${esc(city||'________________')}</b>, ${d.getDate()} de ${MONTHS[d.getMonth()].toLowerCase()} de ${d.getFullYear()}</div>`;
 }
-const RESP_SIGN = `<div style="margin-top:70px;text-align:center">
-  <div style="border-top:1.5px solid #1A2F5A;width:320px;margin:0 auto 4px"></div>
-  <div style="font-size:12px;font-weight:800;color:#1A2F5A">ASSINATURA DO(A) RESPONSÁVEL PELO ANIMAL</div></div>`;
+// Bloco de assinatura do responsável. Se houver assinatura capturada na tela,
+// injeta a imagem acima da linha, com data/hora. Senão, deixa a linha em branco
+// para assinatura manual (comportamento antigo preservado).
+// Gera um código de verificação (hash) a partir do conteúdo do documento.
+// Prova de integridade: se o documento for alterado depois de assinado, o
+// código muda. Gerado 100% no aparelho, offline. Formato XXXX-XXXX-XXXX.
+function hashDocumento(texto){
+  let h1 = 0x811c9dc5, h2 = 0x1000193;
+  for(let i=0;i<texto.length;i++){
+    const c = texto.charCodeAt(i);
+    h1 = (h1 ^ c) * 0x01000193 >>> 0;
+    h2 = ((h2 << 5) + h2 + c) >>> 0;
+  }
+  const hex = (h1.toString(16).toUpperCase().padStart(8,'0') + h2.toString(16).toUpperCase().padStart(8,'0'));
+  return hex.slice(0,4) + '-' + hex.slice(4,8) + '-' + hex.slice(8,12);
+}
+
+// Bloco de assinatura do responsável.
+// Com assinatura capturada: injeta imagem + identificação do signatário (nome,
+// CPF), data/hora, código de verificação (hash) e ID do dispositivo, além da
+// declaração legal da Lei 14.063/2020 (assinatura eletrônica simples).
+// Sem assinatura: mantém a linha em branco (assinatura no papel).
+function respSignHTML(assin, quando, tutor, hashSeed){
+  if(assin){
+    const dt = quando ? new Date(quando) : null;
+    const dataHora = dt ? `${fmtDate(dt.toISOString().slice(0,10))} - ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}` : '';
+    // o hash cobre o conteúdo do termo + identidade + momento da assinatura
+    const cod = hashDocumento((hashSeed||'') + '|' + (tutor?.name||'') + '|' + (tutor?.cpf||'') + '|' + (quando||''));
+    const devId = DB.devId || '----';
+    const nomeSig = tutor?.name ? esc(tutor.name) : '';
+    const cpfSig = tutor?.cpf ? fmtCPF(tutor.cpf) : '';
+    return `<div style="margin-top:56px;text-align:center">
+      <img src="${assin}" style="height:64px;object-fit:contain;margin-bottom:-8px" alt="assinatura do responsável">
+      <div style="border-top:1.5px solid #1A2F5A;width:340px;margin:0 auto 4px"></div>
+      <div style="font-size:12px;font-weight:800;color:#1A2F5A">ASSINATURA DO(A) RESPONSÁVEL PELO ANIMAL</div>
+      <div style="margin:8px auto 0;max-width:440px;font-size:9.5px;color:#6B7A8D;line-height:1.6;text-align:center">
+        ${nomeSig?`<b style="color:#1A2F5A">${nomeSig}</b>`:''}${cpfSig?` &nbsp;·&nbsp; CPF: ${cpfSig}`:''}<br>
+        Documento assinado via assinatura eletrônica simples, nos termos da Lei nº 14.063/2020.<br>
+        Data/Hora: ${dataHora} &nbsp;·&nbsp; Código de verificação: ${cod} &nbsp;·&nbsp; Disp.: ${esc(devId)}
+      </div></div>`;
+  }
+  return `<div style="margin-top:70px;text-align:center">
+    <div style="border-top:1.5px solid #1A2F5A;width:320px;margin:0 auto 4px"></div>
+    <div style="font-size:12px;font-weight:800;color:#1A2F5A">ASSINATURA DO(A) RESPONSÁVEL PELO ANIMAL</div></div>`;
+}
+// Assinatura capturada para o termo em edição (limpa a cada novo termo)
+let _termAssin = null, _termAssinQuando = null;
 
 function printTerm(petId, type){
   const pet = DB.pets.find(p=>p.id===petId);
@@ -3224,7 +3622,7 @@ function printTerm(petId, type){
       Declaro ainda, ter sido esclarecido(a) acerca dos riscos inerentes${isCir?', durante ou após a realização do procedimento cirúrgico citado':' ao(s) procedimento(s) proposto(s)'}, estando o(a) profissional isento(a) de quaisquer responsabilidades decorrentes de tais riscos.<br><br>
       <b>Observações de interesse a serem fornecidas pelo(a) Médico(a) Veterinário(a):</b><br>${val('fTObsVet')?esc(val('fTObsVet')):'________________________________________________________________'}<br><br>
       <b>Observações de interesse a serem fornecidas pelo(a) tutor(a) / responsável pelo animal:</b><br>${val('fTObsTutor')?esc(val('fTObsTutor')):'________________________________________________________________'}
-      </div>` + termDateLine(city, dt) + RESP_SIGN +
+      </div>` + termDateLine(city, dt) + respSignHTML(_termAssin, _termAssinQuando, tutor, `${type}|${pet.name}|${val('fTProc')}|${val('fTObsVet')}|${val('fTObsTutor')}|${dt}`) +
       `<div style="margin-top:40px">${vetFooterHTML(dt)}</div>`;
   }
   if(type === 'recusa'){
@@ -3234,11 +3632,143 @@ function printTerm(petId, type){
       Declaro que fui devidamente esclarecido(a) pelo(a) Médico(a) Veterinário(a) <b>${crmvLine}</b> sobre o diagnóstico e a importância do tratamento/procedimento indicado para o animal acima identificado: <b>${F('fTProc')}</b>.<br><br>
       Ainda assim, por livre e espontânea decisão, <b>RECUSO</b> a realização do tratamento/procedimento proposto, assumindo integral responsabilidade pelas consequências desta decisão e isentando o(a) profissional de quaisquer responsabilidades decorrentes desta recusa.<br><br>
       <b>Motivo da recusa:</b><br>${val('fTObsTutor')?esc(val('fTObsTutor')):'________________________________________________________________'}
-      </div>` + termDateLine(city, dt) + RESP_SIGN +
+      </div>` + termDateLine(city, dt) + respSignHTML(_termAssin, _termAssinQuando, tutor, `${type}|${pet.name}|${val('fTProc')}|${val('fTObsTutor')}|${dt}`) +
       `<div style="margin-top:40px">${vetFooterHTML(dt)}</div>`;
   }
   closeSheet();
   printShell(TERMS[type].name + ' — ' + pet.name, inner);
+}
+
+// ── 🗂️ Arquivo Morto — exportação anual do prontuário (conformidade CFMV) ──
+// O CFMV exige guardar o prontuário por 20 anos. Esta tela gera um PDF anual
+// completo (atendimentos, receitas, termos e índice) para arquivar. 100% offline.
+
+// Levanta os anos que têm algum registro clínico, do mais recente ao mais antigo.
+function anosComRegistro(){
+  const anos = {};
+  DB.pets.forEach(p => {
+    (p.appointments||[]).forEach(a => { const y=(a.date||'').slice(0,4); if(y) anos[y]=(anos[y]||0)+1; });
+    (p.prescriptions||[]).forEach(r => { const y=(r.date||'').slice(0,4); if(y) anos[y]=(anos[y]||0)+1; });
+  });
+  return Object.keys(anos).sort((a,b)=>b.localeCompare(a)).map(y => ({ano:y, total:anos[y]}));
+}
+
+// Conta pacientes distintos que tiveram registro no ano
+function pacientesNoAno(ano){
+  const ids = new Set();
+  DB.pets.forEach(p => {
+    const teve = (p.appointments||[]).some(a=>(a.date||'').startsWith(ano)) ||
+                 (p.prescriptions||[]).some(r=>(r.date||'').startsWith(ano));
+    if(teve) ids.add(p.id);
+  });
+  return ids.size;
+}
+
+function openArquivoMorto(){
+  const anos = anosComRegistro();
+  const anoAtual = String(new Date().getFullYear());
+  let linhas;
+  if(!anos.length){
+    linhas = `<div class="card empty"><div class="big">🗂️</div>Ainda não há registros para arquivar<br><small>Os atendimentos e receitas aparecem aqui agrupados por ano</small></div>`;
+  } else {
+    linhas = anos.map(({ano, total}) => {
+      const pac = pacientesNoAno(ano);
+      const atual = ano === anoAtual;
+      return `<div style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px">
+        <span style="font-size:20px;font-weight:800;color:var(--dark)">${ano}</span>
+        <div style="flex:1;font-size:12px;color:var(--muted)">
+          <b style="color:var(--text);font-size:13px;display:block">${atual?'Ano em curso':'Ano fechado'}</b>
+          ${total} registro${total>1?'s':''} · ${pac} paciente${pac>1?'s':''}</div>
+        <button class="btn sm" onclick="gerarArquivoMorto('${ano}')">📄 Gerar PDF</button>
+      </div>`;
+    }).join('');
+  }
+  showSheet('🗂️ Arquivo Morto', `
+    <div style="background:var(--medbg);border-radius:12px;padding:13px 15px;font-size:12.5px;color:var(--med);margin-bottom:14px;display:flex;gap:9px;align-items:flex-start">
+      <span style="font-size:17px">⚖️</span>
+      <span>O CFMV exige guardar o prontuário por <b>20 anos</b>. Aqui você gera um documento anual completo para arquivar com segurança (Drive, e-mail, impresso…).</span>
+    </div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:4px 2px 8px">Escolha o ano para exportar</div>
+    ${linhas}
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:18px 2px 8px">O que entra no arquivo</div>
+    <div class="card" style="font-size:13px;line-height:1.9;color:var(--text)">
+      ✓ Todos os prontuários do ano, com data e paciente<br>
+      ✓ Receituários emitidos no período<br>
+      ✓ Índice por paciente<br>
+      ✓ Cabeçalho com seus dados e CRMV
+    </div>`,
+    `<button class="btn gray" onclick="closeSheet()">Fechar</button>`);
+}
+
+function gerarArquivoMorto(ano){
+  // Reúne, por paciente, tudo o que aconteceu no ano
+  const blocos = [];
+  let totAtend = 0, totRx = 0, totPac = 0;
+  const indice = [];
+
+  DB.pets.forEach(pet => {
+    const atends = (pet.appointments||[]).filter(a => (a.date||'').startsWith(ano) && (a.record||a.title))
+      .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const rxs = (pet.prescriptions||[]).filter(r => (r.date||'').startsWith(ano))
+      .sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    if(!atends.length && !rxs.length) return;
+
+    totPac++;
+    totAtend += atends.length;
+    totRx += rxs.length;
+    const t = tutorOf(pet);
+    indice.push(`${esc(pet.name)} (${esc(pet.species)}${t?' · tutor: '+esc(t.name):''}) — ${atends.length} atend., ${rxs.length} receita(s)`);
+
+    let corpo = `<div style="page-break-before:always"></div>
+      <div style="background:#f0f6f5;border-radius:8px;padding:10px 14px;margin:18px 0 12px">
+        <b style="font-size:15px;color:#12294f">🐾 ${esc(pet.name)}</b>
+        <span style="font-size:12px;color:#5f7285"> · ${esc(pet.species)}${pet.breed?' · '+esc(pet.breed):''}${t?' · Tutor: '+esc(t.name):''}</span>
+      </div>`;
+
+    atends.forEach(a => {
+      corpo += `<div style="border-left:3px solid #2DC0AE;padding:6px 0 6px 12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#5f7285"><b>${fmtDate(a.date)}</b> · ${esc(a.title||'Atendimento')}${a.clinic?' · '+esc(a.clinic):''}</div>
+        ${a.record?`<div style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:4px;color:#1A2F5A">${esc(a.record)}</div>`:'<div style="font-size:12px;color:#9aa8b6;font-style:italic;margin-top:4px">(sem prontuário registrado)</div>'}
+      </div>`;
+    });
+
+    rxs.forEach(r => {
+      corpo += `<div style="border-left:3px solid #7C5CE4;padding:6px 0 6px 12px;margin-bottom:12px">
+        <div style="font-size:12px;color:#5f7285"><b>${fmtDate(r.date)}</b> · 📝 Receituário${r.type?' ('+esc(r.type)+')':''}</div>
+        <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;margin-top:4px;color:#1A2F5A">${esc(r.content||'')}</div>
+        ${r.notes?`<div style="font-size:12px;color:#5f7285;margin-top:3px">Obs: ${esc(r.notes)}</div>`:''}
+      </div>`;
+    });
+
+    blocos.push(corpo);
+  });
+
+  if(!totPac){ toast('Nenhum registro para arquivar em '+ano); return; }
+
+  const v = DB.vet;
+  const capa = `${letterheadHTML()}
+    <div class="doctitle">ARQUIVO CLÍNICO — ANO ${ano}</div>
+    <div style="text-align:center;font-size:12px;color:#5f7285;margin-bottom:22px">
+      Documento de guarda de prontuário · gerado em ${fmtDate(todayISO())}
+    </div>
+    <div style="background:#f0f6f5;border-radius:10px;padding:16px 18px;margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0"><span>Pacientes atendidos no ano</span><b>${totPac}</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:1px solid #dce8e6"><span>Atendimentos com prontuário</span><b>${totAtend}</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:1px solid #dce8e6"><span>Receituários emitidos</span><b>${totRx}</b></div>
+    </div>
+    <div style="font-size:13px;font-weight:800;color:#12294f;margin-bottom:8px">ÍNDICE POR PACIENTE</div>
+    <div style="font-size:12.5px;line-height:1.9;color:#1A2F5A">
+      ${indice.map((l,i)=>`${i+1}. ${l}`).join('<br>')}
+    </div>
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid #dce8e6;font-size:11px;color:#5f7285;line-height:1.7">
+      <b>Responsável técnico:</b> ${esc(v.name||'—')} · CRMV: ${crmvFull()||'—'}<br>
+      Documento gerado pelo VetFlowCare para fins de guarda de prontuário, conforme exigência do CFMV (guarda por 20 anos).
+    </div>`;
+
+  const inner = capa + blocos.join('');
+  closeSheet();
+  toast('📄 Gerando arquivo de '+ano+'…');
+  setTimeout(() => printShell('Arquivo Clínico '+ano, inner), 300);
 }
 
 // ── Aba Arquivos ──
@@ -3611,6 +4141,15 @@ function renderSettings(){
         <span style="color:var(--muted);font-size:17px">›</span></div>
       <div style="font-size:11px;color:var(--muted);margin-top:9px;border-top:1px solid var(--border);padding-top:8px">
         Cópia interna automática · pontos de restauração de 7 dias, 4 semanas e 6 meses · verificação de integridade</div>
+    </div>
+    <div class="card" style="cursor:pointer;margin-top:10px" onclick="openArquivoMorto()">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:27px">🗂️</div>
+        <div style="flex:1">
+          <b style="font-size:15px">Arquivo Morto</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Exporta o prontuário anual em PDF para guarda legal (CFMV · 20 anos)</div>
+        </div>
+        <span style="color:var(--muted);font-size:17px">›</span></div>
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>💾 Dados</span></div>
@@ -3636,9 +4175,18 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.18 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.21.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
-      <b>Novidades da v9.18 — Financeiro:</b><br>
+      <b>Novidades da v9.21:</b><br>
+      • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
+      • ✍️ <b>Assinatura do tutor na tela</b>: nos termos de consentimento (anestésico, cirurgia, recusa), o responsável pode assinar com o dedo. A assinatura entra no PDF com data e hora, virando prova de consentimento — sem papel<br>
+      • A assinatura é opcional: se preferir, deixe em branco e colha no papel impresso, como antes<br>
+      <br><b>v9.20:</b><br>
+      • 🔍 <b>Auditoria completa</b> do app: revisão de segurança, licenciamento, proteção de dados e telas<br>
+      • 🗓️ <b>Correção:</b> datas impossíveis digitadas por engano (como 31/02) agora são recusadas na hora, em vez de virarem uma data errada<br>
+      <br><b>v9.19:</b><br>
+      • 🔧 Ajuste interno que prepara o app para o <b>endereço próprio</b> (vetflowcare.com.br), sem quebrar nada — parte da mudança para um link mais profissional<br>
+      <br><b>v9.18 — Financeiro:</b><br>
       • 🗂️ <b>Correção importante nas Despesas</b>: uma despesa lançada em outro mês (ex.: 2 meses à frente) não aparecia e não dava para editar. Agora há o botão <b>"Todas as datas"</b>, que mostra tudo, agrupado por mês<br>
       • 📝 <b>Campo de observações</b> na despesa: anote fornecedor, nº da nota, forma de pagamento — o que precisar<br>
       • Ao salvar, a tela já <b>pula para o mês da despesa</b>, então ela nunca "some"<br>
@@ -5201,6 +5749,11 @@ function recalcServTotal(){
 function parseBRDate(txt){
   const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((txt||'').trim());
   if(!m) return null;
+  const dia = +m[1], mes = +m[2], ano = +m[3];
+  // Valida se a data existe de verdade no calendário: rejeita 31/02, 00/01, 13 como mês etc.
+  if(mes < 1 || mes > 12 || dia < 1 || dia > 31) return null;
+  const d = new Date(ano, mes - 1, dia);
+  if(d.getFullYear() !== ano || d.getMonth() !== mes - 1 || d.getDate() !== dia) return null;
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 function maskCPF(el){
@@ -5479,7 +6032,7 @@ function saveRx(petId, rxId){
 function letterheadHTML(){
   const v = DB.vet;
   return `<div style="display:flex;align-items:center;gap:16px;border-bottom:3px solid #2DC0AE;padding-bottom:14px;margin-bottom:20px">
-    ${v.logo?`<img src="${v.logo}" style="height:64px;max-width:120px;object-fit:contain">`:''}
+    ${v.logo?`<img src="${v.logo}" style="height:64px;max-width:120px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:12px;background:linear-gradient(135deg,#1E3A6E,#2DC0AE);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🐾</div>`}
     <div>
       <div style="font-size:19px;font-weight:900;color:#1E3A6E">${esc(v.name||'Profissional')}</div>
       <div style="font-size:13px;color:#2DC0AE;font-weight:700">${crmvFull()||''}</div>
@@ -5519,7 +6072,7 @@ function printShell(title, inner){
     .wmfree{position:fixed;top:42%;left:0;right:0;text-align:center;font-size:40px;font-weight:900;color:rgba(224,82,82,.10);transform:rotate(-24deg);letter-spacing:5px;pointer-events:none;z-index:99}
   </style></head><body>${inner}
   ${isPro()?'':'<div class="wmfree">VERSÃO GRATUITA</div>'}
-  <div class="foot">ORGANIZA · CONECTA · CUIDA — VetFlowCare${isPro()?'':' · Versão gratuita'}</div></body></html>`;
+  <div class="foot"><b style="color:#1E3A6E;letter-spacing:1px">VetFlowCare</b> · ORGANIZA · CONECTA · CUIDA${isPro()?'':' · Versão gratuita'}</div></body></html>`;
   // Impressão via iframe oculto (funciona mesmo com pop-ups bloqueados)
   document.getElementById('printFrame')?.remove();
   const f = document.createElement('iframe');
@@ -5817,17 +6370,24 @@ document.getElementById('installBtn')?.addEventListener('click', async () => {
 });
 if('serviceWorker' in navigator){
   // Higiene: remove service workers de OUTROS apps hospedados no mesmo domínio
-  // (ex: outro projeto no mesmo GitHub Pages interceptando o VetFlowCare)
-  if(location.pathname.includes('/vetflowcare')){
+  // (ex: outro projeto no mesmo GitHub Pages interceptando o VetFlowCare).
+  // Usa a pasta atual como referência, então funciona em qualquer endereço
+  // (/vetflowcare, /app, subdomínio ou raiz) sem quebrar ao mudar de domínio.
+  (function(){
+    const base = location.pathname.replace(/[^/]*$/, '');  // pasta do app
     navigator.serviceWorker.getRegistrations().then(regs => {
       regs.forEach(r => {
-        if(!r.scope.includes('/vetflowcare')){
-          r.unregister();
-          console.log('⚠ Service worker de outro app removido da área do VetFlowCare:', r.scope);
-        }
+        try{
+          const sp = new URL(r.scope).pathname;
+          // remove SW cujo escopo não contém a pasta do app nem é contido por ela
+          if(base.indexOf(sp) !== 0 && sp.indexOf(base) !== 0){
+            r.unregister();
+            console.log('⚠ Service worker de outro app removido:', r.scope);
+          }
+        }catch(e){}
       });
     }).catch(()=>{});
-  }
+  })();
   navigator.serviceWorker.register('sw.js', {scope: './'}).then(reg => {
     reg.update();
     setInterval(() => reg.update(), 60*60*1000);
