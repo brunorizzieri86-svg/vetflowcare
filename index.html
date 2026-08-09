@@ -290,12 +290,12 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.21.2';
+const APP_VER = '9.21.3';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.21.2',
+  ver: '9.21.3',
   titulo: 'Assinatura eletrônica com validade legal, Carteirinha e Arquivo Morto',
   itens: [
     ['⚖️','Assinatura com validade legal','A assinatura do tutor agora sai no PDF com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples da Lei nº 14.063/2020</b>. Continua opcional — quem preferir papel, é só não assinar na tela.'],
@@ -3172,27 +3172,28 @@ function gerarCarteirinha(petId){
     .sort((a,b)=>(a.due||'').localeCompare(b.due||''));
 
   // cabeçalho do topo (colorido) — só na 1ª página
-  const topo = `<div style="background:linear-gradient(135deg,#1E3A6E 0%,#12294f 55%,#2DC0AE 130%);color:#fff;padding:26px 30px 22px;border-radius:12px;margin-bottom:16px;position:relative">
-    <span style="position:absolute;top:22px;right:26px;font-size:12px;font-weight:700;background:rgba(255,255,255,.2);padding:5px 13px;border-radius:99px">✓ Digital</span>
-    <div style="font-size:12px;font-weight:700;letter-spacing:.2em;opacity:.9;text-transform:uppercase">🐾 Carteirinha de Vacinação</div>
-    <div style="display:flex;align-items:center;gap:18px;margin-top:14px">
-      ${pet.photo?`<img src="${pet.photo}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.55)">`:`<div style="width:72px;height:72px;border-radius:50%;background:rgba(255,255,255,.18);border:3px solid rgba(255,255,255,.55);display:flex;align-items:center;justify-content:center;font-size:38px">${petEmoji(pet)}</div>`}
+  const topo = `<div style="background:#1E3A6E;background:linear-gradient(135deg,#1E3A6E 0%,#12294f 55%,#2DC0AE 130%);padding:28px 30px 24px;border-radius:14px;margin-bottom:16px;position:relative">
+    <span style="position:absolute;top:24px;right:26px;font-size:12px;font-weight:700;color:#fff;background:rgba(255,255,255,.22);padding:6px 14px;border-radius:99px">✓ Digital</span>
+    <div style="font-size:12px;font-weight:700;letter-spacing:.2em;color:#cfe8e4;text-transform:uppercase">🐾 Carteirinha de Vacinação</div>
+    <div style="display:flex;align-items:center;gap:18px;margin-top:16px">
+      ${pet.photo?`<img src="${pet.photo}" style="width:78px;height:78px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,.65)">`:`<div style="width:78px;height:78px;border-radius:50%;background:rgba(255,255,255,.2);border:3px solid rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:40px">${petEmoji(pet)}</div>`}
       <div>
-        <div style="font-size:30px;font-weight:800;line-height:1">${esc(pet.name)}</div>
-        <div style="font-size:14px;opacity:.9;margin-top:5px">${esc(pet.species)}${pet.breed?' · '+esc(pet.breed):''}${pet.birth?' · '+calcAge(pet.birth):''}${pet.weight?' · '+pet.weight+' kg':''}${pet.gender?' · '+esc(pet.gender):''}</div>
+        <div style="font-size:34px;font-weight:800;line-height:1.05;color:#ffffff">${esc(pet.name)}</div>
+        <div style="font-size:14px;margin-top:6px;color:#e8f4f2">${esc(pet.species)}${pet.breed?' · '+esc(pet.breed):''}${pet.birth?' · '+calcAge(pet.birth):''}${pet.weight?' · '+pet.weight+' kg':''}${pet.gender?' · '+esc(pet.gender):''}</div>
       </div>
     </div></div>`;
 
   // bloco do tutor completo
-  const tutorBox = t ? `<div style="background:#f4faf9;border:1.5px solid #e3edeb;border-radius:12px;padding:14px 18px;margin-bottom:16px">
-    <div style="font-size:12px;font-weight:800;color:#4E8EAC;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">👤 Dados do tutor</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:13px;color:#1A2F5A">
-      <div style="grid-column:1/-1"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">NOME COMPLETO</span>${esc(t.name||'—')}</div>
-      ${t.cpf?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">CPF</span>${fmtCPF(t.cpf)}</div>`:''}
-      ${t.phone?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">TELEFONE</span>${fmtPhone(t.phone)}</div>`:''}
-      ${t.address?`<div style="grid-column:1/-1"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">ENDEREÇO</span>${esc(t.address)}${t.bairro?' · '+esc(t.bairro):''}</div>`:''}
-      ${t.cep?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">CEP</span>${fmtCEP(t.cep)}</div>`:''}
-      ${pet.chip?`<div><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:600">MICROCHIP</span>${esc(pet.chip)}</div>`:''}
+  const tf = (label, valor) => valor ? `<div style="min-width:180px;flex:1"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:700;letter-spacing:.03em">${label}</span><span style="font-size:14px;color:#1A2F5A">${valor}</span></div>` : '';
+  const tutorBox = t ? `<div style="background:#f4faf9;border:1.5px solid #e3edeb;border-radius:12px;padding:16px 20px;margin-bottom:16px">
+    <div style="font-size:12px;font-weight:800;color:#2DC0AE;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px">👤 Dados do tutor</div>
+    <div style="margin-bottom:10px"><span style="font-size:10px;color:#6B7A8D;display:block;font-weight:700;letter-spacing:.03em">NOME COMPLETO</span><span style="font-size:17px;color:#1E3A6E;font-weight:700">${esc(t.name||'—')}</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px 28px">
+      ${tf('CPF', t.cpf?fmtCPF(t.cpf):'')}
+      ${tf('TELEFONE', t.phone?fmtPhone(t.phone):'')}
+      ${tf('ENDEREÇO', t.address?esc(t.address)+(t.bairro?' · '+esc(t.bairro):''):'')}
+      ${tf('CEP', t.cep?fmtCEP(t.cep):'')}
+      ${tf('MICROCHIP', pet.chip?esc(pet.chip):'')}
     </div></div>` : '';
 
   // uma linha de vacina aplicada, com selo se houver
@@ -4175,7 +4176,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.21.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.21.3 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -6057,7 +6058,8 @@ function signatureHTML(dateISO){
     <div style="font-size:12px;color:#6B7A8D">${crmvFull()||''}</div></div>`;
 }
 function printShell(title, inner){
-  const html = `<!DOCTYPE html><html><head><title>${title}</title><style>
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>
+    *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important}
     body{font-family:-apple-system,'Segoe UI',sans-serif;padding:36px;color:#1A2F5A;max-width:720px;margin:0 auto}
     @media print{body{padding:20px}}
     .doctitle{text-align:center;font-size:17px;font-weight:900;letter-spacing:3px;color:#1E3A6E;margin-bottom:18px}
