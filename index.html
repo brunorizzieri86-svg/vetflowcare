@@ -290,14 +290,15 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.21.3';
+const APP_VER = '9.22.1';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.21.3',
-  titulo: 'Assinatura eletrônica com validade legal, Carteirinha e Arquivo Morto',
+  ver: '9.22.1',
+  titulo: 'Taxas de cartão: veja quanto você realmente recebe',
   itens: [
+    ['💳','Taxas de cartão no Financeiro','Agora você escolhe o <b>meio de pagamento</b> (Pix, débito, crédito) em cada atendimento, e o app calcula o <b>valor líquido real</b> — quanto entra no seu bolso depois da taxa da maquininha. Configure suas taxas em <b>Ajustes → 💳 Taxas de Cartão</b>.'],
     ['⚖️','Assinatura com validade legal','A assinatura do tutor agora sai no PDF com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples da Lei nº 14.063/2020</b>. Continua opcional — quem preferir papel, é só não assinar na tela.'],
     ['💳','Carteirinha de Vacinação em PDF','Gere uma carteirinha profissional do animal com <b>dados do tutor</b>, todas as vacinas, próximas doses e <b>anotações</b>. Tire foto do <b>selo da ampola</b> de cada vacina — como no papel. Em Saúde → 💳 Gerar Carteirinha.'],
     ['✍️','Assinatura do tutor na tela','Nos termos de consentimento, o tutor assina com o dedo. A assinatura entra no PDF com <b>data e hora</b>, virando prova de consentimento — sem papel.'],
@@ -460,7 +461,8 @@ function defaultDB(){
     license: { pro:false, code:'', activatedAt:null },
     charges: [],
     expenses: [],
-    settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true }
+    settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true,
+      taxas: { pix:0, dinheiro:0, debito:1.99, credito:3.49, creditoParc:4.5 } }
   };
 }
 
@@ -1122,6 +1124,33 @@ async function doRemovePass(){
 // ═══ FINANCEIRO ═══
 function fmtBRL(v){ return 'R$ ' + (v||0).toFixed(2).replace('.', ','); }
 // Unifica atendimentos com valor + cobranças avulsas
+// ── 💳 Taxas por meio de pagamento — motor de cálculo (100% offline) ──
+// Meios: pix, dinheiro, debito, credito, creditoParc (crédito parcelado)
+const MEIOS_PAG = {
+  pix:        { label:'Pix',              emo:'⚡', prazo:'D+0'  },
+  dinheiro:   { label:'Dinheiro',         emo:'💵', prazo:'D+0'  },
+  debito:     { label:'Débito',           emo:'💳', prazo:'D+1'  },
+  credito:    { label:'Crédito à vista',  emo:'💳', prazo:'D+30' },
+  creditoParc:{ label:'Crédito parcelado',emo:'💳', prazo:'parcelado' }
+};
+// taxa (%) configurada para um meio; cai pra 0 se não houver
+function taxaDoMeio(meio){
+  const t = (DB.settings && DB.settings.taxas) || {};
+  const v = t[meio];
+  return (typeof v === 'number' && v >= 0) ? v : 0;
+}
+// valor líquido = bruto menos a taxa do meio de pagamento
+function liquidoDe(valorBruto, meio){
+  if(!meio || !(valorBruto > 0)) return valorBruto || 0;
+  const taxa = taxaDoMeio(meio);
+  return valorBruto * (1 - taxa/100);
+}
+// quanto a maquininha "comeu" (em R$)
+function taxaValor(valorBruto, meio){
+  if(!meio || !(valorBruto > 0)) return 0;
+  return valorBruto * (taxaDoMeio(meio)/100);
+}
+
 function allReceivables(){
   const out = [];
   DB.pets.forEach(pet => {
@@ -1131,12 +1160,12 @@ function allReceivables(){
         a.parcelas.forEach((p, i) => {
           out.push({kind:'parc', id:a.id+'#'+i, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
             desc:`${a.title}${a.resumo?' · '+a.resumo:''} (${i+1}/${a.parcelas.length})`,
-            valor:p.valor, due:p.due, status:p.status, paidAt:p.paidAt||null, rem:p.rem});
+            valor:p.valor, due:p.due, status:p.status, paidAt:p.paidAt||null, rem:p.rem, meioPag:a.meioPag||null});
         });
       } else {
         out.push({kind:'atend', id:a.id, petId:pet.id, petName:pet.name, emo:petEmoji(pet),
           desc:a.title + (a.resumo?' · '+a.resumo:''), valor:a.valor,
-          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null, rem:a.rem});
+          due:a.payDue || a.date, status:a.payStatus, paidAt:a.paidAt||null, rem:a.rem, meioPag:a.meioPag||null});
       }
     });
   });
@@ -1144,7 +1173,7 @@ function allReceivables(){
     const pet = DB.pets.find(p=>p.id===c.petId);
     out.push({kind:'avulso', id:c.id, petId:c.petId,
       petName: pet ? pet.name : '(paciente removido)', emo: pet ? petEmoji(pet) : '🐾',
-      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null, rem:c.rem});
+      desc:c.desc, valor:c.valor, due:c.due, status:c.status, paidAt:c.paidAt||null, rem:c.rem, meioPag:c.meioPag||null});
   });
   return out;
 }
@@ -1256,8 +1285,12 @@ function renderFinance(){
         <div style="min-width:0">
           <b style="font-size:14px">${r.emo} ${esc(r.petName)}</b>
           <div style="color:var(--muted);font-size:12px;margin-top:1px">${esc(r.desc)}${r.kind==='avulso'?' · avulso':''}</div>
-          <div style="font-size:12px;font-weight:700;margin-top:4px;color:${pago?'var(--success)':late?'var(--danger)':d===0?'var(--warning)':'var(--muted)'}">${dueLbl}</div></div>
-        <b style="font-size:16px;color:${pago?'var(--success)':'var(--text)'};white-space:nowrap">${fmtBRL(r.valor)}</b></div>
+          <div style="font-size:12px;font-weight:700;margin-top:4px;color:${pago?'var(--success)':late?'var(--danger)':d===0?'var(--warning)':'var(--muted)'}">${dueLbl}</div>
+          ${r.meioPag ? `<div style="font-size:11px;color:var(--muted);margin-top:3px">${MEIOS_PAG[r.meioPag]?.emo||''} ${MEIOS_PAG[r.meioPag]?.label||''}${taxaDoMeio(r.meioPag)>0?` · taxa ${taxaDoMeio(r.meioPag)}%`:''}</div>`:''}</div>
+        <div style="text-align:right;white-space:nowrap">
+          <b style="font-size:16px;color:${pago?'var(--success)':'var(--text)'}">${fmtBRL(r.valor)}</b>
+          ${r.meioPag && taxaDoMeio(r.meioPag)>0 ? `<div style="font-size:11px;color:var(--vac);font-weight:700;margin-top:1px">líq. ${fmtBRL(liquidoDe(r.valor, r.meioPag))}</div>`:''}
+        </div></div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         ${pago
           ? `<button class="btn sm gray" onclick="undoPaid('${r.kind}','${r.id}')">↩ Desfazer</button>`
@@ -1910,6 +1943,14 @@ function openChargeForm(editId){
     <input id="fCDesc" value="${esc(c?.desc||'')}" placeholder="Ex: Venda de vermífugo · Banho e tosa">
     <label>Valor total (R$) *</label>
     <input id="fCValor" type="number" step="0.01" inputmode="decimal" value="${c?c.valor:''}" placeholder="Ex: 80.00" oninput="buildChgParcelas()">
+    <label>Meio de pagamento</label>
+    <div class="chips" id="fCMeio">
+      ${['pix','dinheiro','debito','credito','creditoParc'].map(m => {
+        const sel = (c?.meioPag || 'pix') === m;
+        return `<button class="chip ${sel?'on':''}" type="button" data-meio="${m}" onclick="selMeioPagChg(this,'${m}')">${MEIOS_PAG[m].emo} ${MEIOS_PAG[m].label}</button>`;
+      }).join('')}
+    </div>
+    <div id="fCMeioInfo" style="font-size:11.5px;color:var(--muted);margin:2px 0 8px"></div>
     <label>Situação</label>
     <div class="chips" id="fCPay">
       <button class="chip ${c?.status==='pago'?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));this.classList.add('on');document.getElementById('fCPendWrap').style.display='none'">✓ Recebido</button>
@@ -1934,6 +1975,18 @@ function openChargeForm(editId){
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveCharge('${editId||''}')">💾 Salvar</button>`);
 }
+function selMeioPagChg(btn, meio){
+  btn.parentElement.querySelectorAll('.chip[data-meio]').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  const taxa = taxaDoMeio(meio);
+  const info = document.getElementById('fCMeioInfo');
+  if(info){
+    info.innerHTML = taxa > 0
+      ? `Taxa de ${taxa}% — o app calcula o valor líquido automaticamente.`
+      : `Sem taxa — você recebe o valor integral.`;
+  }
+}
+
 function buildChgParcelas(){
   const n = parseInt(document.getElementById('fCParc')?.value)||1;
   const total = parseFloat(val('fCValor'))||0;
@@ -1963,6 +2016,7 @@ function saveCharge(editId, force){
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
   if(!(valor > 0 && valor < 1000000)){ toast('⚠ Valor inválido — use um número positivo'); return; }
   const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
+  const meioPagChg = document.querySelector('#fCMeio .chip.on')?.dataset.meio || 'pix';
   const petId = pickValue('fCPet');
   if(!petId){ toast('⚠ Paciente não encontrado — escolha da lista'); return; }
   const petSel = DB.pets.find(p=>p.id===petId);
@@ -1987,7 +2041,7 @@ function saveCharge(editId, force){
     const oldC = editId ? DB.charges.find(x=>x.id===editId) : null;
     parc.forEach((p,i) => {
       const base = {petId:petSel.id, desc:`${desc} (${i+1}/${n})`, valor:p.v, due:p.d,
-        status:'pendente', paidAt:null, createdAt: oldC?.createdAt || todayISO()};
+        status:'pendente', paidAt:null, meioPag:meioPagChg, createdAt: oldC?.createdAt || todayISO()};
       if(i===0 && oldC) Object.assign(oldC, base);
       else DB.charges.push({id:uid(), ...base});
     });
@@ -2004,11 +2058,11 @@ function saveCharge(editId, force){
     return;
   }
   if(editId){
-    Object.assign(c0, {petId:petSel.id, desc, valor, due, status,
+    Object.assign(c0, {petId:petSel.id, desc, valor, due, status, meioPag:meioPagChg,
       paidAt: status==='pago' ? (c0.paidAt||todayISO()) : null});
   } else {
     DB.charges.push({id:uid(), petId:petSel.id,
-      desc, valor, due, status,
+      desc, valor, due, status, meioPag:meioPagChg,
       paidAt: status==='pago' ? todayISO() : null, createdAt:todayISO()});
   }
   save(); closeSheet(); render(); toast(editId?'✏️ Cobrança atualizada!':'💰 Cobrança registrada!');
@@ -2339,6 +2393,12 @@ const TUT_STEPS = [
    • <b>🔔 Lembrete</b> automático 3 dias antes do vencimento<br>
    • <b>Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
    • <b>Fluxo</b>: gráfico de evolução mensal/trimestral/anual + relatório em <b>PDF</b> (Pro)`},
+  {emo:'💳', title:'Taxas de cartão — quanto você realmente recebe',
+   body:`Veja o valor <b>líquido real</b> de cada recebimento, já descontando a taxa da maquininha:<br><br>
+   • <b>1. Configure suas taxas</b>: em <b>Ajustes → 💳 Taxas de Cartão</b>, ajuste os percentuais da sua maquininha (já vem com valores padrão: Pix 0%, Débito 1.99%, Crédito 3.49%)<br>
+   • <b>2. No atendimento ou na cobrança</b>: escolha o <b>meio de pagamento</b> (Pix, dinheiro, débito, crédito)<br>
+   • <b>3. No Financeiro</b>: o app mostra o valor bruto e o <b>líquido lado a lado</b> — quanto entra no seu bolso depois da taxa<br><br>
+   💡 As taxas variam por maquininha e negociação. Confira na sua operadora (Cielo, Stone, PagSeguro…) e ajuste nos Ajustes.`},
   {emo:'🔐', title:'Segurança — login e criptografia',
    body:`Em <b>Ajustes → Segurança</b>:<br><br>
    • <b>Crie login e senha</b>: tudo passa a ser gravado com <b>criptografia AES-256</b> — o 👁 mostra a senha ao digitar<br>
@@ -4038,6 +4098,26 @@ function renderAlerts(f){
 }
 
 // ═══════════ AJUSTES + PERFIL PROFISSIONAL ═══════════
+// linha de configuração de uma taxa (input percentual)
+function taxaRow(meio, label){
+  const t = (DB.settings.taxas && DB.settings.taxas[meio]) || 0;
+  return `<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <span style="flex:1;font-size:14px">${label}</span>
+    <div style="display:flex;align-items:center;gap:6px">
+      <input type="number" step="0.01" min="0" max="100" value="${t}" id="taxa_${meio}"
+        onchange="salvarTaxa('${meio}', this.value)"
+        style="width:80px;text-align:right;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
+      <span style="font-size:14px;color:var(--muted);font-weight:700">%</span>
+    </div></div>`;
+}
+function salvarTaxa(meio, valor){
+  const v = parseFloat(valor);
+  if(!DB.settings.taxas) DB.settings.taxas = {};
+  DB.settings.taxas[meio] = (isFinite(v) && v >= 0) ? v : 0;
+  save();
+  toast('💳 Taxa atualizada');
+}
+
 function renderSettings(){
   const s = DB.settings, v = DB.vet;
   const sw = (key, label) => `<div class="srow"><span>${label}</span>
@@ -4119,6 +4199,19 @@ function renderSettings(){
           <button class="btn" style="background:var(--rx)" onclick="openProModal()">✨ Conhecer o Pro / Ativar código</button>`}
     </div></div>
 
+  <div class="sec"><div class="sec-h"><span>💳 Taxas de Cartão</span></div>
+    <div class="card">
+      <div style="font-size:12.5px;color:var(--muted);line-height:1.5;margin-bottom:12px">
+        Configure as taxas da sua maquininha. O app calcula automaticamente quanto você <b>realmente recebe</b> em cada atendimento, já descontando a taxa.</div>
+      ${taxaRow('pix','⚡ Pix')}
+      ${taxaRow('dinheiro','💵 Dinheiro')}
+      ${taxaRow('debito','💳 Débito')}
+      ${taxaRow('credito','💳 Crédito à vista')}
+      ${taxaRow('creditoParc','💳 Crédito parcelado')}
+      <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:11.5px;color:var(--vac);margin-top:10px">
+        💡 As taxas variam por maquininha e por negociação. Confira na sua operadora (Cielo, Stone, PagSeguro, etc) e ajuste aqui. Pix e dinheiro normalmente são 0%.</div>
+    </div></div>
+
   <div class="sec"><div class="sec-h"><span>🎨 Aparência</span></div>
     <div class="card">${sw('dark','🌙 Modo Escuro')}</div></div>
 
@@ -4176,7 +4269,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.21.3 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.22.1 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -5640,6 +5733,15 @@ function openApptForm(petId, editId){
     <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac)">
       💳 Parcelado em ${eA.parcelas.length}x — gerencie os recebimentos na aba <b>Financeiro</b>. Os itens editados atualizam o total.</div>
     <div style="display:none">` : ''}
+    <label>Meio de pagamento</label>
+    <div class="chips" id="fPMeio">
+      ${['pix','dinheiro','debito','credito','creditoParc'].map(m => {
+        const sel = (eA?.meioPag || 'pix') === m;
+        return `<button class="chip ${sel?'on':''}" type="button" data-meio="${m}" onclick="selMeioPag(this,'${m}')">${MEIOS_PAG[m].emo} ${MEIOS_PAG[m].label}</button>`;
+      }).join('')}
+    </div>
+    <div id="fPMeioInfo" style="font-size:11.5px;color:var(--muted);margin:2px 0 8px"></div>
+
     <label>Pagamento</label>
     <div class="chips" id="fPPay">
       <button class="chip ${(!eA || eA.payStatus!=='pendente')?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
@@ -5796,6 +5898,19 @@ function maskDate(el){
     .slice(0,10);
 }
 
+// seleciona meio de pagamento e mostra a taxa aplicada
+function selMeioPag(btn, meio){
+  btn.parentElement.querySelectorAll('.chip[data-meio]').forEach(c=>c.classList.remove('on'));
+  btn.classList.add('on');
+  const taxa = taxaDoMeio(meio);
+  const info = document.getElementById('fPMeioInfo');
+  if(info){
+    info.innerHTML = taxa > 0
+      ? `Taxa de ${taxa}% — o app calcula o valor líquido automaticamente.`
+      : `Sem taxa — você recebe o valor integral.`;
+  }
+}
+
 function buildParcelas(){
   const n = parseInt(document.getElementById('fPParc').value)||1;
   const total = parseFloat(document.getElementById('fPValor').value)||0;
@@ -5857,6 +5972,7 @@ function saveAppt(petId, force){
   let payStatus = null, payDue = null, paidAt = null;
   if(valor > 0){
     payStatus = document.querySelector('#fPPay .chip.on')?.dataset.v || 'pago';
+    var meioPag = document.querySelector('#fPMeio .chip.on')?.dataset.meio || 'pix';
     if(payStatus === 'pendente'){
       const n = parseInt(document.getElementById('fPParc')?.value)||1;
       if(n > 1){
@@ -5890,6 +6006,7 @@ function saveAppt(petId, force){
       const rec = val('fPRecord');
       Object.assign(a, {title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
         clinic:val('fPClinic'), valor, record: rec,
+        meioPag: valor > 0 ? (meioPag||'pix') : null,
         done: date < todayISO() ? 1 : (rec ? (a.done||1) : 0),
         itens: itens.length ? itens : null});
       if(!a.parcelas){
@@ -5910,7 +6027,7 @@ function saveAppt(petId, force){
   pet.appointments.push({
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'),
-    valor, payStatus, payDue, paidAt,
+    valor, payStatus, payDue, paidAt, meioPag: valor > 0 ? (meioPag||'pix') : null,
     done: date < todayISO() ? 1 : 0,
     itens: itens.length ? itens : null,
     parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
