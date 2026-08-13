@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#1e3a5f">
@@ -30,7 +30,7 @@ body.dark{
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{font-family:-apple-system,'Segoe UI',Inter,Roboto,sans-serif;background:var(--bg);color:var(--text);max-width:480px;margin:0 auto;min-height:100vh;padding-bottom:76px}
 button{font-family:inherit;cursor:pointer;border:none}
-input,select,textarea{font-family:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);font-size:15px;background:var(--surface);color:var(--text);outline:none}
+input,select,textarea{font-family:inherit;width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);font-size:16px;background:var(--surface);color:var(--text);outline:none}
 input:focus,select:focus,textarea:focus{border-color:var(--primary)}
 label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 5px}
 h2{font-size:20px;font-weight:900;letter-spacing:-.3px}
@@ -98,11 +98,13 @@ main{padding:16px}
 .btn.gray{background:var(--border);color:var(--muted)}
 .btn.rx{background:var(--rx)}
 .modal{position:fixed;inset:0;background:rgba(15,27,46,.65);z-index:100;display:flex;align-items:flex-end;backdrop-filter:blur(3px)}
-.modal .sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column}
+.modal .sheet{width:100%;max-width:480px;margin:0 auto;background:var(--surface);border-radius:24px 24px 0 0;max-height:88vh;max-height:88dvh;display:flex;flex-direction:column;position:relative}
 .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:18px 18px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
 .modal .mh h2{font-size:17px}
 .modal .mh .x{width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center}
 .modal .mb{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 18px;flex:1;min-height:0}
+.scroll-hint{position:absolute;left:50%;transform:translateX(-50%);bottom:70px;background:var(--primary);color:#fff;font-size:11px;font-weight:800;padding:5px 14px;border-radius:20px;box-shadow:0 4px 14px rgba(0,0,0,.25);cursor:pointer;opacity:0;transition:opacity .25s;z-index:5;animation:scrollBounce 1.4s ease-in-out infinite;pointer-events:none}
+@keyframes scrollBounce{0%,100%{bottom:70px}50%{bottom:64px}}
 .modal .mf{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0;background:var(--surface)}
 .modal.ov{z-index:300;align-items:center;justify-content:center;padding:22px}
 .modal.ov .sheet{border-radius:22px;max-height:80vh;max-height:80dvh;max-width:400px;animation:vfcpop .18s ease;box-shadow:0 24px 70px rgba(0,0,0,.35)}
@@ -290,13 +292,13 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.22.1';
+const APP_VER = '9.23.2';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.22.1',
-  titulo: 'Taxas de cartão: veja quanto você realmente recebe',
+  ver: '9.23.2',
+  titulo: 'Financeiro renovado + Plano Pro grátis 30 dias',
   itens: [
     ['💳','Taxas de cartão no Financeiro','Agora você escolhe o <b>meio de pagamento</b> (Pix, débito, crédito) em cada atendimento, e o app calcula o <b>valor líquido real</b> — quanto entra no seu bolso depois da taxa da maquininha. Configure suas taxas em <b>Ajustes → 💳 Taxas de Cartão</b>.'],
     ['⚖️','Assinatura com validade legal','A assinatura do tutor agora sai no PDF com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples da Lei nº 14.063/2020</b>. Continua opcional — quem preferir papel, é só não assinar na tela.'],
@@ -1202,18 +1204,13 @@ function renderFinance(){
     ['todos','📋 A receber', r=>r.status==='pendente'],
     ['pagos','✅ Recebidos', r=>r.status==='pago']
   ];
-  const fdef = filters.find(f=>f[0]===finFilter) || filters[3];
-  let list = all.filter(fdef[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
-  if(finQ) list = list.filter(r =>
-    r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
-
   let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <button class="btn sm gray" onclick="goTab(currentTab||'home')">‹</button>
     <h2 style="flex:1">💰 Financeiro</h2>
     ${finView==='rec'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
     ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>
   <div class="subtabs">
-    <button class="chip ${finView==='rec'?'on':''}" onclick="finView='rec';render()">💵 A Receber</button>
+    <button class="chip ${finView==='rec'?'on':''}" onclick="finView='rec';render()">💰 Recebido / Receber</button>
     <button class="chip ${finView==='desp'?'on':''}" onclick="finView='desp';render()">🧾 Despesas${isPro()?'':' 🔒'}</button>
     <button class="chip ${finView==='fluxo'?'on':''}" onclick="finView='fluxo';render()">📊 Fluxo${isPro()?'':' 🔒'}</button>
   </div>`;
@@ -1222,65 +1219,15 @@ function renderFinance(){
   h += `<input placeholder="🔍 Buscar por paciente ou descrição…" value="${esc(finQ)}" style="margin-bottom:12px"
     oninput="finQ=this.value.toLowerCase();debQ(()=>{document.getElementById('mainContent').innerHTML=renderFinance();
     const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)})">`;
-  // Lembretes de vencimento (2-3 dias antes)
-  DB.settings.payRem = DB.settings.payRem !== false;
-  const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
-  if(DB.settings.payRem && lembrar.length){
-    h += `<div class="card" style="border-color:var(--warning);margin-bottom:12px">
-      <b style="font-size:13px">🔔 ${lembrar.length} ${lembrar.length===1?'cobrança vence':'cobranças vencem'} em até 3 dias</b>
-      <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Toque em 💬 para enviar o lembrete pelo WhatsApp${isPro()?'':' (recurso Pro)'}</div>
-      ${lembrar.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
-        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.emo} ${esc(r.petName)} · ${fmtBRL(r.valor)} · ${fmtDate(r.due)}</span>
-        <button class="btn sm" style="background:#25D366" onclick="cobrarWhats('${r.kind}','${r.id}')">💬</button></div>`).join('')}
-      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;cursor:pointer">
-        <input type="checkbox" checked onchange="DB.settings.payRem=this.checked;save();render()" style="accent-color:var(--primary)"> Avisar sobre vencimentos próximos</label>
-    </div>`;
-  }
-
-  // Totais
-  h += `<div style="display:flex;gap:10px;margin-bottom:12px">
-    <div class="card" style="flex:1;text-align:center">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">A receber</div>
-      <div style="font-size:18px;font-weight:900;color:var(--warning)">${fmtBRL(tot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${pend.length} ${pend.length===1?'item':'itens'}</div></div>
-    <div class="card" style="flex:1;text-align:center;${lateArr.length?'border-color:var(--danger)':''}">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Atrasado</div>
-      <div style="font-size:18px;font-weight:900;color:${lateArr.length?'var(--danger)':'var(--success)'}">${fmtBRL(lateTot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item':'itens'}</div></div></div>`;
-
-  // Resumo do mês (Pro)
-  h += isPro()
-    ? `<div class="card" style="margin-bottom:12px;background:var(--rxbg);border-color:var(--rx);cursor:pointer" onclick="finView='fluxo';render()">
-        <div style="font-size:11px;font-weight:700;color:var(--rx);text-transform:uppercase">✨ ${monthName}: recebido ${fmtBRL(paidMonth)}</div>
-        <div style="font-size:12px;color:var(--muted);margin-top:2px">Toque para ver o fluxo de todos os meses →</div></div>`
-    : '';
-
-  // Filtros — grade FIXA (sem esteira lateral): todos visíveis de uma vez
-  h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">${filters.slice(0,3).map(([k,l,fn])=>{
-    const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
-  }).join('')}</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">${filters.slice(3).map(([k,l,fn])=>{
-    const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
-  }).join('')}</div>`;
-
-  // Análise por período: Previsão × Realizado
-  h += renderPeriodoCard(all);
-
-  if(!list.length){
-    h += `<div class="card empty"><div class="big">${finFilter==='pagos'?'💸':'🎉'}</div>${finFilter==='pagos'?'Nenhum recebimento registrado ainda':'Nada por aqui!'}</div>`;
-    return h;
-  }
-
-  list.forEach(r => {
+  // ═══ helper: renderiza um card de recebível ═══
+  const cardRecebivel = (r) => {
     const d = daysUntil(r.due);
     const late = r.status==='pendente' && d<0;
     const pago = r.status==='pago';
     const dueLbl = pago ? `✓ Pago em ${fmtDate(r.paidAt)}` :
       late ? `⚠ Venceu em ${fmtDate(r.due)} (${Math.abs(d)}d)` :
       d===0 ? `🟡 Vence hoje` : `📅 Vence em ${fmtDate(r.due)} (${d}d)`;
-    h += `<div class="card" style="${late?'border-left:4px solid var(--danger)':pago?'opacity:.75':''}">
+    return `<div class="card" style="${late?'border-left:4px solid var(--danger)':pago?'border-left:4px solid var(--success)':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div style="min-width:0">
           <b style="font-size:14px">${r.emo} ${esc(r.petName)}</b>
@@ -1300,9 +1247,73 @@ function renderFinance(){
         <button class="btn sm outline" onclick="editReceivable('${r.kind}','${r.id}','${r.petId}')">✏️</button>
         <button class="btn sm dangero" onclick="delReceivable('${r.kind}','${r.id}')">🗑</button>
       </div></div>`;
-  });
+  };
+
+  // ═══ dados dos dois blocos ═══
+  const ymNow = todayISO().slice(0,7);
+  let recebidos = all.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(ymNow))
+    .sort((a,b)=>(b.paidAt||'').localeCompare(a.paidAt||''));
+  const totRecebido = recebidos.reduce((s,r)=>s+r.valor,0);
+  const filtersP = filters.filter(f => f[0] !== 'pagos');
+  const fdefP = filtersP.find(f=>f[0]===finFilter) || filtersP.find(f=>f[0]==='todos') || filtersP[filtersP.length-1];
+  let pendMostrar = pend.filter(fdefP[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  if(finQ){
+    recebidos = recebidos.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
+    pendMostrar = pendMostrar.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
+  }
+
+  // ═══ 🟢 BLOCO 1 — RECEBIDO (este mês) ═══
+  h += `<div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
+    <div style="width:4px;height:20px;background:var(--success);border-radius:2px"></div>
+    <b style="font-size:15px;color:var(--success)">🟢 RECEBIDO</b>
+    <span style="font-size:11px;color:var(--muted)">este mês (${MONTHS[new Date().getMonth()]})</span></div>`;
+  h += `<div class="card" style="margin-bottom:10px;background:rgba(45,179,122,.08);border-color:var(--success);text-align:center">
+    <div style="font-size:10px;font-weight:700;color:var(--success);text-transform:uppercase">Total recebido</div>
+    <div style="font-size:24px;font-weight:900;color:var(--success);margin-top:2px">${fmtBRL(totRecebido)}</div>
+    <div style="font-size:11px;color:var(--muted)">${recebidos.length} ${recebidos.length===1?'recebimento':'recebimentos'}</div></div>`;
+  h += recebidos.length ? recebidos.map(cardRecebivel).join('')
+    : `<div class="card empty" style="margin-bottom:10px"><div class="big">💸</div>Nenhum recebimento neste mês ainda</div>`;
+
+  // ═══ 🟡 BLOCO 2 — A RECEBER ═══
+  h += `<div style="display:flex;align-items:center;gap:8px;margin:20px 0 10px">
+    <div style="width:4px;height:20px;background:var(--warning);border-radius:2px"></div>
+    <b style="font-size:15px;color:var(--warning)">🟡 A RECEBER</b></div>`;
+  h += `<div style="display:flex;gap:10px;margin-bottom:12px">
+    <div class="card" style="flex:1;text-align:center;padding:12px 8px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">🟡 A receber</div>
+      <div style="font-size:18px;font-weight:900;color:var(--warning);margin-top:2px">${fmtBRL(tot)}</div>
+      <div style="font-size:11px;color:var(--muted)">${pend.length} ${pend.length===1?'item':'itens'}</div></div>
+    <div class="card" style="flex:1;text-align:center;padding:12px 8px;${lateArr.length?'border-color:var(--danger)':''}">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">🔴 Atrasado</div>
+      <div style="font-size:18px;font-weight:900;margin-top:2px;color:${lateArr.length?'var(--danger)':'var(--muted)'}">${fmtBRL(lateTot)}</div>
+      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item':'itens'}</div></div></div>`;
+  DB.settings.payRem = DB.settings.payRem !== false;
+  const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
+  if(DB.settings.payRem && lembrar.length){
+    h += `<div class="card" style="border-color:var(--warning);margin-bottom:12px">
+      <b style="font-size:13px">🔔 ${lembrar.length} ${lembrar.length===1?'cobrança vence':'cobranças vencem'} em até 3 dias</b>
+      <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Toque em 💬 para enviar o lembrete pelo WhatsApp${isPro()?'':' (recurso Pro)'}</div>
+      ${lembrar.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
+        <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.emo} ${esc(r.petName)} · ${fmtBRL(r.valor)} · ${fmtDate(r.due)}</span>
+        <button class="btn sm" style="background:#25D366" onclick="cobrarWhats('${r.kind}','${r.id}')">💬</button></div>`).join('')}
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;cursor:pointer">
+        <input type="checkbox" checked onchange="DB.settings.payRem=this.checked;save();render()" style="accent-color:var(--primary)"> Avisar sobre vencimentos próximos</label>
+    </div>`;
+  }
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">${filtersP.slice(0,2).map(([k,l,fn])=>{
+    const n = all.filter(fn).length;
+    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+  }).join('')}</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">${filtersP.slice(2).map(([k,l,fn])=>{
+    const n = all.filter(fn).length;
+    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+  }).join('')}</div>`;
+  h += pendMostrar.length ? pendMostrar.map(cardRecebivel).join('')
+    : `<div class="card empty"><div class="big">🎉</div>Nada a receber por aqui!</div>`;
+
   return h;
 }
+
 
 function openDueEdit(kind, id){
   const list = allReceivables();
@@ -1820,7 +1831,9 @@ function fluxoRows(){
     const receb = all.filter(r=>r.status==='pago' && inB(r.paidAt)).reduce((s,r)=>s+r.valor,0);
     const prev  = all.filter(r=>r.status==='pendente' && inB(r.due)).reduce((s,r)=>s+r.valor,0);
     const desp  = DB.expenses.filter(e=>inB(e.date)).reduce((s,e)=>s+e.valor,0);
-    return {label:b.label, receb, prev, desp, saldo:receb-desp};
+    // ym: ano-mês para tag de contexto (só no modo mensal, onde há 1 mês por bucket)
+    const ym = (finPeriod==='m' && b.months.length===1) ? b.months[0] : null;
+    return {label:b.label, receb, prev, desp, saldo:receb-desp, ym};
   }).filter((r,i) => r.receb || r.prev || r.desp || i < 3);
 }
 function renderFluxo(){
@@ -1829,10 +1842,9 @@ function renderFluxo(){
     <div style="font-size:12px;color:var(--muted);margin-top:4px">Acompanhe por mês, trimestre, semestre ou ano — recebido, a receber, despesas e saldo. Disponível no <b style="color:var(--rx)">✨ Pro</b>.</div></div>`;
   const pers = [['m','Mensal'],['t','Trimestral'],['s','Semestral'],['a','Anual']];
   let h = `<div class="chips" style="margin-bottom:10px">${pers.map(([k,l])=>
-    `<button class="chip ${finPeriod===k?'on':''}" onclick="finPeriod='${k}';render()">${l}</button>`).join('')}
-    <button class="chip" onclick="printFluxo()">📄 PDF</button></div>`;
+    `<button class="chip ${finPeriod===k?'on':''}" onclick="finPeriod='${k}';render()">${l}</button>`).join('')}</div>`;
   const rows = fluxoRows();
-  // Resumo do período
+  // Totais do período
   const tR = rows.reduce((s,r)=>s+r.receb,0), tP = rows.reduce((s,r)=>s+r.prev,0),
         tD = rows.reduce((s,r)=>s+r.desp,0), tS = tR - tD;
   // Produção clínica do período (atendimentos por tipo)
@@ -1848,61 +1860,100 @@ function renderFluxo(){
   const pagosN = allRecv.filter(r => r.status==='pago' && inPer(r.paidAt)).length;
   const ticket = pagosN ? tR / pagosN : 0;
   const taxa = (tR + tP) > 0 ? Math.round(tR / (tR + tP) * 100) : 100;
+
+  // ═══ CARD RESUMO — limpo e visual ═══
   h += `<div class="card" style="margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Resumo do período</div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px">
-      <span class="st ok">✓ Recebido ${fmtBRL(tR)}</span>
-      <span class="st prog">📅 A receber ${fmtBRL(tP)}</span>
-      <span class="st bad">🧾 Despesas ${fmtBRL(tD)}</span></div>
-    <div style="margin-top:8px;font-size:15px">Saldo do período: <b style="color:${tS>=0?'var(--success)':'var(--danger)'}">${fmtBRL(tS)}</b></div>
-    <div style="display:flex;gap:14px;margin-top:10px;padding-top:9px;border-top:1px solid var(--border)">
-      <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Taxa de recebimento</div>
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">📊 Resumo do período</div>
+    <!-- 3 números-chave grandes -->
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <div style="flex:1;text-align:center;padding:10px 4px;background:rgba(45,179,122,.10);border-radius:12px">
+        <div style="font-size:9px;font-weight:800;color:var(--success);text-transform:uppercase;letter-spacing:.3px">✓ Recebido</div>
+        <div style="font-size:16px;font-weight:900;color:var(--success);margin-top:3px">${fmtBRL(tR)}</div></div>
+      <div style="flex:1;text-align:center;padding:10px 4px;background:rgba(78,142,172,.10);border-radius:12px">
+        <div style="font-size:9px;font-weight:800;color:var(--vac);text-transform:uppercase;letter-spacing:.3px">📅 A receber</div>
+        <div style="font-size:16px;font-weight:900;color:var(--vac);margin-top:3px">${fmtBRL(tP)}</div></div>
+      <div style="flex:1;text-align:center;padding:10px 4px;background:rgba(224,82,82,.10);border-radius:12px">
+        <div style="font-size:9px;font-weight:800;color:var(--danger);text-transform:uppercase;letter-spacing:.3px">🧾 Despesas</div>
+        <div style="font-size:16px;font-weight:900;color:var(--danger);margin-top:3px">${fmtBRL(tD)}</div></div>
+    </div>
+    <!-- Saldo em destaque -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:11px 14px;background:${tS>=0?'rgba(45,179,122,.12)':'rgba(224,82,82,.12)'};border-radius:12px">
+      <span style="font-size:13px;font-weight:700;color:var(--text)">${tS>=0?'💰 Saldo do período':'⚠️ PREJUÍZO no período'}</span>
+      <b style="font-size:20px;color:${tS>=0?'var(--success)':'var(--danger)'}">${fmtBRL(tS)}</b>
+    </div>
+    <!-- KPIs secundários -->
+    <div style="display:flex;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)">
+      <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Taxa recebim.</div>
         <b style="font-size:16px;color:${taxa>=80?'var(--success)':taxa>=50?'var(--warning)':'var(--danger)'}">${taxa}%</b></div>
-      <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Ticket médio</div>
+      <div style="flex:1;text-align:center;border-left:1px solid var(--border);border-right:1px solid var(--border)"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Ticket médio</div>
         <b style="font-size:16px">${fmtBRL(ticket)}</b></div>
-      <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Atendimentos</div>
+      <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Atendim.</div>
         <b style="font-size:16px">${prodTot}</b></div>
+    </div>
+    <div style="text-align:center;margin-top:12px">
+      <button class="btn sm" onclick="printFluxo()">📄 Exportar PDF</button>
     </div></div>`;
-  // Card de produção clínica por tipo
+
+  // ═══ PRODUÇÃO CLÍNICA — barras maiores e alinhadas ═══
   if(prodTot){
     const TIPO_EMO = {'Consulta':'🩺','Retorno':'🔄','Vacinação':'💉','Exame':'🔬','Cirurgia':'🏥','Emergência':'🚨','Orientações via Telefone':'📞'};
     const maxT = Math.max(...Object.values(prodCount));
     h += `<div class="card" style="margin-bottom:12px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">🩺 Produção clínica do período</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">🩺 Produção clínica do período</div>
       ${Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).map(([t,n])=>`
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-          <span style="font-size:12px;min-width:110px">${TIPO_EMO[t]||'📌'} ${esc(t)}</span>
-          <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(n/maxT*100)}%;background:var(--primary);border-radius:5px"></div></div>
-          <b style="font-size:12px;min-width:24px;text-align:right">${n}</b></div>`).join('')}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span style="font-size:12px;min-width:100px;font-weight:600">${TIPO_EMO[t]||'📌'} ${esc(t)}</span>
+          <div style="flex:1;height:18px;background:var(--bg);border-radius:9px;position:relative;overflow:hidden">
+            <div style="height:100%;width:${Math.max(12,Math.round(n/maxT*100))}%;background:var(--primary);border-radius:9px;display:flex;align-items:center;justify-content:flex-end;padding-right:7px">
+              <b style="font-size:11px;color:#fff">${n}</b></div>
+          </div></div>`).join('')}
     </div>`;
   }
-  // Gráfico de barras: recebido × despesas por período
+
+  // ═══ EVOLUÇÃO — barras agrupadas maiores, 3 meses + ver mais ═══
   const maxV = Math.max(1, ...rows.map(r=>Math.max(r.receb, r.desp, r.prev)));
   const chartRows = [...rows].reverse();
+  const LIM = 3;
+  const mostra = window._fluxoVerMais ? chartRows : chartRows.slice(0, LIM);
   h += `<div class="card" style="margin-bottom:12px">
-    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">📊 Evolução</div>
-    ${chartRows.map(r=>`<div style="margin-top:8px">
-      <div style="font-size:11px;font-weight:700;margin-bottom:3px">${r.label}</div>
-      <div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.receb/maxV*100)}%;background:var(--success);border-radius:5px"></div></div>
-        <span style="font-size:10px;color:var(--success);min-width:70px;text-align:right">${fmtBRL(r.receb)}</span></div>
-      ${r.prev?`<div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.prev/maxV*100)}%;background:var(--vac);border-radius:5px;opacity:.7"></div></div>
-        <span style="font-size:10px;color:var(--vac);min-width:70px;text-align:right">${fmtBRL(r.prev)}</span></div>`:''}
-      ${r.desp?`<div style="display:flex;align-items:center;gap:6px;margin-top:2px">
-        <div style="flex:1;height:9px;background:var(--bg);border-radius:5px"><div style="height:100%;width:${Math.round(r.desp/maxV*100)}%;background:var(--danger);border-radius:5px;opacity:.75"></div></div>
-        <span style="font-size:10px;color:var(--danger);min-width:70px;text-align:right">${fmtBRL(r.desp)}</span></div>`:''}
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">📈 Evolução</div>
+    ${mostra.map(r=>`<div style="margin-top:12px">
+      <div style="font-size:12px;font-weight:700;margin-bottom:5px">${r.label}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+        <div style="flex:1;height:16px;background:var(--bg);border-radius:8px;overflow:hidden"><div style="height:100%;width:${Math.max(2,Math.round(r.receb/maxV*100))}%;background:var(--success);border-radius:8px"></div></div>
+        <span style="font-size:11px;font-weight:700;color:var(--success);min-width:76px;text-align:right">${fmtBRL(r.receb)}</span></div>
+      ${r.prev?`<div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+        <div style="flex:1;height:16px;background:var(--bg);border-radius:8px;overflow:hidden"><div style="height:100%;width:${Math.max(2,Math.round(r.prev/maxV*100))}%;background:var(--vac);border-radius:8px;opacity:.75"></div></div>
+        <span style="font-size:11px;font-weight:700;color:var(--vac);min-width:76px;text-align:right">${fmtBRL(r.prev)}</span></div>`:''}
+      ${r.desp?`<div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+        <div style="flex:1;height:16px;background:var(--bg);border-radius:8px;overflow:hidden"><div style="height:100%;width:${Math.max(2,Math.round(r.desp/maxV*100))}%;background:var(--danger);border-radius:8px;opacity:.8"></div></div>
+        <span style="font-size:11px;font-weight:700;color:var(--danger);min-width:76px;text-align:right">${fmtBRL(r.desp)}</span></div>`:''}
     </div>`).join('')}
-    <div style="display:flex;gap:10px;margin-top:10px;font-size:10px;color:var(--muted)">
-      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--success)"></i> Recebido</span>
-      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--vac)"></i> A receber</span>
-      <span><i style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--danger)"></i> Despesas</span></div>
+    ${chartRows.length > LIM ? `<div style="text-align:center;margin-top:12px">
+      <button class="chip" onclick="window._fluxoVerMais=${!window._fluxoVerMais};render()">${window._fluxoVerMais?'▲ Ver menos':'▼ Ver todos os '+chartRows.length+' períodos'}</button></div>`:''}
+    <div style="display:flex;gap:12px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);font-size:10px;color:var(--muted)">
+      <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--success)"></i> Recebido</span>
+      <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--vac)"></i> A receber</span>
+      <span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--danger)"></i> Despesas</span></div>
   </div>`;
+
+  // ═══ CARDS MENSAIS — com tags de contexto [MÊS ATUAL] [FECHADO] [FUTURO] ═══
+  const nowYM = todayISO().slice(0,7);
   rows.forEach(r => {
+    // determina o contexto temporal
+    let tag = '', tagColor = '';
+    if(r.ym){
+      if(r.ym === nowYM){ tag = 'MÊS ATUAL'; tagColor = 'var(--primary)'; }
+      else if(r.ym > nowYM){ tag = 'FUTURO'; tagColor = 'var(--vac)'; }
+      else { tag = 'FECHADO'; tagColor = 'var(--muted)'; }
+    }
     h += `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <b style="font-size:14px">${r.label}</b>
-        <b style="color:${r.saldo>=0?'var(--success)':'var(--danger)'}">Saldo: ${fmtBRL(r.saldo)}</b></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <b style="font-size:14px">${r.label}</b>
+          ${tag?`<span style="font-size:8.5px;font-weight:800;padding:2px 7px;border-radius:20px;background:${tagColor==='var(--muted)'?'var(--bg)':'rgba(45,192,174,.12)'};color:${tagColor};text-transform:uppercase;letter-spacing:.3px">${tag}</span>`:''}
+        </div>
+        <b style="color:${r.saldo>=0?'var(--success)':'var(--danger)'};font-size:15px">${r.saldo>=0?'':'⚠️ '}${fmtBRL(r.saldo)}</b></div>
       <div style="display:flex;gap:6px;margin-top:8px;font-size:11px;flex-wrap:wrap">
         <span class="st ok">✓ Recebido ${fmtBRL(r.receb)}</span>
         ${r.prev?`<span class="st prog">📅 A receber ${fmtBRL(r.prev)}</span>`:''}
@@ -2121,7 +2172,7 @@ function showInviteGate(next){
     <div style="background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.25);border-radius:14px;padding:12px 16px;margin-top:18px;max-width:340px">
       <div style="color:#fff;font-weight:800;font-size:15px">🎟️ Acesso por convite</div>
       <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px">Estamos em fase de testes fechados. Digite o código de convite recebido do desenvolvedor.</div></div>
-    <input id="invCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13"
+    <input id="invCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13" oninput="maskCode(this)"
       style="margin-top:16px;width:100%;max-width:300px;text-align:center;font-size:18px;font-weight:800;letter-spacing:2px;padding:14px;border-radius:14px;border:none;text-transform:uppercase"
       onkeydown="if(event.key==='Enter')checkInvite()">
     <button onclick="checkInvite()" style="margin-top:12px;width:100%;max-width:300px;background:#2DC0AE;color:#fff;padding:15px;border-radius:24px;font-size:16px;font-weight:800;border:none">Validar Convite</button>
@@ -2303,6 +2354,20 @@ const TUT_STEPS = [
    ✅ Proteja tudo com <b>senha criptografada</b> e <b>backups</b><br><br>
    Este guia mostra <b>cada módulo</b> do sistema. Pode pular e rever quando quiser em <b>Ajustes → Ajuda</b>.`,
    action:{label:'📲 Instalar o App agora (1º passo!)', fn:'promptInstall()'}},
+  {emo:'✨', title:'🎁 Ative seu Plano Pro GRÁTIS por 30 dias!',
+   body:`<div style="background:linear-gradient(135deg,rgba(45,192,174,.12),rgba(78,142,172,.12));border:1.5px solid var(--primary);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+   <b style="color:var(--primary);font-size:14px">Teste TODO o app sem limites por 30 dias!</b></div>
+   O Plano Pro libera <b>tudo</b>:<br><br>
+   • 🐾 Pacientes <b>ilimitados</b> (grátis: até ${FREE_PET_LIMIT})<br>
+   • 💰 <b>Financeiro completo</b>: fluxo de caixa, despesas, relatórios<br>
+   • 💬 <b>Cobrança pelo WhatsApp</b> com um toque<br>
+   • 🎨 Sua <b>logo e assinatura</b> nos documentos<br>
+   • 💊 <b>Controle Especial</b> · sem marca-d'água<br><br>
+   <b>Como ativar em 3 passos:</b><br>
+   1️⃣ Toque no botão abaixo (ou vá em <b>Ajustes → ✨ Pro</b>)<br>
+   2️⃣ Solicite seu código pelo WhatsApp<br>
+   3️⃣ Insira o código e pronto — <b>tudo liberado!</b> 🚀`,
+   action:{label:'✨ Ativar Plano Pro (Grátis 30 dias)', fn:'finishTutorial(true);openProModal()'}},
   {emo:'🏠', title:'Início — seu painel do dia',
    body:`Ao abrir, você vê tudo que importa <b>hoje</b>:<br><br>
    • <b>Índice de saúde</b>: anel com a média dos pacientes<br>
@@ -2388,11 +2453,11 @@ const TUT_STEPS = [
    • <b>🚗 Quilometragem</b>: lance os km rodados e o valor por km — vira despesa automática no Financeiro<br><br>
    <b>🔔 Alertas</b>: tudo que vence — vacinas, medicações, atendimentos e <b>pagamentos</b> — avisado com 7, 3 e 1 dia de antecedência. Cada alerta tem o botão <b>💬 Avisar o tutor</b>.`},
   {emo:'💰', title:'Financeiro — controle total',
-   body:`Pelo botão no Início:<br><br>
-   • <b>A Receber</b>: filtros (atrasados/hoje/próximos), busca, alterar vencimento e <b>💬 Cobrar no WhatsApp</b> com mensagem pronta (Pro)<br>
+   body:`Pelo botão no Início. Três abas, bem separadas:<br><br>
+   • <b>💰 Recebido / Receber</b>: dois blocos claros — 🟢 <b>RECEBIDO</b> (o que já entrou no caixa este mês) e 🟡 <b>A RECEBER</b> (o que falta, com atrasados e vencimentos). Marque como recebido, altere vencimento e <b>💬 Cobre no WhatsApp</b> com um toque (Pro)<br>
    • <b>🔔 Lembrete</b> automático 3 dias antes do vencimento<br>
-   • <b>Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
-   • <b>Fluxo</b>: gráfico de evolução mensal/trimestral/anual + relatório em <b>PDF</b> (Pro)`},
+   • <b>🧾 Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
+   • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, produção clínica, ticket médio e evolução mês a mês + relatório em <b>PDF</b> (Pro)`},
   {emo:'💳', title:'Taxas de cartão — quanto você realmente recebe',
    body:`Veja o valor <b>líquido real</b> de cada recebimento, já descontando a taxa da maquininha:<br><br>
    • <b>1. Configure suas taxas</b>: em <b>Ajustes → 💳 Taxas de Cartão</b>, ajuste os percentuais da sua maquininha (já vem com valores padrão: Pix 0%, Débito 1.99%, Crédito 3.49%)<br>
@@ -2430,12 +2495,11 @@ const TUT_STEPS = [
    🍎 <b>Usa iPhone?</b> <b>Instale na Tela de Início</b> (Compartilhar → Adicionar à Tela de Início). Sem isso, o Safari pode apagar os dados após dias sem uso.<br>
    ⚠️ <b>Nunca</b> limpe "dados de navegação" do navegador — isso apaga o app.`,
    action:{label:'🛡️ Abrir a Central de Proteção', fn:'finishTutorial(true);openCentralProtecao()'}},
-  {emo:'✨', title:'VetFlowCare Pro',
-   body:`A versão gratuita permite até <b>5 pacientes</b>. O <b>Pro</b> libera:<br><br>
-   • Pacientes ilimitados · Controle Especial · sem marca-d'água<br>
-   • Logo/assinatura · Cobrança WhatsApp · Despesas e Fluxo<br><br>
-   Ative em <b>Ajustes → ✨ Pro</b> com o código do desenvolvedor. Cada código vale <b>1 vez por aparelho</b> e você acompanha os <b>dias restantes</b>.<br><br>
-   Pronto! Reveja este guia em <b>Ajustes → Ajuda</b>. Bom trabalho! 🐾`}
+  {emo:'🎉', title:'Tudo pronto!',
+   body:`Você conhece o essencial do VetFlowCare. 🐾<br><br>
+   Reveja este guia quando quiser em <b>Ajustes → Ajuda</b>.<br><br>
+   E não esqueça: você tem <b>30 dias grátis</b> do Pro esperando por você — aproveite tudo que o app oferece! ✨`,
+   action:{label:'✨ Ativar Plano Pro (Grátis 30 dias)', fn:'finishTutorial(true);openProModal()'}}
 ];
 function goReceitaDemo(){
   finishTutorial(true);
@@ -2563,6 +2627,23 @@ function renderHome(){
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
 
+  // ✨ Aviso: ATIVE O PRO (para quem ainda não ativou — agradável e influenciador)
+  // Só aparece se: NÃO é Pro, NÃO tem licença com validade (nunca ativou nem venceu), e não deu snooze hoje
+  if(!isPro() && !proExpired() && !(DB.license && DB.license.expiresAt) && localStorage.getItem('vfc_pro_promo_snooze') !== todayISO()){
+    h += `<div class="card" style="border:none;background:linear-gradient(135deg,#2DC0AE,#4E8EAC);margin-bottom:12px;padding:14px 16px;cursor:pointer" onclick="openProModal()">
+      <div style="display:flex;align-items:flex-start;gap:11px">
+        <span style="font-size:26px">🎁</span>
+        <div style="flex:1;color:#fff">
+          <b style="font-size:14.5px;display:block;margin-bottom:3px">Você já testou tudo do VetFlowCare?</b>
+          <span style="font-size:12.5px;line-height:1.5;opacity:.95">Ative o <b>Plano Pro GRÁTIS por 30 dias</b> e desbloqueie o financeiro completo, cobrança no WhatsApp, pacientes ilimitados e muito mais! ✨</span>
+        </div>
+        <button style="background:rgba(255,255,255,.25);border:none;color:#fff;font-size:15px;padding:2px 7px;border-radius:8px;flex-shrink:0" onclick="event.stopPropagation();localStorage.setItem('vfc_pro_promo_snooze','${todayISO()}');render()">✕</button>
+      </div>
+      <div style="background:#fff;color:var(--primary);font-weight:800;font-size:13px;text-align:center;padding:9px;border-radius:10px;margin-top:11px">
+        ✨ Ativar meus 30 dias grátis →</div>
+    </div>`;
+  }
+
   // ⏳ Aviso de vencimento do plano Pro (7 dias antes + vencido)
   const _L = DB.license;
   if(_L && _L.expiresAt && localStorage.getItem('vfc_pro_snooze') !== todayISO()){
@@ -2583,31 +2664,6 @@ function renderHome(){
           onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Meu plano Pro do VetFlowCare está vencendo e quero renovar. Pode me ajudar?'))">
           💬 Renovar pelo WhatsApp da VetFlowCare</button>
       </div>`;
-    }
-  }
-  // Aviso de renovação do Pro (7 dias antes do vencimento, ou vencido)
-  const _lic = DB.license;
-  if(_lic?.expiresAt && localStorage.getItem('vfc_pro_snooze') !== todayISO()){
-    const _dl = daysUntil(_lic.expiresAt);
-    const _renovaMsg = encodeURIComponent('Oi! Meu plano Pro do VetFlowCare está vencendo e quero renovar. Pode me ajudar?');
-    if(isPro() && _dl >= 0 && _dl <= 7){
-      h += `<div class="card" style="border-color:var(--rx);background:var(--rxbg);margin-bottom:12px;padding:13px 14px">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="font-size:20px">⏳</span>
-          <div style="flex:1;font-size:13px"><b>Seu plano Pro vence ${_dl===0?'HOJE':_dl===1?'amanhã':'em '+_dl+' dias'}</b> (${fmtDate(_lic.expiresAt)})<br>
-          <span style="color:var(--muted);font-size:12px">Renove para não perder os recursos Pro — seus dados ficam sempre seguros.</span></div>
-          <button style="background:none;color:var(--muted);font-size:16px" onclick="localStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button></div>
-        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
-          onclick="window.open('https://wa.me/5511912659906?text=${_renovaMsg}')">💬 Renovar pelo WhatsApp da VetFlowCare</button></div>`;
-    } else if(proExpired()){
-      h += `<div class="card" style="border-color:var(--danger);margin-bottom:12px;padding:13px 14px">
-        <div style="display:flex;align-items:flex-start;gap:10px">
-          <span style="font-size:20px">⚠️</span>
-          <div style="flex:1;font-size:13px"><b style="color:var(--danger)">Seu plano Pro venceu</b> em ${fmtDate(_lic.expiresAt)}<br>
-          <span style="color:var(--muted);font-size:12px">Seus dados estão intactos — renove para reativar os recursos Pro.</span></div>
-          <button style="background:none;color:var(--muted);font-size:16px" onclick="localStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button></div>
-        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
-          onclick="window.open('https://wa.me/5511912659906?text=${_renovaMsg}')">💬 Renovar pelo WhatsApp da VetFlowCare</button></div>`;
     }
   }
   const _risco = DB.pets.length ? nivelRisco() : 0;
@@ -4269,7 +4325,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.22.1 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.23.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -5429,9 +5485,24 @@ function showSheet(title, bodyHTML, footHTML){
   <div class="modal" onclick="if(event.target===this)closeSheet()">
     <div class="sheet" role="dialog" aria-modal="true" aria-label="${String(title).replace(/<[^>]*>/g,'')}">
       <div class="mh"><h2>${title}</h2><button class="x" onclick="closeSheet()" aria-label="Fechar">✕</button></div>
-      <div class="mb">${bodyHTML}</div>
+      <div class="mb" onscroll="updateScrollHint(this)">${bodyHTML}</div>
+      <div class="scroll-hint" id="scrollHint" onclick="scrollSheetDown()">⌄ mais abaixo</div>
       ${footHTML?`<div class="mf">${footHTML}</div>`:''}
     </div></div>`;
+  // verifica se precisa mostrar o indicador de rolagem (após a animação do sheet)
+  setTimeout(() => { const mb = document.querySelector('.modal .mb'); if(mb) updateScrollHint(mb); }, 220);
+}
+// indicador "tem mais conteúdo abaixo" — some ao chegar no fim
+function updateScrollHint(mb){
+  const hint = document.getElementById('scrollHint');
+  if(!hint) return;
+  const temMais = mb.scrollHeight - mb.scrollTop - mb.clientHeight > 12;
+  hint.style.opacity = temMais ? '1' : '0';
+  hint.style.pointerEvents = temMais ? 'auto' : 'none';
+}
+function scrollSheetDown(){
+  const mb = document.querySelector('.modal .mb');
+  if(mb) mb.scrollBy({ top: mb.clientHeight * 0.7, behavior: 'smooth' });
 }
 function closeSheet(){ document.getElementById('modals').innerHTML=''; }
 const val = id => document.getElementById(id)?.value.trim() || '';
@@ -5812,7 +5883,7 @@ function addApptDesp(nome){
         <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.parentElement.remove();recalcApptDesp()">✕</button></div>
       <div style="display:flex;gap:8px;margin-top:6px">
         <input class="dVal" type="number" step="0.01" inputmode="decimal" placeholder="R$ valor" style="flex:1" oninput="recalcApptDesp()">
-        <input class="dDate" placeholder="📅 Data (DD/MM/AAAA)" inputmode="numeric" maxlength="10" style="flex:1.2;font-size:13px" oninput="maskDate(this)"></div>
+        <input class="dDate" placeholder="📅 Data (DD/MM/AAAA)" inputmode="numeric" maxlength="10" style="flex:1.2;font-size:16px" oninput="maskDate(this)"></div>
       <div style="font-size:10px;color:var(--muted);margin-top:3px">Data em branco = data do atendimento. Pode ser futura (ex: anestesista a pagar).</div></div>`);
 }
 function recalcApptDesp(){
@@ -6587,9 +6658,12 @@ function showLGPD(){
   window.addEventListener('orientationchange', function(){ setTimeout(ajustarAltura, 300); });
 }
 function maskCode(el){
+  // remove tudo que não é letra/número e força maiúsculo
   let v = el.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(v.startsWith('VFC')) v = v.slice(3);
+  // remove QUALQUER "VFC" no início (mesmo repetido: VFCVFC...) — evita duplicar o prefixo
+  while(v.startsWith('VFC')) v = v.slice(3);
   if(!v){ el.value = ''; return; }
+  // remonta sempre no formato VFC-XXXX-0000 (o VFC entra sozinho)
   let out = 'VFC-' + v.slice(0,4);
   if(v.length > 4) out += '-' + v.slice(4,8);
   el.value = out;
@@ -6615,12 +6689,12 @@ function showEntryRegister(){
     <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:${needInvite?'14px':'20px'} 0 6px">👤 Crie seu acesso</div>
     <div style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:9px">
       <input id="regEmail" type="email" placeholder="Seu e-mail" autocomplete="email"
-        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:15px">
+        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
       <div class="pwwrap"><input id="regPass" type="password" placeholder="Crie uma senha (mín. 6)" autocomplete="new-password"
-        style="padding:13px;border-radius:13px;border:none;font-size:15px">
+        style="padding:13px;border-radius:13px;border:none;font-size:16px">
         <button type="button" class="eye" onclick="togglePw('regPass',this)">👁</button></div>
       <div class="pwwrap"><input id="regPass2" type="password" placeholder="Confirme a senha" autocomplete="new-password"
-        style="padding:13px;border-radius:13px;border:none;font-size:15px">
+        style="padding:13px;border-radius:13px;border:none;font-size:16px">
         <button type="button" class="eye" onclick="togglePw('regPass2',this)">👁</button></div>
     </div>
     <button onclick="doEntryRegister()" style="margin-top:14px">✓ Criar acesso e entrar</button>
