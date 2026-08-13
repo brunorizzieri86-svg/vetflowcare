@@ -292,12 +292,12 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.23.2';
+const APP_VER = '9.23.3';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.23.2',
+  ver: '9.23.3',
   titulo: 'Financeiro renovado + Plano Pro grátis 30 dias',
   itens: [
     ['💳','Taxas de cartão no Financeiro','Agora você escolhe o <b>meio de pagamento</b> (Pix, débito, crédito) em cada atendimento, e o app calcula o <b>valor líquido real</b> — quanto entra no seu bolso depois da taxa da maquininha. Configure suas taxas em <b>Ajustes → 💳 Taxas de Cartão</b>.'],
@@ -1188,38 +1188,43 @@ function goFinance(){
 function renderFinance(){
   const all = allReceivables();
   const pend = all.filter(r=>r.status==='pendente');
-  const tot = pend.reduce((s,r)=>s+r.valor,0);
   const lateArr = pend.filter(r=>daysUntil(r.due)<0);
   const lateTot = lateArr.reduce((s,r)=>s+r.valor,0);
-  // Resumo do mês (Pro)
-  const ym = todayISO().slice(0,7);
-  const paidMonth = all.filter(r=>r.status==='pago' && (r.paidAt||'').startsWith(ym))
-    .reduce((s,r)=>s+r.valor,0);
-  const monthName = MONTHS[new Date().getMonth()];
+  const naoAtrasados = pend.filter(r=>daysUntil(r.due)>=0);
+  const tot = naoAtrasados.reduce((s,r)=>s+r.valor,0);
+  const ymNow = todayISO().slice(0,7);
+  let recebidos = all.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(ymNow))
+    .sort((a,b)=>(b.paidAt||'').localeCompare(a.paidAt||''));
+  const totRecebido = recebidos.reduce((s,r)=>s+r.valor,0);
 
-  const filters = [
-    ['atrasados','🔴 Atrasados', r=>r.status==='pendente' && daysUntil(r.due)<0],
-    ['hoje','🟡 Hoje', r=>r.status==='pendente' && daysUntil(r.due)===0],
-    ['prox','🔵 Próx. 7 dias', r=>r.status==='pendente' && daysUntil(r.due)>0 && daysUntil(r.due)<=7],
-    ['todos','📋 A receber', r=>r.status==='pendente'],
-    ['pagos','✅ Recebidos', r=>r.status==='pago']
-  ];
+  // ═══ Cabeçalho + navegação em 2 linhas ═══
   let h = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
     <button class="btn sm gray" onclick="goTab(currentTab||'home')">‹</button>
     <h2 style="flex:1">💰 Financeiro</h2>
-    ${finView==='rec'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
-    ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>
-  <div class="subtabs">
-    <button class="chip ${finView==='rec'?'on':''}" onclick="finView='rec';render()">💰 Recebido / Receber</button>
-    <button class="chip ${finView==='desp'?'on':''}" onclick="finView='desp';render()">🧾 Despesas${isPro()?'':' 🔒'}</button>
-    <button class="chip ${finView==='fluxo'?'on':''}" onclick="finView='fluxo';render()">📊 Fluxo${isPro()?'':' 🔒'}</button>
+    ${finView==='rec'||finView==='atrasado'?`<button class="btn sm" onclick="openChargeForm()">➕ Cobrança</button>`:''}
+    ${finView==='desp'&&isPro()?`<button class="btn sm" onclick="openExpenseForm()">➕ Despesa</button>`:''}</div>`;
+  // Linha 1: Recebido / A Receber / Atrasado
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">
+    <button class="chip ${finView==='receb'?'on':''}" style="justify-content:center;text-align:center" onclick="finView='receb';render()">🟢 Recebido</button>
+    <button class="chip ${finView==='rec'?'on':''}" style="justify-content:center;text-align:center" onclick="finView='rec';render()">🟡 A Receber</button>
+    <button class="chip ${finView==='atrasado'?'on':''}" style="justify-content:center;text-align:center" onclick="finView='atrasado';render()">🔴 Atrasado</button>
   </div>`;
+  // Linha 2: Despesas / Fluxo
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+    <button class="chip ${finView==='desp'?'on':''}" style="justify-content:center;text-align:center" onclick="finView='desp';render()">🧾 Despesas${isPro()?'':' 🔒'}</button>
+    <button class="chip ${finView==='fluxo'?'on':''}" style="justify-content:center;text-align:center" onclick="finView='fluxo';render()">📊 Fluxo${isPro()?'':' 🔒'}</button>
+  </div>`;
+
+  // Abas que têm tela própria
   if(finView === 'desp') return h + renderExpenses();
   if(finView === 'fluxo') return h + renderFluxo();
+
+  // Barra de busca (Recebido, A Receber, Atrasado)
   h += `<input placeholder="🔍 Buscar por paciente ou descrição…" value="${esc(finQ)}" style="margin-bottom:12px"
     oninput="finQ=this.value.toLowerCase();debQ(()=>{document.getElementById('mainContent').innerHTML=renderFinance();
     const i=document.querySelector('#mainContent input');i.focus();i.setSelectionRange(i.value.length,i.value.length)})">`;
-  // ═══ helper: renderiza um card de recebível ═══
+
+  // ═══ helper: card de recebível ═══
   const cardRecebivel = (r) => {
     const d = daysUntil(r.due);
     const late = r.status==='pendente' && d<0;
@@ -1248,69 +1253,79 @@ function renderFinance(){
         <button class="btn sm dangero" onclick="delReceivable('${r.kind}','${r.id}')">🗑</button>
       </div></div>`;
   };
+  const aplicaBusca = arr => finQ ? arr.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ)) : arr;
 
-  // ═══ dados dos dois blocos ═══
-  const ymNow = todayISO().slice(0,7);
-  let recebidos = all.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(ymNow))
-    .sort((a,b)=>(b.paidAt||'').localeCompare(a.paidAt||''));
-  const totRecebido = recebidos.reduce((s,r)=>s+r.valor,0);
-  const filtersP = filters.filter(f => f[0] !== 'pagos');
-  const fdefP = filtersP.find(f=>f[0]===finFilter) || filtersP.find(f=>f[0]==='todos') || filtersP[filtersP.length-1];
-  let pendMostrar = pend.filter(fdefP[2]).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
-  if(finQ){
-    recebidos = recebidos.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
-    pendMostrar = pendMostrar.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ));
+  // ═══════════════════════════════════════
+  //  🟢 ABA RECEBIDO
+  // ═══════════════════════════════════════
+  if(finView === 'receb'){
+    const lista = aplicaBusca(recebidos);
+    h += `<div class="card" style="margin-bottom:12px;background:rgba(45,179,122,.08);border-color:var(--success);text-align:center">
+      <div style="font-size:10px;font-weight:700;color:var(--success);text-transform:uppercase">Total recebido · ${MONTHS[new Date().getMonth()]}</div>
+      <div style="font-size:26px;font-weight:900;color:var(--success);margin-top:2px">${fmtBRL(totRecebido)}</div>
+      <div style="font-size:11px;color:var(--muted)">${recebidos.length} ${recebidos.length===1?'recebimento':'recebimentos'}</div></div>`;
+    h += lista.length ? lista.map(cardRecebivel).join('')
+      : `<div class="card empty"><div class="big">💸</div>Nenhum recebimento neste mês ainda</div>`;
+    return h;
   }
 
-  // ═══ 🟢 BLOCO 1 — RECEBIDO (este mês) ═══
-  h += `<div style="display:flex;align-items:center;gap:8px;margin:4px 0 10px">
-    <div style="width:4px;height:20px;background:var(--success);border-radius:2px"></div>
-    <b style="font-size:15px;color:var(--success)">🟢 RECEBIDO</b>
-    <span style="font-size:11px;color:var(--muted)">este mês (${MONTHS[new Date().getMonth()]})</span></div>`;
-  h += `<div class="card" style="margin-bottom:10px;background:rgba(45,179,122,.08);border-color:var(--success);text-align:center">
-    <div style="font-size:10px;font-weight:700;color:var(--success);text-transform:uppercase">Total recebido</div>
-    <div style="font-size:24px;font-weight:900;color:var(--success);margin-top:2px">${fmtBRL(totRecebido)}</div>
-    <div style="font-size:11px;color:var(--muted)">${recebidos.length} ${recebidos.length===1?'recebimento':'recebimentos'}</div></div>`;
-  h += recebidos.length ? recebidos.map(cardRecebivel).join('')
-    : `<div class="card empty" style="margin-bottom:10px"><div class="big">💸</div>Nenhum recebimento neste mês ainda</div>`;
+  // ═══════════════════════════════════════
+  //  🔴 ABA ATRASADO
+  // ═══════════════════════════════════════
+  if(finView === 'atrasado'){
+    const lista = aplicaBusca(lateArr).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+    h += `<div class="card" style="margin-bottom:12px;text-align:center;${lateArr.length?'background:rgba(224,82,82,.08);border-color:var(--danger)':''}">
+      <div style="font-size:10px;font-weight:700;color:var(--danger);text-transform:uppercase">🔴 Total atrasado</div>
+      <div style="font-size:26px;font-weight:900;margin-top:2px;color:${lateArr.length?'var(--danger)':'var(--muted)'}">${fmtBRL(lateTot)}</div>
+      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item vencido':'itens vencidos'}</div></div>`;
+    h += lista.length ? lista.map(cardRecebivel).join('')
+      : `<div class="card empty"><div class="big">🎉</div>Nenhuma cobrança atrasada!</div>`;
+    return h;
+  }
 
-  // ═══ 🟡 BLOCO 2 — A RECEBER ═══
-  h += `<div style="display:flex;align-items:center;gap:8px;margin:20px 0 10px">
-    <div style="width:4px;height:20px;background:var(--warning);border-radius:2px"></div>
-    <b style="font-size:15px;color:var(--warning)">🟡 A RECEBER</b></div>`;
-  h += `<div style="display:flex;gap:10px;margin-bottom:12px">
-    <div class="card" style="flex:1;text-align:center;padding:12px 8px">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">🟡 A receber</div>
-      <div style="font-size:18px;font-weight:900;color:var(--warning);margin-top:2px">${fmtBRL(tot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${pend.length} ${pend.length===1?'item':'itens'}</div></div>
-    <div class="card" style="flex:1;text-align:center;padding:12px 8px;${lateArr.length?'border-color:var(--danger)':''}">
-      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">🔴 Atrasado</div>
-      <div style="font-size:18px;font-weight:900;margin-top:2px;color:${lateArr.length?'var(--danger)':'var(--muted)'}">${fmtBRL(lateTot)}</div>
-      <div style="font-size:11px;color:var(--muted)">${lateArr.length} ${lateArr.length===1?'item':'itens'}</div></div></div>`;
+  // ═══════════════════════════════════════
+  //  🟡 ABA A RECEBER (padrão)
+  // ═══════════════════════════════════════
+  // Resumo
+  h += `<div class="card" style="margin-bottom:12px;text-align:center;background:rgba(240,165,0,.08);border-color:var(--warning)">
+    <div style="font-size:10px;font-weight:700;color:var(--warning);text-transform:uppercase">🟡 Total a receber</div>
+    <div style="font-size:26px;font-weight:900;color:var(--warning);margin-top:2px">${fmtBRL(tot)}</div>
+    <div style="font-size:11px;color:var(--muted)">${naoAtrasados.length} ${naoAtrasados.length===1?'item':'itens'}${lateArr.length?` · +${fmtBRL(lateTot)} atrasado`:''}</div></div>`;
+
+  // 1) Aviso de vencimentos em até 3 dias (PRIORIDADE no topo)
   DB.settings.payRem = DB.settings.payRem !== false;
   const lembrar = pend.filter(r => !r.rem && daysUntil(r.due) >= 0 && daysUntil(r.due) <= 3);
   if(DB.settings.payRem && lembrar.length){
     h += `<div class="card" style="border-color:var(--warning);margin-bottom:12px">
       <b style="font-size:13px">🔔 ${lembrar.length} ${lembrar.length===1?'cobrança vence':'cobranças vencem'} em até 3 dias</b>
       <div style="font-size:11px;color:var(--muted);margin:2px 0 8px">Toque em 💬 para enviar o lembrete pelo WhatsApp${isPro()?'':' (recurso Pro)'}</div>
-      ${lembrar.slice(0,4).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
+      ${lembrar.slice(0,6).map(r=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px;border-top:1px solid var(--border)">
         <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.emo} ${esc(r.petName)} · ${fmtBRL(r.valor)} · ${fmtDate(r.due)}</span>
         <button class="btn sm" style="background:#25D366" onclick="cobrarWhats('${r.kind}','${r.id}')">💬</button></div>`).join('')}
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--muted);text-transform:none;letter-spacing:0;cursor:pointer">
         <input type="checkbox" checked onchange="DB.settings.payRem=this.checked;save();render()" style="accent-color:var(--primary)"> Avisar sobre vencimentos próximos</label>
     </div>`;
   }
-  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">${filtersP.slice(0,2).map(([k,l,fn])=>{
-    const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
-  }).join('')}</div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">${filtersP.slice(2).map(([k,l,fn])=>{
-    const n = all.filter(fn).length;
-    return `<button class="chip ${finFilter===k?'on':''}" style="width:100%;justify-content:center;text-align:center" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
-  }).join('')}</div>`;
-  h += pendMostrar.length ? pendMostrar.map(cardRecebivel).join('')
-    : `<div class="card empty"><div class="big">🎉</div>Nada a receber por aqui!</div>`;
 
+  // 2) Filtros de ordenação por período
+  const periodos = [
+    ['hoje','Hoje', r=>daysUntil(r.due)===0],
+    ['7d','7 dias', r=>daysUntil(r.due)>=0 && daysUntil(r.due)<=7],
+    ['quinzenal','Quinzenal', r=>daysUntil(r.due)>=0 && daysUntil(r.due)<=15],
+    ['mensal','Mensal', r=>daysUntil(r.due)>=0 && daysUntil(r.due)<=30],
+    ['todos','Todos', r=>daysUntil(r.due)>=0]
+  ];
+  if(!periodos.find(p=>p[0]===finFilter)) finFilter = 'todos';
+  h += `<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px">${periodos.map(([k,l,fn])=>{
+    const n = naoAtrasados.filter(fn).length;
+    return `<button class="chip ${finFilter===k?'on':''}" style="white-space:nowrap;flex-shrink:0" onclick="finFilter='${k}';render()">${l} (${n})</button>`;
+  }).join('')}</div>`;
+
+  // 3) Lista filtrada e ordenada por data
+  const fdef = periodos.find(p=>p[0]===finFilter) || periodos[4];
+  let lista = aplicaBusca(naoAtrasados.filter(fdef[2])).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  h += lista.length ? lista.map(cardRecebivel).join('')
+    : `<div class="card empty"><div class="big">🎉</div>Nada a receber neste período!</div>`;
   return h;
 }
 
@@ -2453,11 +2468,12 @@ const TUT_STEPS = [
    • <b>🚗 Quilometragem</b>: lance os km rodados e o valor por km — vira despesa automática no Financeiro<br><br>
    <b>🔔 Alertas</b>: tudo que vence — vacinas, medicações, atendimentos e <b>pagamentos</b> — avisado com 7, 3 e 1 dia de antecedência. Cada alerta tem o botão <b>💬 Avisar o tutor</b>.`},
   {emo:'💰', title:'Financeiro — controle total',
-   body:`Pelo botão no Início. Três abas, bem separadas:<br><br>
-   • <b>💰 Recebido / Receber</b>: dois blocos claros — 🟢 <b>RECEBIDO</b> (o que já entrou no caixa este mês) e 🟡 <b>A RECEBER</b> (o que falta, com atrasados e vencimentos). Marque como recebido, altere vencimento e <b>💬 Cobre no WhatsApp</b> com um toque (Pro)<br>
-   • <b>🔔 Lembrete</b> automático 3 dias antes do vencimento<br>
+   body:`Pelo botão no Início. Cinco abas, cada uma limpa e exclusiva:<br><br>
+   • <b>🟢 Recebido</b>: total que já entrou no caixa este mês + a lista dos recebimentos<br>
+   • <b>🟡 A Receber</b>: total pendente, o <b>🔔 aviso das cobranças que vencem em até 3 dias</b> em destaque no topo, e filtros por período (Hoje, 7 dias, Quinzenal, Mensal, Todos). Marque como recebido, altere vencimento e <b>💬 Cobre no WhatsApp</b> (Pro)<br>
+   • <b>🔴 Atrasado</b>: total atrasado + a lista dos vencidos, para você priorizar quem cobrar<br>
    • <b>🧾 Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
-   • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, produção clínica, ticket médio e evolução mês a mês + relatório em <b>PDF</b> (Pro)`},
+   • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, produção clínica, ticket médio e evolução mês a mês + PDF (Pro)`},
   {emo:'💳', title:'Taxas de cartão — quanto você realmente recebe',
    body:`Veja o valor <b>líquido real</b> de cada recebimento, já descontando a taxa da maquininha:<br><br>
    • <b>1. Configure suas taxas</b>: em <b>Ajustes → 💳 Taxas de Cartão</b>, ajuste os percentuais da sua maquininha (já vem com valores padrão: Pix 0%, Débito 1.99%, Crédito 3.49%)<br>
@@ -4325,7 +4341,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.23.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.23.3 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
