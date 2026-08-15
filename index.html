@@ -292,12 +292,12 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.24';
+const APP_VER = '9.24.2';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.24',
+  ver: '9.24.2',
   titulo: 'Confirmar atendimentos + recorte de selo',
   itens: [
     ['✅','Confirmar atendimentos','Um novo painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
@@ -3222,6 +3222,9 @@ function renderPetHealth(pet){
             <span style="color:var(--muted);flex:1;text-align:right">Lote: <b style="color:var(--text)">${esc(d.lot||'—')}</b></span>
             <button style="background:none;font-size:13px;padding:2px 4px" onclick="openVacDoseEdit('${pet.id}','${d.id}')">✏️</button>
           </div>
+          ${d.selo?`<div style="margin-top:8px">
+            <img src="${d.selo}" style="height:44px;width:auto;max-width:120px;border-radius:6px;border:1.5px solid var(--border);object-fit:contain" alt="Selo da ampola">
+          </div>`:''}
           <div style="display:flex;gap:6px;margin-top:6px">
           ${d.selo
             ? `<button class="btn sm gray" style="flex:1" onclick="editarSelo('${pet.id}','${d.id}')">✂️ Ajustar selo</button>
@@ -3483,7 +3486,7 @@ function gerarCarteirinha(petId){
       <div style="font-size:16px;font-weight:700;color:#1A2F5A">${esc(d.name)}</div>
       <div style="font-size:12px;color:#6B7A8D;margin-top:2px">Aplicada em ${fmtDate(d.applied)}${d.lot?' · Lote '+esc(d.lot):''}${d.vet?' · '+esc(d.vet):''}</div>
     </div>
-    ${d.selo?`<img src="${d.selo}" style="width:64px;height:42px;border-radius:7px;object-fit:cover;border:1.5px solid #d5ebe9;flex-shrink:0">`:''}
+    ${d.selo?`<img src="${d.selo}" style="width:80px;height:auto;max-height:60px;object-fit:contain;border-radius:7px;border:1.5px solid #d5ebe9;flex-shrink:0">`:''}
     <span style="font-size:13px;font-weight:700;padding:5px 12px;border-radius:99px;background:#e6f7f0;color:#1a8a5a;white-space:nowrap">Em dia</span>
   </div>`;
 
@@ -4499,7 +4502,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.24 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.24.2 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
