@@ -292,14 +292,17 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.23.3';
+const APP_VER = '9.24';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.23.3',
-  titulo: 'Financeiro renovado + Plano Pro grátis 30 dias',
+  ver: '9.24',
+  titulo: 'Confirmar atendimentos + recorte de selo',
   itens: [
+    ['✅','Confirmar atendimentos','Um novo painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
+    ['✂️','Recorte do selo da ampola','Depois de fotografar o selo, agora você <b>ajusta o enquadramento</b> — arraste a caixa e deixe só o selo. Já tem selo salvo? Use <b>✂️ Ajustar selo</b> para reenquadrar sem tirar outra foto.'],
+    ['🔤','Botões mais claros','Vários botões ganharam <b>texto junto do ícone</b> (Editar, Excluir, Avisar…) para ficar claro o que cada um faz.'],
     ['💳','Taxas de cartão no Financeiro','Agora você escolhe o <b>meio de pagamento</b> (Pix, débito, crédito) em cada atendimento, e o app calcula o <b>valor líquido real</b> — quanto entra no seu bolso depois da taxa da maquininha. Configure suas taxas em <b>Ajustes → 💳 Taxas de Cartão</b>.'],
     ['⚖️','Assinatura com validade legal','A assinatura do tutor agora sai no PDF com <b>nome, CPF, data/hora e código de verificação</b>, no formato de <b>assinatura eletrônica simples da Lei nº 14.063/2020</b>. Continua opcional — quem preferir papel, é só não assinar na tela.'],
     ['💳','Carteirinha de Vacinação em PDF','Gere uma carteirinha profissional do animal com <b>dados do tutor</b>, todas as vacinas, próximas doses e <b>anotações</b>. Tire foto do <b>selo da ampola</b> de cada vacina — como no papel. Em Saúde → 💳 Gerar Carteirinha.'],
@@ -1249,8 +1252,8 @@ function renderFinance(){
           : `<button class="btn sm success" onclick="markPaid('${r.kind}','${r.id}')">✓ Recebido</button>
              <button class="btn sm" style="background:${isPro()?'#25D366':'var(--border)'};color:${isPro()?'#fff':'var(--muted)'}" onclick="cobrarWhats('${r.kind}','${r.id}')">💬 Cobrar${isPro()?'':' 🔒'}</button>`}
         ${!pago?`<button class="btn sm gray" onclick="openDueEdit('${r.kind}','${r.id}')">📅 Vencimento</button>`:''}
-        <button class="btn sm outline" onclick="editReceivable('${r.kind}','${r.id}','${r.petId}')">✏️</button>
-        <button class="btn sm dangero" onclick="delReceivable('${r.kind}','${r.id}')">🗑</button>
+        <button class="btn sm outline" onclick="editReceivable('${r.kind}','${r.id}','${r.petId}')">✏️ Editar</button>
+        <button class="btn sm dangero" onclick="delReceivable('${r.kind}','${r.id}')">🗑 Excluir</button>
       </div></div>`;
   };
   const aplicaBusca = arr => finQ ? arr.filter(r => r.petName.toLowerCase().includes(finQ) || (r.desc||'').toLowerCase().includes(finQ)) : arr;
@@ -1581,7 +1584,19 @@ function avisoTexto(pet, tipo, refId){
     if(!m) return ola + vetSign();
     return `${ola}\n\nLembrete da medicação do(a) ${pet.name}:\n*${m.name}* — ${m.dosage}, ${m.freq} às ${m.time}.\n\nQualquer reação diferente, me avise na hora.${vetSign()}`;
   }
+  if(tipo === 'confirma'){
+    const a = pet.appointments.find(x => x.id === refId);
+    if(!a) return ola + vetSign();
+    const quando = `${fmtDate(a.date)}${a.time ? ' às ' + a.time : ''}`;
+    return `${ola}\n\nPassando para *confirmar* o atendimento do(a) *${pet.name}*: ${a.title}, no dia ${quando}.${a.clinic ? `\nLocal: ${a.clinic}` : ''}\n\nPodemos confirmar? Se precisar remarcar, é só me avisar. 🐾${vetSign()}`;
+  }
   return `${ola}\n\nEstou entrando em contato sobre o(a) ${pet.name}.${vetSign()}`;
+}
+function dismissConfirm(petId, aptId){
+  const pet = DB.pets.find(p => p.id === petId);
+  if(!pet) return;
+  const a = (pet.appointments||[]).find(x => x.id === aptId);
+  if(a){ a.confirmDismiss = todayISO(); save(); render(); }
 }
 function openAvisarTutor(petId, tipo, refId){
   const pet = DB.pets.find(p => p.id === petId);
@@ -1604,7 +1619,7 @@ function openAvisarTutor(petId, tipo, refId){
     return;
   }
   const modelos = [
-    ['atend','🩺 Atendimento'], ['vacina','💉 Vacina'],
+    ['confirma','✅ Confirmar'], ['atend','🩺 Atendimento'], ['vacina','💉 Vacina'],
     ['med','💊 Medicação'], ['livre','💬 Recado livre']
   ];
   window._avisaPet = petId;
@@ -2474,6 +2489,12 @@ const TUT_STEPS = [
    • <b>🔴 Atrasado</b>: total atrasado + a lista dos vencidos, para você priorizar quem cobrar<br>
    • <b>🧾 Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
    • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, produção clínica, ticket médio e evolução mês a mês + PDF (Pro)`},
+  {emo:'✅', title:'Confirmar atendimentos — reduza faltas',
+   body:`Na <b>tela inicial</b>, quando há agendamentos chegando, aparece o painel <b>📋 Confirmar atendimentos</b>:<br><br>
+   • Mostra os atendimentos de <b>amanhã</b> (ou de 2 dias, você escolhe nos Ajustes)<br>
+   • Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta — você só envia<br>
+   • O tutor confirma que vem, e você <b>reduz as faltas</b> na sua agenda<br>
+   • Configure em <b>Ajustes → ✅ Confirmar Atendimentos</b> (ligar/desligar e escolher 1 ou 2 dias de antecedência)`},
   {emo:'💳', title:'Taxas de cartão — quanto você realmente recebe',
    body:`Veja o valor <b>líquido real</b> de cada recebimento, já descontando a taxa da maquininha:<br><br>
    • <b>1. Configure suas taxas</b>: em <b>Ajustes → 💳 Taxas de Cartão</b>, ajuste os percentuais da sua maquininha (já vem com valores padrão: Pix 0%, Débito 1.99%, Crédito 3.49%)<br>
@@ -2490,7 +2511,7 @@ const TUT_STEPS = [
   {emo:'💳', title:'Carteirinha de Vacinação em PDF',
    body:`Na ficha do animal → <b>Saúde</b>, no topo das vacinas:<br><br>
    • Toque em <b>💳 Gerar Carteirinha (PDF)</b> — sai um documento profissional com o pet, os dados do tutor, todas as vacinas e as próximas doses<br>
-   • <b>📷 Selo da ampola</b>: em cada vacina aplicada, toque na câmera para fotografar o rótulo da ampola — ele aparece na carteirinha, como no papel<br>
+   • <b>📷 Selo da ampola</b>: em cada vacina aplicada, toque em <b>Fotografar selo</b> para registrar o rótulo da ampola. Depois da foto, você <b>ajusta o recorte</b> — arraste a caixa sobre o selo e deixe só ele bem enquadrado. Já tem selo salvo? Use <b>✂️ Ajustar selo</b> para reenquadrar sem tirar outra foto<br>
    • <b>📝 Anotações</b>: um bloco livre por animal (temperamento, reações, orientações) que também sai na carteirinha<br>
    • A carteirinha <b>pagina sozinha</b> se houver muitas vacinas — sempre legível para imprimir ou enviar ao tutor`},
   {emo:'📄', title:'Documentos e assinatura do tutor',
@@ -2642,6 +2663,38 @@ function renderHome(){
     <span style="font-size:20px">⚠️</span>
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
     <small>Toque para ver os detalhes</small></div><div class="n">${od.length}</div></div>`;
+
+  // ✅ CONFIRMADOR DE ATENDIMENTOS — agendamentos futuros dentro da janela configurada
+  if(DB.settings.confirmPanel !== false){
+    const janela = DB.settings.confirmDays || 1;
+    const aConfirmar = [];
+    DB.pets.forEach(p => (p.appointments||[]).forEach(a => {
+      const d = daysUntil(a.date);
+      // futuro, dentro da janela, não concluído, e não confirmado ainda hoje
+      if(d >= 1 && d <= janela && !a.done && a.confirmDismiss !== todayISO()){
+        aConfirmar.push({ pet:p, a, d });
+      }
+    }));
+    aConfirmar.sort((x,y) => (x.a.date+''+(x.a.time||'')).localeCompare(y.a.date+''+(y.a.time||'')));
+    if(aConfirmar.length){
+      h += `<div class="card" style="border-color:var(--vac);margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:18px">📋</span>
+          <b style="font-size:14px;flex:1">Confirmar ${aConfirmar.length===1?'atendimento':'atendimentos'} (${aConfirmar.length})</b></div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Toque em 💬 para confirmar com o tutor pelo WhatsApp — a mensagem já vem pronta.</div>
+        ${aConfirmar.slice(0,6).map(({pet,a,d}) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--border)">
+            <div style="flex:1;min-width:0">
+              <b style="font-size:13px">${petEmoji(pet)} ${esc(pet.name)}</b>
+              <div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.title)} · ${d===1?'amanhã':fmtDate(a.date)}${a.time?' às '+a.time:''}</div>
+            </div>
+            <button class="btn sm" style="background:#25D366;flex-shrink:0" onclick="openAvisarTutor('${pet.id}','confirma','${a.id}')">💬 Confirmar</button>
+            <button style="background:none;color:var(--muted);font-size:15px;flex-shrink:0;padding:2px 4px" title="Dispensar hoje" onclick="dismissConfirm('${pet.id}','${a.id}')">✕</button>
+          </div>`).join('')}
+        ${aConfirmar.length>6?`<div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px">+${aConfirmar.length-6} outros — veja na Agenda</div>`:''}
+      </div>`;
+    }
+  }
 
   // ✨ Aviso: ATIVE O PRO (para quem ainda não ativou — agradável e influenciador)
   // Só aparece se: NÃO é Pro, NÃO tem licença com validade (nunca ativou nem venceu), e não deu snooze hoje
@@ -3163,11 +3216,18 @@ function renderPetHealth(pet){
         <button style="background:none;color:var(--muted)" onclick="delVaccineGroup('${pet.id}','${escJS(g.name)}')" aria-label="Excluir vacina">🗑</button></span></div>
 
       ${g.applied.length ? `<div style="margin-top:9px;border-top:1px solid var(--border)">
-        ${g.applied.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
-          <span style="color:var(--success);font-weight:700">✓ ${fmtDate(d.applied)}</span>
-          <span style="color:var(--muted);flex:1;text-align:right">Lote: <b style="color:var(--text)">${esc(d.lot||'—')}</b></span>
-          <button style="background:none;font-size:13px;padding:2px 4px" onclick="openVacDoseEdit('${pet.id}','${d.id}')">✏️</button>
-          ${d.selo?`<button style="background:none;font-size:13px;padding:2px 4px" onclick="removerSelo('${pet.id}','${d.id}')" title="Remover selo">🏷️✓</button>`:`<button style="background:none;font-size:13px;padding:2px 4px" onclick="fotografarSelo('${pet.id}','${d.id}')" title="Fotografar selo da ampola">📷</button>`}
+        ${g.applied.map(d=>`<div style="padding:5px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px">
+            <span style="color:var(--success);font-weight:700">✓ ${fmtDate(d.applied)}</span>
+            <span style="color:var(--muted);flex:1;text-align:right">Lote: <b style="color:var(--text)">${esc(d.lot||'—')}</b></span>
+            <button style="background:none;font-size:13px;padding:2px 4px" onclick="openVacDoseEdit('${pet.id}','${d.id}')">✏️</button>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+          ${d.selo
+            ? `<button class="btn sm gray" style="flex:1" onclick="editarSelo('${pet.id}','${d.id}')">✂️ Ajustar selo</button>
+               <button class="btn sm dangero" style="flex:1" onclick="removerSelo('${pet.id}','${d.id}')">🗑️ Remover</button>`
+            : `<button class="btn sm gray" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}')">📷 Fotografar selo da ampola</button>`}
+          </div>
         </div>`).join('')}</div>` : ''}
 
       ${g.next ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;background:${late?'rgba(224,82,82,.07)':'var(--vacbg)'};border-radius:10px;padding:9px 12px">
@@ -3175,7 +3235,7 @@ function renderPetHealth(pet){
         <b style="font-size:13px;color:${late?'var(--danger)':'var(--vac)'}">${fmtDate(g.next.due)}</b></div>
         <span style="display:flex;gap:6px">
           <button style="background:none;font-size:14px" onclick="openVacDoseEdit('${pet.id}','${g.next.id}')">✏️</button>
-          <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','vacina','${g.next.id}')">💬</button>
+          <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','vacina','${g.next.id}')">💬 Avisar</button>
           <button class="btn sm success" onclick="openApplyVaccineForm('${pet.id}','${g.next.id}')">✓ Aplicar</button>
         </span>
       </div>` : ''}
@@ -3188,7 +3248,7 @@ function renderPetHealth(pet){
       return `<div class="card" style="display:flex;align-items:center;gap:10px">
       <div style="flex:1"><b style="font-size:14px">${esc(m.name)}</b>
       <div style="color:var(--muted);font-size:12px">${esc(m.dosage)} · ${esc(m.freq)} às ${m.time}</div></div>
-      <button class="btn sm" style="background:#25D366;padding:6px 10px" onclick="openAvisarTutor('${pet.id}','med','${m.id}')">💬</button>
+      <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','med','${m.id}')">💬 Avisar</button>
       <button style="background:none;font-size:15px" onclick="openMedForm('${pet.id}','${m.id}')">✏️</button>
       <button style="background:none;color:var(--muted)" onclick="delRecord('${pet.id}','medications','${m.id}')">🗑</button></div>`;}),
     'Nenhuma medicação cadastrada');
@@ -3261,35 +3321,123 @@ function apagarNotaCarteirinha(petId){
     yes:`(function(){const p=DB.pets.find(x=>x.id==='${petId}');p.notaCarteirinha='';save();closeSheet();render();toast('🗑️ Anotação apagada');})()`});
 }
 
-// Foto do selo da ampola por dose aplicada (Opção A: fotografa na hora)
+// Foto do selo da ampola por dose aplicada — com recorte/ajuste antes de salvar
 function fotografarSelo(petId, vacId){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
   inp.onchange = e => {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
-    reader.onload = ev => {
-      const img = new Image();
-      img.onload = () => {
-        // comprime o selo para ~300px de largura (leve, mas legível)
-        const cv = document.createElement('canvas');
-        const escala = Math.min(1, 300/img.width);
-        cv.width = img.width*escala; cv.height = img.height*escala;
-        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-        const pet = DB.pets.find(p=>p.id===petId);
-        const v = pet.vaccines.find(x=>x.id===vacId);
-        if(v){ v.selo = cv.toDataURL('image/jpeg',.7); save(); render(); toast('📷 Selo da ampola salvo!'); }
-      };
-      img.src = ev.target.result;
-    };
+    reader.onload = ev => abrirRecorteSelo(ev.target.result, petId, vacId);
     reader.readAsDataURL(file);
   };
   inp.click();
+}
+
+// Abre a tela de recorte: o vet arrasta a caixa sobre o selo e ajusta
+function abrirRecorteSelo(dataUrl, petId, vacId){
+  showSheet('✂️ Ajustar o selo', `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;text-align:center">
+      Arraste a caixa sobre o <b>selo da ampola</b> e ajuste pelos cantos. Sobra só o que estiver dentro. 🏷️</div>
+    <div id="cropWrap" style="position:relative;width:100%;background:#0f1b2e;border-radius:12px;overflow:hidden;touch-action:none;user-select:none">
+      <img id="cropImg" src="${dataUrl}" style="width:100%;display:block;pointer-events:none">
+      <div id="cropBox" style="position:absolute;border:2px solid var(--primary);box-shadow:0 0 0 9999px rgba(15,27,46,.55);border-radius:6px;cursor:move;touch-action:none">
+        <div class="cropH" data-h="nw" style="position:absolute;top:-9px;left:-9px;width:20px;height:20px;background:var(--primary);border:2px solid #fff;border-radius:50%;touch-action:none"></div>
+        <div class="cropH" data-h="ne" style="position:absolute;top:-9px;right:-9px;width:20px;height:20px;background:var(--primary);border:2px solid #fff;border-radius:50%;touch-action:none"></div>
+        <div class="cropH" data-h="sw" style="position:absolute;bottom:-9px;left:-9px;width:20px;height:20px;background:var(--primary);border:2px solid #fff;border-radius:50%;touch-action:none"></div>
+        <div class="cropH" data-h="se" style="position:absolute;bottom:-9px;right:-9px;width:20px;height:20px;background:var(--primary);border:2px solid #fff;border-radius:50%;touch-action:none"></div>
+      </div>
+    </div>`,
+    `<div style="display:flex;gap:8px">
+      <button class="btn gray" style="flex:1" onclick="closeSheet()">Cancelar</button>
+      <button class="btn" style="flex:1.4" onclick="aplicarRecorteSelo('${petId}','${vacId}')">✂️ Recortar e salvar</button>
+    </div>`);
+  // inicializa a caixa de recorte após a imagem carregar
+  setTimeout(() => initCropBox(), 120);
+}
+
+function initCropBox(){
+  const wrap = document.getElementById('cropWrap');
+  const box = document.getElementById('cropBox');
+  if(!wrap || !box) return;
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+  // caixa inicial: centralizada, ~70% largura, proporção de selo (mais larga que alta)
+  let bw = W*0.7, bh = Math.min(H*0.6, bw*0.62);
+  let bx = (W-bw)/2, by = (H-bh)/2;
+  const apply = () => { box.style.left=bx+'px'; box.style.top=by+'px'; box.style.width=bw+'px'; box.style.height=bh+'px'; };
+  apply();
+
+  let mode=null, sx=0, sy=0, ox=0, oy=0, ow=0, oh=0;
+  const pt = e => { const t = e.touches ? e.touches[0] : e; return {x:t.clientX, y:t.clientY}; };
+
+  const start = (e, m) => {
+    e.preventDefault(); e.stopPropagation();
+    mode = m; const p = pt(e); sx=p.x; sy=p.y; ox=bx; oy=by; ow=bw; oh=bh;
+    document.addEventListener('mousemove', move); document.addEventListener('touchmove', move, {passive:false});
+    document.addEventListener('mouseup', end); document.addEventListener('touchend', end);
+  };
+  const move = e => {
+    if(!mode) return; e.preventDefault();
+    const p = pt(e); const dx = p.x - sx, dy = p.y - sy;
+    const MIN = 40;
+    if(mode==='move'){
+      bx = Math.max(0, Math.min(W-bw, ox+dx));
+      by = Math.max(0, Math.min(H-bh, oy+dy));
+    } else {
+      // redimensiona pelos cantos
+      if(mode.includes('e')) bw = Math.max(MIN, Math.min(W-ox, ow+dx));
+      if(mode.includes('s')) bh = Math.max(MIN, Math.min(H-oy, oh+dy));
+      if(mode.includes('w')){ const nw = Math.max(MIN, Math.min(ox+ow, ow-dx)); bx = ox+ow-nw; bw = nw; }
+      if(mode.includes('n')){ const nh = Math.max(MIN, Math.min(oy+oh, oh-dy)); by = oy+oh-nh; bh = nh; }
+    }
+    apply();
+  };
+  const end = () => {
+    mode=null;
+    document.removeEventListener('mousemove', move); document.removeEventListener('touchmove', move);
+    document.removeEventListener('mouseup', end); document.removeEventListener('touchend', end);
+  };
+
+  box.addEventListener('mousedown', e => { if(e.target===box) start(e,'move'); });
+  box.addEventListener('touchstart', e => { if(e.target===box) start(e,'move'); }, {passive:false});
+  box.querySelectorAll('.cropH').forEach(hd => {
+    hd.addEventListener('mousedown', e => start(e, hd.dataset.h));
+    hd.addEventListener('touchstart', e => start(e, hd.dataset.h), {passive:false});
+  });
+}
+
+function aplicarRecorteSelo(petId, vacId){
+  const wrap = document.getElementById('cropWrap');
+  const img = document.getElementById('cropImg');
+  const box = document.getElementById('cropBox');
+  if(!wrap || !img || !box){ closeSheet(); return; }
+  // proporção entre a imagem exibida e a real
+  const escalaReal = img.naturalWidth / img.clientWidth;
+  const cropX = box.offsetLeft * escalaReal;
+  const cropY = box.offsetTop * escalaReal;
+  const cropW = box.offsetWidth * escalaReal;
+  const cropH = box.offsetHeight * escalaReal;
+  // saída com no máximo 320px de largura (leve, mas legível)
+  const escalaOut = Math.min(1, 320/cropW);
+  const cv = document.createElement('canvas');
+  cv.width = Math.round(cropW*escalaOut);
+  cv.height = Math.round(cropH*escalaOut);
+  cv.getContext('2d').drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cv.width, cv.height);
+  const pet = DB.pets.find(p=>p.id===petId);
+  const v = pet && pet.vaccines.find(x=>x.id===vacId);
+  if(v){ v.selo = cv.toDataURL('image/jpeg',.72); save(); closeSheet(); render(); toast('📷 Selo recortado e salvo!'); }
+  else closeSheet();
 }
 function removerSelo(petId, vacId){
   const pet = DB.pets.find(p=>p.id===petId);
   const v = pet.vaccines.find(x=>x.id===vacId);
   if(v){ delete v.selo; save(); render(); toast('Selo removido'); }
+}
+// Reabre o recortador com o selo JÁ salvo (para reajustar o enquadramento)
+function editarSelo(petId, vacId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const v = pet && pet.vaccines.find(x=>x.id===vacId);
+  if(v && v.selo) abrirRecorteSelo(v.selo, petId, vacId);
 }
 
 // Monta e gera o PDF da carteirinha
@@ -4236,6 +4384,16 @@ function renderSettings(){
   <div class="sec"><div class="sec-h"><span>⏰ Antecedência dos Alertas</span></div>
     <div class="card">${sw('alert7','7 dias antes')}${sw('alert3','3 dias antes')}${sw('alert1','1 dia antes')}</div></div>
 
+  <div class="sec"><div class="sec-h"><span>✅ Confirmar Atendimentos</span></div>
+    <div class="card">
+      ${sw('confirmPanel','📋 Mostrar painel na tela inicial')}
+      <div style="font-size:12px;color:var(--muted);margin:6px 0 10px">Lista os agendamentos futuros para você confirmar com o tutor pelo WhatsApp, com um toque.</div>
+      <label>Confirmar com quantos dias de antecedência?</label>
+      <div class="chips">
+        <button class="chip ${(s.confirmDays||1)==1?'on':''}" onclick="DB.settings.confirmDays=1;save();render()">1 dia antes</button>
+        <button class="chip ${(s.confirmDays||1)==2?'on':''}" onclick="DB.settings.confirmDays=2;save();render()">2 dias antes</button>
+      </div></div></div>
+
   <div class="sec"><div class="sec-h"><span>🔐 Segurança e Login</span></div>
     <div class="card">
       ${getAuth()
@@ -4341,7 +4499,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.23.3 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.24 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
