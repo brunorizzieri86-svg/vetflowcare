@@ -292,15 +292,17 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.24.2';
+const APP_VER = '9.25';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.24.2',
-  titulo: 'Confirmar atendimentos + recorte de selo',
+  ver: '9.25',
+  titulo: 'Desconto no atendimento + valores em R$',
   itens: [
-    ['✅','Confirmar atendimentos','Um novo painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
+    ['🏷️','Desconto no atendimento','Agora o atendimento tem um campo de <b>desconto em %</b>. O total já sai com o desconto aplicado (você vê o subtotal, o desconto e o total final), e esse valor com desconto é o que segue para o Financeiro e para a cobrança.'],
+    ['💵','Valores com R$ e vírgula','Os campos de valor agora mostram <b>R$</b> e formatam sozinhos enquanto você digita (ex: R$ 1.234,56) — em serviços, despesas, cobranças e parcelas. Fica claro que ali é um valor.'],
+    ['✅','Confirmar atendimentos','Um painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
     ['✂️','Recorte do selo da ampola','Depois de fotografar o selo, agora você <b>ajusta o enquadramento</b> — arraste a caixa e deixe só o selo. Já tem selo salvo? Use <b>✂️ Ajustar selo</b> para reenquadrar sem tirar outra foto.'],
     ['🔤','Botões mais claros','Vários botões ganharam <b>texto junto do ícone</b> (Editar, Excluir, Avisar…) para ficar claro o que cada um faz.'],
     ['💳','Taxas de cartão no Financeiro','Agora você escolhe o <b>meio de pagamento</b> (Pix, débito, crédito) em cada atendimento, e o app calcula o <b>valor líquido real</b> — quanto entra no seu bolso depois da taxa da maquininha. Configure suas taxas em <b>Ajustes → 💳 Taxas de Cartão</b>.'],
@@ -1128,6 +1130,27 @@ async function doRemovePass(){
 
 // ═══ FINANCEIRO ═══
 function fmtBRL(v){ return 'R$ ' + (v||0).toFixed(2).replace('.', ','); }
+// Máscara de moeda para inputs: formata "R$ 1.234,56" enquanto digita.
+// O valor numérico real fica guardado em data-valor (em reais).
+function maskMoeda(el){
+  let dig = (el.value || '').replace(/\D/g, '');   // só dígitos = centavos
+  if(!dig){ el.value = ''; el.dataset.valor = '0'; if(el.oninput)el._chg&&el._chg(); return; }
+  dig = dig.replace(/^0+/, '') || '0';             // tira zeros à esquerda
+  const num = parseInt(dig, 10) / 100;             // vira reais
+  el.dataset.valor = String(num);
+  el.value = 'R$ ' + num.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+// Lê o valor numérico real de um input com máscara de moeda
+function moedaVal(el){
+  if(!el) return 0;
+  if(el.dataset.valor !== undefined && el.dataset.valor !== '') return parseFloat(el.dataset.valor)||0;
+  return parseFloat((el.value||'').replace(/[^\d,]/g,'').replace(',','.'))||0;
+}
+// Formata um número inicial para exibição no input (ao abrir edição)
+function moedaInit(v){
+  v = parseFloat(v)||0;
+  return v>0 ? 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2}) : '';
+}
 // Unifica atendimentos com valor + cobranças avulsas
 // ── 💳 Taxas por meio de pagamento — motor de cálculo (100% offline) ──
 // Meios: pix, dinheiro, debito, credito, creditoParc (crédito parcelado)
@@ -1779,7 +1802,7 @@ function openExpenseForm(editId){
   showSheet(ex ? '✏️ Editar Despesa' : '🧾 Nova Despesa', `
     <label>Descrição *</label><input id="fEDesc" value="${esc(ex?.desc||'')}" placeholder="Ex: Seringas e agulhas · Combustível">
     <label>Categoria</label><select id="fECat">${EXP_CATS.map(c=>`<option ${ex?.cat===c?'selected':''}>${c}</option>`).join('')}</select>
-    <label>Valor (R$) *</label><input id="fEValor" type="number" step="0.01" inputmode="decimal" value="${ex?ex.valor:''}">
+    <label>Valor *</label><input id="fEValor" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(ex?.valor)}" data-valor="${parseFloat(ex?.valor)||0}" oninput="maskMoeda(this)">
     <label>Data</label><input id="fEDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
       value="${fmtDate(ex?.date||todayISO())}" oninput="maskDate(this)">
     <label>Observações</label>
@@ -1788,7 +1811,7 @@ function openExpenseForm(editId){
      <button class="btn" onclick="saveExpense('${editId||''}')">💾 Salvar</button>`);
 }
 function saveExpense(editId, force){
-  const desc = val('fEDesc'), valor = parseFloat(val('fEValor'));
+  const desc = val('fEDesc'), valor = moedaVal(document.getElementById('fEValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
   if(!(valor > 0 && valor < 1000000)){ toast('⚠ Valor inválido — use um número positivo'); return; }
   const date = parseBRDate(val('fEDate')) || todayISO();
@@ -2022,8 +2045,8 @@ function openChargeForm(editId){
     <div class="chips">${CATS.map(k=>`<button class="chip" onclick="const d=document.getElementById('fCDesc');d.value=d.value?d.value+' · '+'${k}':'${k}'">${k}</button>`).join('')}</div>
     <label>Descrição *</label>
     <input id="fCDesc" value="${esc(c?.desc||'')}" placeholder="Ex: Venda de vermífugo · Banho e tosa">
-    <label>Valor total (R$) *</label>
-    <input id="fCValor" type="number" step="0.01" inputmode="decimal" value="${c?c.valor:''}" placeholder="Ex: 80.00" oninput="buildChgParcelas()">
+    <label>Valor total *</label>
+    <input id="fCValor" inputmode="numeric" value="${moedaInit(c?.valor)}" data-valor="${parseFloat(c?.valor)||0}" placeholder="R$ 0,00" oninput="maskMoeda(this);buildChgParcelas()">
     <label>Meio de pagamento</label>
     <div class="chips" id="fCMeio">
       ${['pix','dinheiro','debito','credito','creditoParc'].map(m => {
@@ -2070,7 +2093,7 @@ function selMeioPagChg(btn, meio){
 
 function buildChgParcelas(){
   const n = parseInt(document.getElementById('fCParc')?.value)||1;
-  const total = parseFloat(val('fCValor'))||0;
+  const total = moedaVal(document.getElementById('fCValor'))||0;
   const rows = document.getElementById('fCParcRows');
   const info = document.getElementById('fCParcInfo');
   document.getElementById('fCParc1').style.display = n===1 ? 'block' : 'none';
@@ -2082,18 +2105,18 @@ function buildChgParcelas(){
   for(let i=0;i<n;i++){
     const v = i===n-1 ? (total - base*(n-1)).toFixed(2) : base.toFixed(2);
     const sug = fmtDate(addDays(todayISO(), 30*(i+1)));
-    const oldV = document.getElementById('fCParcV'+i)?.value;
+    const oldV = document.getElementById('fCParcV'+i)?.dataset.valor;
     const oldD = document.getElementById('fCParcD'+i)?.value;
     html += `<div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
-      <div style="flex:1"><label>Parcela ${i+1} (R$)</label>
-      <input id="fCParcV${i}" type="number" step="0.01" inputmode="decimal" value="${oldV||(total?v:'')}"></div>
+      <div style="flex:1"><label>Parcela ${i+1}</label>
+      <input id="fCParcV${i}" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(oldV||(total?v:0))}" data-valor="${oldV||(total?v:0)}" oninput="maskMoeda(this)"></div>
       <div style="flex:1"><label>Vencimento</label>
       <input id="fCParcD${i}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" value="${oldD||sug}" oninput="maskDate(this)"></div></div>`;
   }
   rows.innerHTML = html;
 }
 function saveCharge(editId, force){
-  const desc = val('fCDesc'), valor = parseFloat(val('fCValor'));
+  const desc = val('fCDesc'), valor = moedaVal(document.getElementById('fCValor'));
   if(!desc || !valor){ toast('⚠ Preencha descrição e valor'); return; }
   if(!(valor > 0 && valor < 1000000)){ toast('⚠ Valor inválido — use um número positivo'); return; }
   const status = document.querySelector('#fCPay .chip.on')?.dataset.v || 'pendente';
@@ -2108,7 +2131,7 @@ function saveCharge(editId, force){
     const parc = [];
     let soma = 0;
     for(let i=0;i<n;i++){
-      const v = parseFloat(document.getElementById('fCParcV'+i)?.value)||0;
+      const v = moedaVal(document.getElementById('fCParcV'+i));
       const d = parseBRDate(document.getElementById('fCParcD'+i)?.value);
       if(!v || !d){ toast(`⚠ Preencha valor e data (DD/MM/AAAA) da parcela ${i+1}`); return; }
       soma += v; parc.push({v, d});
@@ -2429,7 +2452,8 @@ const TUT_STEPS = [
   {emo:'🩺', title:'Atendimentos — prontuário e valores',
    body:`Ainda em <b>Saúde</b>, a linha do tempo de atendimentos:<br><br>
    • Tipo, resumo, prontuário completo e <b>retorno automático</b> na agenda<br>
-   • <b>💰 Itens do atendimento</b>: consulta, vacina, exame… cada um com valor — o total soma sozinho<br>
+   • <b>💰 Itens do atendimento</b>: consulta, vacina, exame… cada um com valor (em <b>R$</b>, formatado sozinho) — o total soma sozinho<br>
+   • <b>🏷️ Desconto</b>: aplique um desconto em % — o total já sai com o desconto, e é esse valor que vai para o Financeiro<br>
    • <b>Parcele em até 5x</b>: valores e vencimentos individuais<br>
    • <b>🧾 Despesas do atendimento</b> (sala, anestesista…) caem sozinhas no Financeiro<br>
    • <b>💬 Avisar tutor</b>: manda lembrete no WhatsApp com a mensagem já escrita<br>
@@ -4502,7 +4526,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.24.2 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.25 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -5974,7 +5998,9 @@ function openApptForm(petId, editId){
     <div id="fPItens">${eA?.itens?.length ? eA.itens.map((it,i)=>servItemRow(i, esc(it.desc), it.valor)).join('') : servItemRow(0)}</div>
     <button type="button" class="btn sm outline" style="margin-top:8px" onclick="addServItem()">➕ Adicionar item</button>
     <div id="fPTotalBox" style="background:var(--medbg);border-radius:10px;padding:9px 12px;font-size:14px;margin-top:10px;display:none">
-      💰 Total do atendimento: <b id="fPTotalTxt">R$ 0,00</b></div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>Subtotal dos serviços:</span><b id="fPSubTxt">R$ 0,00</b></div>
+      <div id="fPDescBox" style="display:none;justify-content:space-between;font-size:12px;color:var(--danger);margin-top:2px"><span>Desconto aplicado:</span><b id="fPDescTxt">− R$ 0,00</b></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">💰 Total: <b id="fPTotalTxt">R$ 0,00</b></div></div>
     <input type="hidden" id="fPValor" value="0">
     ${eA?.parcelas?.length ? `
     <label>Pagamento</label>
@@ -5989,6 +6015,13 @@ function openApptForm(petId, editId){
       }).join('')}
     </div>
     <div id="fPMeioInfo" style="font-size:11.5px;color:var(--muted);margin:2px 0 8px"></div>
+
+    <label>🏷️ Desconto aplicável</label>
+    <div style="display:flex;align-items:center;gap:8px">
+      <input id="fPDesc" inputmode="decimal" placeholder="0" value="${eA?.desconto||''}" style="flex:1" oninput="recalcServTotal()">
+      <span style="font-size:18px;font-weight:800;color:var(--muted)">%</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin:3px 0 8px">Desconto em porcentagem sobre o subtotal dos serviços. O total já sai com o desconto aplicado.</div>
 
     <label>Pagamento</label>
     <div class="chips" id="fPPay">
@@ -6032,11 +6065,12 @@ function openApptForm(petId, editId){
       Se informar a data, um atendimento "Retorno" será criado automaticamente na linha do tempo e na agenda.</div>`,
     `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
      <button class="btn" onclick="saveAppt('${petId}')">💾 Salvar</button>`);
+  setTimeout(recalcServTotal, 50); // calcula o total já ao abrir (útil na edição)
 }
 function servItemRow(i, desc='', valor=''){
   return `<div class="srow" style="display:flex;gap:8px;align-items:center;margin-top:6px">
     <input class="sDesc" placeholder="Ex: Consulta · Vacina V10 · Hemograma" value="${desc}" style="flex:2">
-    <input class="sVal" type="number" step="0.01" inputmode="decimal" placeholder="R$" value="${valor}" style="flex:1" oninput="recalcServTotal()">
+    <input class="sVal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(valor)}" data-valor="${parseFloat(valor)||0}" style="flex:1" oninput="maskMoeda(this);recalcServTotal()">
     <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.remove();recalcServTotal()">✕</button></div>`;
 }
 function addServItem(){
@@ -6059,13 +6093,13 @@ function addApptDesp(nome){
         <input class="dDesc" placeholder="Ex: Sala de cirurgia · Anestesista" value="${nome}" style="flex:1">
         <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.parentElement.remove();recalcApptDesp()">✕</button></div>
       <div style="display:flex;gap:8px;margin-top:6px">
-        <input class="dVal" type="number" step="0.01" inputmode="decimal" placeholder="R$ valor" style="flex:1" oninput="recalcApptDesp()">
+        <input class="dVal" inputmode="numeric" placeholder="R$ 0,00" data-valor="0" style="flex:1" oninput="maskMoeda(this);recalcApptDesp()">
         <input class="dDate" placeholder="📅 Data (DD/MM/AAAA)" inputmode="numeric" maxlength="10" style="flex:1.2;font-size:16px" oninput="maskDate(this)"></div>
       <div style="font-size:10px;color:var(--muted);margin-top:3px">Data em branco = data do atendimento. Pode ser futura (ex: anestesista a pagar).</div></div>`);
 }
 function recalcApptDesp(){
   let t = 0;
-  document.querySelectorAll('#fPDespRows .dVal').forEach(el => { t += parseFloat(el.value)||0; });
+  document.querySelectorAll('#fPDespRows .dVal').forEach(el => { t += moedaVal(el); });
   const box = document.getElementById('fPDespTot');
   box.style.display = t > 0 ? 'block' : 'none';
   document.getElementById('fPDespTotTxt').textContent = fmtBRL(t);
@@ -6074,7 +6108,7 @@ function collectApptDesp(dateISO, petName){
   const out = []; let bad = 0;
   document.querySelectorAll('#fPDespRows .drow').forEach((row, i) => {
     const d = row.querySelector('.dDesc').value.trim();
-    const v = parseFloat(row.querySelector('.dVal').value)||0;
+    const v = moedaVal(row.querySelector('.dVal'));
     if(!d && !v) return; // linha vazia — ignora
     if(v < 0){ bad = i+1; return; }
     const dtTxt = row.querySelector('.dDate')?.value.trim() || '';
@@ -6089,11 +6123,26 @@ function collectApptDesp(dateISO, petName){
   return {list: out, bad};
 }
 function recalcServTotal(){
-  let total = 0;
-  document.querySelectorAll('#fPItens .sVal').forEach(el => { total += parseFloat(el.value)||0; });
+  let subtotal = 0;
+  document.querySelectorAll('#fPItens .sVal').forEach(el => { subtotal += moedaVal(el); });
+  // desconto em %
+  const descEl = document.getElementById('fPDesc');
+  let desc = descEl ? (parseFloat((descEl.value||'').replace(',','.'))||0) : 0;
+  if(desc < 0) desc = 0; if(desc > 100) desc = 100;
+  const totalDesc = subtotal * desc / 100;
+  const total = subtotal - totalDesc;
   document.getElementById('fPValor').value = total;
+  // caixa de desconto (mostra o quanto foi abatido)
+  const descBox = document.getElementById('fPDescBox');
+  if(descBox){
+    descBox.style.display = (desc > 0 && subtotal > 0) ? 'block' : 'none';
+    const dt = document.getElementById('fPDescTxt');
+    if(dt) dt.textContent = `− ${fmtBRL(totalDesc)} (${desc.toLocaleString('pt-BR')}%)`;
+  }
   const box = document.getElementById('fPTotalBox');
-  box.style.display = total > 0 ? 'block' : 'none';
+  box.style.display = (subtotal > 0) ? 'block' : 'none';
+  const subEl = document.getElementById('fPSubTxt');
+  if(subEl) subEl.textContent = fmtBRL(subtotal);
   document.getElementById('fPTotalTxt').textContent = fmtBRL(total);
   recalcParcelas();
 }
@@ -6171,8 +6220,8 @@ function buildParcelas(){
   for(let i=0;i<n;i++){
     const v = i===n-1 ? (total - base*(n-1)).toFixed(2) : base.toFixed(2);
     html += `<div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
-      <div style="flex:1"><label>Parcela ${i+1} (R$)</label>
-      <input id="fPParcV${i}" type="number" step="0.01" inputmode="decimal" value="${total?v:''}" oninput="recalcParcelas()"></div>
+      <div style="flex:1"><label>Parcela ${i+1}</label>
+      <input id="fPParcV${i}" inputmode="numeric" placeholder="R$ 0,00" value="${total?moedaInit(v):''}" data-valor="${total?v:0}" oninput="maskMoeda(this);recalcParcelas()"></div>
       <div style="flex:1"><label>Vencimento</label>
       <input id="fPParcD${i}" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"
         value="${fmtDate(addDays(todayISO(), 30*(i+1)))}" oninput="maskDate(this)"></div></div>`;
@@ -6185,7 +6234,7 @@ function recalcParcelas(){
   if(n === 1) return;
   const total = parseFloat(document.getElementById('fPValor').value)||0;
   let soma = 0;
-  for(let i=0;i<n;i++) soma += parseFloat(document.getElementById('fPParcV'+i)?.value)||0;
+  for(let i=0;i<n;i++) soma += moedaVal(document.getElementById('fPParcV'+i));
   const resto = total - soma;
   const el = document.getElementById('fPParcResto');
   el.style.display = 'block';
@@ -6211,12 +6260,16 @@ function saveAppt(petId, force){
   const itens = [];
   document.querySelectorAll('#fPItens .srow').forEach(row => {
     const d = row.querySelector('.sDesc').value.trim();
-    const v = parseFloat(row.querySelector('.sVal').value)||0;
+    const v = moedaVal(row.querySelector('.sVal'));
     if(v < 0){ window._negServ = 1; }
     if(d || v > 0) itens.push({desc: d||'Serviço', valor: v});
   });
   if(window._negServ){ window._negServ = 0; toast('⚠ Valor negativo em um serviço — corrija'); return; }
-  const valor = itens.reduce((s,i)=>s+i.valor, 0);
+  const subtotal = itens.reduce((s,i)=>s+i.valor, 0);
+  // Desconto em %
+  let desconto = parseFloat((val('fPDesc')||'').replace(',','.')) || 0;
+  if(desconto < 0) desconto = 0; if(desconto > 100) desconto = 100;
+  const valor = subtotal * (1 - desconto/100);
   let payStatus = null, payDue = null, paidAt = null;
   if(valor > 0){
     payStatus = document.querySelector('#fPPay .chip.on')?.dataset.v || 'pago';
@@ -6227,7 +6280,7 @@ function saveAppt(petId, force){
         window._parcelas = [];
         let soma = 0;
         for(let i=0;i<n;i++){
-          const v = parseFloat(document.getElementById('fPParcV'+i)?.value)||0;
+          const v = moedaVal(document.getElementById('fPParcV'+i));
           const d = parseBRDate(document.getElementById('fPParcD'+i)?.value);
           if(!v || !d){ toast(`⚠ Preencha valor e data (DD/MM/AAAA) da parcela ${i+1}`); return; }
           soma += v;
@@ -6253,7 +6306,7 @@ function saveAppt(petId, force){
     if(a){
       const rec = val('fPRecord');
       Object.assign(a, {title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
-        clinic:val('fPClinic'), valor, record: rec,
+        clinic:val('fPClinic'), valor, record: rec, desconto: desconto||null,
         meioPag: valor > 0 ? (meioPag||'pix') : null,
         done: date < todayISO() ? 1 : (rec ? (a.done||1) : 0),
         itens: itens.length ? itens : null});
@@ -6276,6 +6329,7 @@ function saveAppt(petId, force){
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'),
     valor, payStatus, payDue, paidAt, meioPag: valor > 0 ? (meioPag||'pix') : null,
+    desconto: desconto||null,
     done: date < todayISO() ? 1 : 0,
     itens: itens.length ? itens : null,
     parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
