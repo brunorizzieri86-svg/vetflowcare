@@ -292,16 +292,19 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.25';
+const APP_VER = '9.26';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.25',
-  titulo: 'Desconto no atendimento + valores em R$',
+  ver: '9.26',
+  titulo: 'Plantão, formas de pagamento e agenda melhor',
   itens: [
-    ['🏷️','Desconto no atendimento','Agora o atendimento tem um campo de <b>desconto em %</b>. O total já sai com o desconto aplicado (você vê o subtotal, o desconto e o total final), e esse valor com desconto é o que segue para o Financeiro e para a cobrança.'],
-    ['💵','Valores com R$ e vírgula','Os campos de valor agora mostram <b>R$</b> e formatam sozinhos enquanto você digita (ex: R$ 1.234,56) — em serviços, despesas, cobranças e parcelas. Fica claro que ali é um valor.'],
+    ['🌙','Categoria Plantão','Nas cobranças, agora tem a categoria rápida <b>Plantão</b> — e ela aparece na <b>Produção Clínica</b> do Fluxo junto com consultas, cirurgias e vacinas.'],
+    ['💳','Recebido por forma de pagamento','No <b>Fluxo</b>, um novo resumo mostra quanto entrou por <b>Pix, cartões e dinheiro</b> — você vê de onde vem o seu faturamento.'],
+    ['✏️','Editar e excluir na Agenda','Cada atendimento nos <b>Próximos Eventos</b> da Agenda agora tem os botões <b>✏️ Editar</b> e <b>🗑️ Excluir</b>, para ajustar tudo rapidinho por ali mesmo.'],
+    ['🏷️','Desconto no atendimento','O atendimento tem um campo de <b>desconto em %</b>. O total já sai com o desconto aplicado, e esse valor segue para o Financeiro e para a cobrança.'],
+    ['💵','Valores com R$ e vírgula','Os campos de valor mostram <b>R$</b> e formatam sozinhos enquanto você digita (ex: R$ 1.234,56).'],
     ['✅','Confirmar atendimentos','Um painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
     ['✂️','Recorte do selo da ampola','Depois de fotografar o selo, agora você <b>ajusta o enquadramento</b> — arraste a caixa e deixe só o selo. Já tem selo salvo? Use <b>✂️ Ajustar selo</b> para reenquadrar sem tirar outra foto.'],
     ['🔤','Botões mais claros','Vários botões ganharam <b>texto junto do ícone</b> (Editar, Excluir, Avisar…) para ficar claro o que cada um faz.'],
@@ -1909,6 +1912,14 @@ function renderFluxo(){
   DB.pets.forEach(p => p.appointments.forEach(a => {
     if(inPer(a.date)){ prodCount[a.title] = (prodCount[a.title]||0) + 1; prodTot++; }
   }));
+  // inclui cobranças avulsas (ex: Plantão, Banho e tosa, Produto) pela categoria
+  (DB.charges||[]).forEach(c => {
+    if(inPer(c.date || c.due)){
+      // usa a primeira parte da descrição como categoria (a categoria rápida entra aqui)
+      const cat = (c.cat || (c.desc||'').split('·')[0].split('(')[0].trim() || 'Avulso');
+      prodCount[cat] = (prodCount[cat]||0) + 1; prodTot++;
+    }
+  });
   const allRecv = allReceivables();
   const pagosN = allRecv.filter(r => r.status==='pago' && inPer(r.paidAt)).length;
   const ticket = pagosN ? tR / pagosN : 0;
@@ -1949,7 +1960,7 @@ function renderFluxo(){
 
   // ═══ PRODUÇÃO CLÍNICA — barras maiores e alinhadas ═══
   if(prodTot){
-    const TIPO_EMO = {'Consulta':'🩺','Retorno':'🔄','Vacinação':'💉','Exame':'🔬','Cirurgia':'🏥','Emergência':'🚨','Orientações via Telefone':'📞'};
+    const TIPO_EMO = {'Consulta':'🩺','Retorno':'🔄','Vacinação':'💉','Exame':'🔬','Cirurgia':'🏥','Emergência':'🚨','Orientações via Telefone':'📞','Plantão':'🌙','Banho e tosa':'🛁','Produto':'📦','Vacina':'💉','Medicamento':'💊'};
     const maxT = Math.max(...Object.values(prodCount));
     h += `<div class="card" style="margin-bottom:12px">
       <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">🩺 Produção clínica do período</div>
@@ -1963,7 +1974,33 @@ function renderFluxo(){
     </div>`;
   }
 
-  // ═══ EVOLUÇÃO — barras agrupadas maiores, 3 meses + ver mais ═══
+  // ═══ RECEBIDO POR FORMA DE PAGAMENTO ═══
+  const porMeio = {};
+  let meioTot = 0;
+  allRecv.forEach(r => {
+    if(r.status==='pago' && inPer(r.paidAt)){
+      const m = r.meioPag || 'pix';
+      porMeio[m] = (porMeio[m]||0) + r.valor;
+      meioTot += r.valor;
+    }
+  });
+  if(meioTot > 0){
+    const maxM = Math.max(...Object.values(porMeio));
+    // ordena do maior para o menor
+    const ordenado = Object.entries(porMeio).sort((a,b)=>b[1]-a[1]);
+    h += `<div class="card" style="margin-bottom:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">💳 Recebido por forma de pagamento</div>
+      ${ordenado.map(([m,v])=>`
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+          <span style="font-size:12px;min-width:120px;font-weight:600">${MEIOS_PAG[m]?.emo||'💰'} ${MEIOS_PAG[m]?.label||m}</span>
+          <div style="flex:1;height:18px;background:var(--bg);border-radius:9px;position:relative;overflow:hidden">
+            <div style="height:100%;width:${Math.max(14,Math.round(v/maxM*100))}%;background:var(--success);border-radius:9px;display:flex;align-items:center;justify-content:flex-end;padding-right:7px">
+              <b style="font-size:10.5px;color:#fff;white-space:nowrap">${fmtBRL(v)}</b></div>
+          </div></div>`).join('')}
+      <div style="display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);font-size:12px">
+        <b style="color:var(--muted)">Total recebido</b><b style="color:var(--success)">${fmtBRL(meioTot)}</b></div>
+    </div>`;
+  }
   const maxV = Math.max(1, ...rows.map(r=>Math.max(r.receb, r.desp, r.prev)));
   const chartRows = [...rows].reverse();
   const LIM = 3;
@@ -2037,7 +2074,7 @@ function printFluxo(){
 function openChargeForm(editId){
   if(!DB.pets.length){ toast('⚠ Cadastre um paciente primeiro'); return; }
   const c = editId ? DB.charges.find(x=>x.id===editId) : null;
-  const CATS = ['Consulta','Vacina','Exame','Medicamento','Banho e tosa','Produto','Outros'];
+  const CATS = ['Consulta','Vacina','Exame','Medicamento','Banho e tosa','Plantão','Produto','Outros'];
   showSheet(c ? '✏️ Editar Cobrança' : '➕ Nova Cobrança', `
     <label>Paciente *</label>
     ${pickHTML('fCPet', DB.pets.map(p => ({id:p.id, label:p.name, sub:`${p.species}${tutorName(p)?' · '+tutorName(p):''}`})), c?.petId, '🔍 Digite para buscar o paciente…')}
@@ -2499,7 +2536,7 @@ const TUT_STEPS = [
    • <b>📤 Compartilhar</b>: envia o resumo do animal por <b>WhatsApp</b>, <b>Copiar</b> (cola em qualquer lugar), <b>E-mail</b> ou <b>Nativo</b> (menu de apps do celular) — e o botão <b>Exportar/Imprimir Ficha (PDF)</b> gera o documento timbrado escolhendo as seções<br>
    • <b>🗑️ Excluir</b>: remove o paciente (pede confirmação)`},
   {emo:'📅', title:'Agenda, Rota do dia e Alertas',
-   body:`<b>📅 Agenda</b>: calendário com pontinhos coloridos por dia (vermelho = vencido). Toque no dia → <b>"➕ Novo Atendimento"</b> já com a data.<br><br>
+   body:`<b>📅 Agenda</b>: calendário com pontinhos coloridos por dia (vermelho = vencido). Toque no dia → <b>"➕ Novo Atendimento"</b> já com a data. Cada atendimento na lista de <b>Próximos Eventos</b> tem os botões <b>✏️ Editar</b> e <b>🗑️ Excluir</b> para ajustar por ali mesmo.<br><br>
    <b>🗺️ Rota do dia</b> — para quem atende em domicílio, o botão ao lado:<br>
    • Lista os atendimentos <b>na ordem dos horários</b>, com o endereço do tutor<br>
    • Cada parada abre direto no <b>🚗 Waze</b> ou no <b>🗺️ Google Maps</b><br>
@@ -2512,7 +2549,7 @@ const TUT_STEPS = [
    • <b>🟡 A Receber</b>: total pendente, o <b>🔔 aviso das cobranças que vencem em até 3 dias</b> em destaque no topo, e filtros por período (Hoje, 7 dias, Quinzenal, Mensal, Todos). Marque como recebido, altere vencimento e <b>💬 Cobre no WhatsApp</b> (Pro)<br>
    • <b>🔴 Atrasado</b>: total atrasado + a lista dos vencidos, para você priorizar quem cobrar<br>
    • <b>🧾 Despesas</b>: por mês e categoria, com gráfico (Pro)<br>
-   • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, produção clínica, ticket médio e evolução mês a mês + PDF (Pro)`},
+   • <b>📊 Fluxo</b>: resumo do período com <b>recebido, a receber, despesas e saldo</b>, <b>produção clínica</b> (consultas, cirurgias, plantões…), <b>recebido por forma de pagamento</b> (Pix, cartões, dinheiro), ticket médio e evolução mês a mês + PDF (Pro)`},
   {emo:'✅', title:'Confirmar atendimentos — reduza faltas',
    body:`Na <b>tela inicial</b>, quando há agendamentos chegando, aparece o painel <b>📋 Confirmar atendimentos</b>:<br><br>
    • Mostra os atendimentos de <b>amanhã</b> (ou de 2 dias, você escolhe nos Ajustes)<br>
@@ -2668,11 +2705,35 @@ function renderScorecard(){
 function evtRow(e){
   const t = TYPE_CFG[e.type], pc = PRI_CLR[e.priority];
   const lbl = e.daysLeft<0?`${Math.abs(e.daysLeft)}d atraso`:e.daysLeft===0?'Hoje':`${e.daysLeft}d`;
-  return `<div class="evt" style="border-left-color:${pc}" onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"')"}">
-    <div class="ic" style="background:${t.bg}">${t.emo}</div>
-    <div class="tx"><div class="t1">${e.emo} ${esc(e.pet)} — ${esc(e.title)}</div>
+  const isAppt = e.type==='vet';
+  const aid = isAppt ? e.id.slice(2) : '';
+  return `<div class="evt" style="border-left-color:${pc}">
+    <div class="ic" style="background:${t.bg}" onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"')"}">${t.emo}</div>
+    <div class="tx" onclick="${e.type==='pay' ? 'goFinance()' : "openPet('"+e.petId+"')"}"><div class="t1">${e.emo} ${esc(e.pet)} — ${esc(e.title)}</div>
     <div class="t2">${e.due===todayISO()&&e.type==='medication'?'Hoje':fmtDate(e.due)}</div></div>
-    <span class="bd" style="background:color-mix(in srgb, ${pc} 12%, transparent);color:${pc}">${lbl}</span></div>`;
+    ${isAppt ? `<button class="btn sm outline" style="padding:5px 8px;flex-shrink:0" onclick="event.stopPropagation();openApptForm('${e.petId}','${aid}')" title="Editar">✏️</button>
+      <button class="btn sm dangero" style="padding:5px 8px;flex-shrink:0" onclick="event.stopPropagation();delApptAgenda('${e.petId}','${aid}')" title="Excluir">🗑</button>`
+     : `<span class="bd" style="background:color-mix(in srgb, ${pc} 12%, transparent);color:${pc}">${lbl}</span>`}</div>`;
+}
+// Excluir atendimento direto da agenda (com confirmação)
+function delApptAgenda(petId, aid){
+  const pet = DB.pets.find(p=>p.id===petId);
+  const a = pet && pet.appointments.find(x=>x.id===aid);
+  if(!a) return;
+  vfcConfirm({
+    icon: '🗑️',
+    title: 'Excluir atendimento?',
+    msg: `Deseja excluir <b>${esc(a.title)}</b> de <b>${esc(pet.name)}</b> em ${fmtDate(a.date)}?`,
+    note: 'Esta ação não pode ser desfeita.',
+    yesLabel: '🗑 Excluir', yesBg: 'var(--danger)',
+    yes: `doDelApptAgenda('${petId}','${aid}')`
+  });
+}
+function doDelApptAgenda(petId, aid){
+  const pet = DB.pets.find(p=>p.id===petId);
+  if(!pet) return;
+  pet.appointments = pet.appointments.filter(x=>x.id!==aid);
+  save(); render(); toast('Atendimento excluído');
 }
 
 function renderHome(){
@@ -4526,7 +4587,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.25 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.26 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
