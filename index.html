@@ -292,17 +292,18 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.26';
+const APP_VER = '9.27';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.26',
-  titulo: 'Plantão, formas de pagamento e agenda melhor',
+  ver: '9.27',
+  titulo: 'Gráfico de despesas, meta e mais controle',
   itens: [
-    ['🌙','Categoria Plantão','Nas cobranças, agora tem a categoria rápida <b>Plantão</b> — e ela aparece na <b>Produção Clínica</b> do Fluxo junto com consultas, cirurgias e vacinas.'],
-    ['💳','Recebido por forma de pagamento','No <b>Fluxo</b>, um novo resumo mostra quanto entrou por <b>Pix, cartões e dinheiro</b> — você vê de onde vem o seu faturamento.'],
-    ['✏️','Editar e excluir na Agenda','Cada atendimento nos <b>Próximos Eventos</b> da Agenda agora tem os botões <b>✏️ Editar</b> e <b>🗑️ Excluir</b>, para ajustar tudo rapidinho por ali mesmo.'],
+    ['📊','Para onde foi o dinheiro','Nas <b>Despesas</b>, um gráfico de rosca mostra a proporção de cada categoria — você vê num relance onde está gastando mais.'],
+    ['🎯','Meta de faturamento','Defina sua meta mensal em <b>Ajustes → 🎯 Meta de Faturamento</b> e acompanhe uma barra de progresso no <b>Fluxo</b>.'],
+    ['📈','Comparação com o mês passado','No Fluxo, veja se está faturando mais ou menos que no mês anterior — com uma setinha simples e direta.'],
+    ['💊','Medicações são só registro','As medicações agora ficam apenas na aba <b>Saúde</b> do paciente, como anotação de consulta. Não geram mais avisos nem lembretes.'],
     ['🏷️','Desconto no atendimento','O atendimento tem um campo de <b>desconto em %</b>. O total já sai com o desconto aplicado, e esse valor segue para o Financeiro e para a cobrança.'],
     ['💵','Valores com R$ e vírgula','Os campos de valor mostram <b>R$</b> e formatam sozinhos enquanto você digita (ex: R$ 1.234,56).'],
     ['✅','Confirmar atendimentos','Um painel na <b>tela inicial</b> mostra os agendamentos de amanhã. Toque em <b>💬 Confirmar</b> e o WhatsApp abre com a mensagem pronta para o tutor — confirme presença e <b>reduza as faltas</b>. Escolha 1 ou 2 dias de antecedência em <b>Ajustes → ✅ Confirmar Atendimentos</b>.'],
@@ -1789,16 +1790,55 @@ function renderExpenses(){
   return h;
 }
 // Barras de categoria — reaproveitado nas duas visões
+// Cores fixas por categoria (consistentes entre sessões)
+const EXP_CAT_COR = {
+  'Serviços/Procedimentos':'#E05252', 'Materiais':'#F0A500', 'Medicamentos':'#2DB37A',
+  'Transporte':'#4E8EAC', 'Equipamentos':'#9B6BCC', 'Laboratório':'#2DC0AE', 'Outros':'#6B7A8D'
+};
+function corCategoria(c, i){ return EXP_CAT_COR[c] || ['#E05252','#F0A500','#2DB37A','#4E8EAC','#9B6BCC','#2DC0AE','#6B7A8D','#E8739A'][i%8]; }
+
 function cartaoCategorias(byCat, maxCat){
-  const chaves = Object.keys(byCat);
-  if(!chaves.length) return '';
-  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
-    ${Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`
-      <div style="margin-top:6px">
-        <div style="display:flex;justify-content:space-between;font-size:11px"><span>${esc(c)}</span><b>${fmtBRL(v)}</b></div>
-        <div style="height:7px;background:var(--bg);border-radius:4px;margin-top:3px">
-          <div style="height:100%;width:${Math.round(v/maxCat*100)}%;background:var(--danger);border-radius:4px;opacity:.75"></div></div>
-      </div>`).join('')}</div>`;
+  const entradas = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  if(!entradas.length) return '';
+  const total = entradas.reduce((s,[,v])=>s+v, 0);
+  if(total <= 0) return '';
+
+  // ─── Gráfico de rosca (donut) em SVG ───
+  const R = 42, C = 2 * Math.PI * R;   // raio e circunferência
+  let offset = 0;
+  const segmentos = entradas.map(([c,v], i) => {
+    const frac = v / total;
+    const len = frac * C;
+    const cor = corCategoria(c, i);
+    const seg = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${cor}" stroke-width="16"
+      stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-offset}"
+      transform="rotate(-90 60 60)"></circle>`;
+    offset += len;
+    return seg;
+  }).join('');
+  const maiorCat = entradas[0];
+  const maiorPct = Math.round(maiorCat[1] / total * 100);
+
+  const donut = `<div style="display:flex;align-items:center;gap:14px;margin-top:10px">
+    <svg width="120" height="120" viewBox="0 0 120 120" style="flex-shrink:0">
+      ${segmentos}
+      <text x="60" y="55" text-anchor="middle" font-size="10" fill="var(--muted)" font-weight="700">MAIOR</text>
+      <text x="60" y="70" text-anchor="middle" font-size="15" fill="var(--text)" font-weight="900">${maiorPct}%</text>
+    </svg>
+    <div style="flex:1;min-width:0">
+      ${entradas.map(([c,v],i)=>{
+        const pct = Math.round(v/total*100);
+        return `<div style="display:flex;align-items:center;gap:6px;margin-top:5px;font-size:11.5px">
+          <span style="width:10px;height:10px;border-radius:3px;background:${corCategoria(c,i)};flex-shrink:0"></span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c)}</span>
+          <b style="flex-shrink:0">${pct}%</b>
+          <span style="color:var(--muted);flex-shrink:0;min-width:60px;text-align:right">${fmtBRL(v)}</span>
+        </div>`;
+      }).join('')}
+    </div></div>`;
+  return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+    <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:2px">📊 Para onde foi o dinheiro</div>
+    ${donut}</div>`;
 }
 function openExpenseForm(editId){
   const ex = editId ? DB.expenses.find(x=>x.id===editId) : null;
@@ -1925,6 +1965,15 @@ function renderFluxo(){
   const ticket = pagosN ? tR / pagosN : 0;
   const taxa = (tR + tP) > 0 ? Math.round(tR / (tR + tP) * 100) : 100;
 
+  // ─── Comparação: mês atual vs. mês anterior (recebido) ───
+  const _now = new Date();
+  const _mAtual = _now.toISOString().slice(0,7);
+  const _mAnt = new Date(_now.getFullYear(), _now.getMonth()-1, 1).toISOString().slice(0,7);
+  const recebMesAtual = allRecv.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(_mAtual)).reduce((s,r)=>s+r.valor,0);
+  const recebMesAnt = allRecv.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(_mAnt)).reduce((s,r)=>s+r.valor,0);
+  let deltaPct = null, recebAnterior = recebMesAnt;
+  if(recebMesAnt > 0) deltaPct = Math.round((recebMesAtual - recebMesAnt) / recebMesAnt * 100);
+
   // ═══ CARD RESUMO — limpo e visual ═══
   h += `<div class="card" style="margin-bottom:12px">
     <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">📊 Resumo do período</div>
@@ -1945,6 +1994,11 @@ function renderFluxo(){
       <span style="font-size:13px;font-weight:700;color:var(--text)">${tS>=0?'💰 Saldo do período':'⚠️ PREJUÍZO no período'}</span>
       <b style="font-size:20px;color:${tS>=0?'var(--success)':'var(--danger)'}">${fmtBRL(tS)}</b>
     </div>
+    ${deltaPct !== null ? `<div style="text-align:center;margin-top:8px;font-size:12px">
+      ${deltaPct > 0 ? `<span style="color:var(--success);font-weight:700">📈 Este mês ↑ ${deltaPct}%</span>` :
+        deltaPct < 0 ? `<span style="color:var(--danger);font-weight:700">📉 Este mês ↓ ${Math.abs(deltaPct)}%</span>` :
+        `<span style="color:var(--muted);font-weight:700">= igual ao mês passado</span>`}
+      <span style="color:var(--muted)"> vs. mês passado (${fmtBRL(recebAnterior)})</span></div>` : ''}
     <!-- KPIs secundários -->
     <div style="display:flex;gap:14px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border)">
       <div style="flex:1;text-align:center"><div style="font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase">Taxa recebim.</div>
@@ -1957,6 +2011,27 @@ function renderFluxo(){
     <div style="text-align:center;margin-top:12px">
       <button class="btn sm" onclick="printFluxo()">📄 Exportar PDF</button>
     </div></div>`;
+
+  // ═══ META DE FATURAMENTO (se configurada) ═══
+  const meta = parseFloat(DB.settings.metaMensal) || 0;
+  if(meta > 0){
+    const recebMes = allRecv.filter(r => r.status==='pago' && (r.paidAt||'').startsWith(_mAtual)).reduce((s,r)=>s+r.valor,0);
+    const pctMeta = Math.round(recebMes / meta * 100);
+    const bateu = recebMes >= meta;
+    const falta = Math.max(0, meta - recebMes);
+    h += `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">🎯 Meta do mês (${MONTHS[_now.getMonth()]})</span>
+        <b style="font-size:13px;color:${bateu?'var(--success)':'var(--text)'}">${fmtBRL(recebMes)} / ${fmtBRL(meta)}</b></div>
+      <div style="height:20px;background:var(--bg);border-radius:10px;overflow:hidden;position:relative">
+        <div style="height:100%;width:${Math.min(100,pctMeta)}%;background:${bateu?'var(--success)':'var(--primary)'};border-radius:10px;transition:width .4s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px">
+          ${pctMeta>=15?`<b style="font-size:11px;color:#fff">${pctMeta}%</b>`:''}</div>
+        ${pctMeta<15?`<b style="font-size:11px;color:var(--muted);position:absolute;left:8px;top:50%;transform:translateY(-50%)">${pctMeta}%</b>`:''}
+      </div>
+      <div style="font-size:12px;text-align:center;margin-top:8px;color:${bateu?'var(--success)':'var(--muted)'};font-weight:${bateu?'700':'400'}">
+        ${bateu ? '🎉 Meta batida! Parabéns!' : `Faltam ${fmtBRL(falta)} para bater a meta`}</div>
+    </div>`;
+  }
 
   // ═══ PRODUÇÃO CLÍNICA — barras maiores e alinhadas ═══
   if(prodTot){
@@ -2359,10 +2434,6 @@ function allEvents(){
       const d = daysUntil(v.due);
       evts.push({...base, id:'v-'+v.id, type:'vaccine', title:v.name, due:v.due, daysLeft:d, priority:priorityOf(d)});
     });
-    pet.medications.filter(m=>m.active).forEach(m => {
-      evts.push({...base, id:'m-'+m.id, type:'medication', title:`${m.name} — ${m.time}`,
-        due:todayISO(), daysLeft:0, priority:'today', medId:m.id});
-    });
     pet.appointments.filter(a => !a.done).forEach(a => {
       const d = daysUntil(a.date);
       evts.push({...base, id:'a-'+a.id, type:'vet', title:a.title, due:a.date, daysLeft:d, priority:priorityOf(d)});
@@ -2462,7 +2533,6 @@ const TUT_STEPS = [
    body:`Ao abrir, você vê tudo que importa <b>hoje</b>:<br><br>
    • <b>Índice de saúde</b>: anel com a média dos pacientes<br>
    • <b>📅 Próximos 7 dias</b>: vacinas, atendimentos e pagamentos chegando<br>
-   • <b>💊 Medicações de Hoje</b>: toque em <b>"Dado"</b> após administrar — evita dose dupla<br>
    • <b>Banner vermelho</b> = algo vencido; toque para resolver<br>
    • <b>💰 Financeiro</b>: acesso discreto ao módulo completo`},
   {emo:'👤', title:'Tutores — cadastre primeiro o responsável',
@@ -2740,8 +2810,6 @@ function renderHome(){
   const pets = DB.pets, evts = allEvents();
   const od = evts.filter(e=>e.priority==='overdue');
   const week = evts.filter(e=>e.daysLeft>=0 && e.daysLeft<=7).slice(0,5);
-  const meds = [];
-  pets.forEach(p => p.medications.filter(m=>m.active).forEach(m => meds.push({pet:p, m})));
 
   let h = '';
   if(od.length) h += `<div class="banner" onclick="goTab('alerts')">
@@ -2867,18 +2935,6 @@ function renderHome(){
     `<div class="card empty"><div class="big">✅</div>Nenhum evento pendente esta semana!</div>`;
   h += `</div>`;
 
-  if(meds.length){
-    h += `<div class="sec"><div class="sec-h"><span>💊 Medicações de Hoje</span></div>`;
-    meds.forEach(({pet,m}) => {
-      const done = m.lastDone === todayISO();
-      h += `<div class="card" style="display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:var(--medbg);display:flex;align-items:center;justify-content:center">💊</div>
-        <div style="flex:1"><div style="font-weight:600;font-size:13px">${petEmoji(pet)} ${esc(pet.name)} — ${esc(m.name)}</div>
-        <div style="color:var(--muted);font-size:11px">${esc(m.dosage)} às ${m.time}</div></div>
-        <button class="btn sm ${done?'success':'warn'}" onclick="toggleMedDone('${pet.id}','${m.id}');event.stopPropagation()">${done?'✓ Dado':'Pendente'}</button></div>`;
-    });
-    h += `</div>`;
-  }
   if(od.length) h += `<div class="sec"><div class="sec-h"><span>⚠️ Ação Necessária</span></div>${od.map(evtRow).join('')}</div>`;
   return h;
 }
@@ -4467,7 +4523,7 @@ function renderSettings(){
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>🔔 Notificações por Tipo</span></div>
-    <div class="card">${sw('nVac','💉 Vacinas')}${sw('nMed','💊 Medicações')}${sw('nVet','🩺 Atendimentos')}</div></div>
+    <div class="card">${sw('nVac','💉 Vacinas')}${sw('nVet','🩺 Atendimentos')}</div></div>
 
   <div class="sec"><div class="sec-h"><span>⏰ Antecedência dos Alertas</span></div>
     <div class="card">${sw('alert7','7 dias antes')}${sw('alert3','3 dias antes')}${sw('alert1','1 dia antes')}</div></div>
@@ -4481,6 +4537,13 @@ function renderSettings(){
         <button class="chip ${(s.confirmDays||1)==1?'on':''}" onclick="DB.settings.confirmDays=1;save();render()">1 dia antes</button>
         <button class="chip ${(s.confirmDays||1)==2?'on':''}" onclick="DB.settings.confirmDays=2;save();render()">2 dias antes</button>
       </div></div></div>
+
+  <div class="sec"><div class="sec-h"><span>🎯 Meta de Faturamento</span></div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Defina quanto você quer receber por mês. Aparece uma barra de progresso no <b>Fluxo</b>. Deixe em branco (0) para não usar.</div>
+      <label>Minha meta mensal</label>
+      <input id="setMetaMensal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(s.metaMensal)}" data-valor="${parseFloat(s.metaMensal)||0}"
+        oninput="maskMoeda(this)" onchange="DB.settings.metaMensal=moedaVal(this);save();toast('Meta salva!')"></div></div>
 
   <div class="sec"><div class="sec-h"><span>🔐 Segurança e Login</span></div>
     <div class="card">
@@ -4587,7 +4650,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.26 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.27 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -6823,7 +6886,7 @@ function scheduleLocalCheck(){
   localStorage.setItem(key, todayISO());
   const days = activeAlertDays();
   const s = DB.settings;
-  const typeOn = {vaccine:s.nVac, medication:s.nMed, vet:s.nVet, pay:true};
+  const typeOn = {vaccine:s.nVac, vet:s.nVet, pay:true};
   allEvents().forEach(e => {
     if(!typeOn[e.type]) return;
     const t = TYPE_CFG[e.type];
