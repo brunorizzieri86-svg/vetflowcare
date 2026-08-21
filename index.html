@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VetFlowCare">
 <title>VetFlowCare Pro - Gestão Veterinária</title>
-<link rel="icon" href="logo.jpg">
-<link rel="apple-touch-icon" href="logo.jpg">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.json">
 <style>
 :root{
@@ -292,17 +292,17 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.27';
+const APP_VER = '9.28';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.27',
-  titulo: 'Gráfico de despesas, meta e mais controle',
+  ver: '9.28',
+  titulo: 'Preparação para a Google Play + privacidade',
   itens: [
-    ['📊','Para onde foi o dinheiro','Nas <b>Despesas</b>, um gráfico de rosca mostra a proporção de cada categoria — você vê num relance onde está gastando mais.'],
-    ['🎯','Meta de faturamento','Defina sua meta mensal em <b>Ajustes → 🎯 Meta de Faturamento</b> e acompanhe uma barra de progresso no <b>Fluxo</b>.'],
-    ['📈','Comparação com o mês passado','No Fluxo, veja se está faturando mais ou menos que no mês anterior — com uma setinha simples e direta.'],
+    ['📱','A caminho da Play Store','O VetFlowCare está sendo preparado para entrar na <b>Google Play</b>! Novo ícone, e ajustes internos para virar um app de verdade na loja.'],
+    ['🔔','Tela de permissões clara','Ao abrir pela primeira vez, o app explica <b>por que</b> pede cada permissão (notificações, câmera, microfone) — sempre com o seu consentimento, e reforçando que os dados ficam só no seu aparelho.'],
+    ['🔒','Sua privacidade em primeiro lugar','Reforçamos que o VetFlowCare é <b>offline</b>: nada dos seus pacientes é enviado para servidores.'],
     ['💊','Medicações são só registro','As medicações agora ficam apenas na aba <b>Saúde</b> do paciente, como anotação de consulta. Não geram mais avisos nem lembretes.'],
     ['🏷️','Desconto no atendimento','O atendimento tem um campo de <b>desconto em %</b>. O total já sai com o desconto aplicado, e esse valor segue para o Financeiro e para a cobrança.'],
     ['💵','Valores com R$ e vírgula','Os campos de valor mostram <b>R$</b> e formatam sozinhos enquanto você digita (ex: R$ 1.234,56).'],
@@ -4469,6 +4469,7 @@ function taxaRow(meio, label){
     <span style="flex:1;font-size:14px">${label}</span>
     <div style="display:flex;align-items:center;gap:6px">
       <input type="number" step="0.01" min="0" max="100" value="${t}" id="taxa_${meio}"
+        aria-label="Taxa de ${esc(label)} em porcentagem"
         onchange="salvarTaxa('${meio}', this.value)"
         style="width:80px;text-align:right;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px">
       <span style="font-size:14px;color:var(--muted);font-weight:700">%</span>
@@ -4496,7 +4497,7 @@ function renderSettings(){
       <input id="vName" value="${esc(v.name)}" placeholder="Ex: Dra. Gabriela">
       <label>CRMV *</label>
       <div style="display:flex;gap:8px">
-        <select id="vUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
+        <select id="vUf" aria-label="Estado (UF)" style="width:90px"><option value="">UF</option>${ufOpts}</select>
         <input id="vNum" value="${esc(v.crmvNum)}" placeholder="Número · Ex: 12345">
       </div>
       <label>SIPEAGRO / MAPA</label>
@@ -4508,13 +4509,13 @@ function renderSettings(){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">Usado nas receitas com assinatura digital — <button style="background:none;color:var(--primary);font-weight:700;padding:0;font-size:11px" onclick="openSignInfo()">o que é isso?</button></div>
 
       <label>Logo (aparece no receituário)</label>
-      <input type="file" accept="image/*" id="vLogoFile" class="hidden" onchange="uploadVetImg('logo',this)">
+      <input type="file" accept="image/*" id="vLogoFile" aria-label="Enviar logo da clínica" class="hidden" onchange="uploadVetImg('logo',this)">
       <div class="upbox" onclick="document.getElementById('vLogoFile').click()">
         ${v.logo?`<img src="${v.logo}">`:'📤 Toque para enviar seu logo'}</div>
       ${v.logo?`<button class="btn sm dangero" style="margin-top:6px" onclick="DB.vet.logo=null;save();render()">Remover logo</button>`:''}
 
       <label>Assinatura eletrônica (imagem)</label>
-      <input type="file" accept="image/*" id="vSigFile" class="hidden" onchange="uploadVetImg('signature',this)">
+      <input type="file" accept="image/*" id="vSigFile" aria-label="Enviar assinatura do veterinário" class="hidden" onchange="uploadVetImg('signature',this)">
       <div class="upbox" onclick="document.getElementById('vSigFile').click()">
         ${v.signature?`<img src="${v.signature}">`:'✍️ Toque para enviar sua assinatura'}</div>
       ${v.signature?`<button class="btn sm dangero" style="margin-top:6px" onclick="DB.vet.signature=null;save();render()">Remover assinatura</button>`:''}
@@ -4635,7 +4636,7 @@ function renderSettings(){
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Salva TUDO (pacientes, tutores, financeiro, receitas) em um arquivo. Guarde no Google Drive ou envie para você mesmo no WhatsApp — é sua garantia se trocar de celular ou esquecer a senha.</div>
       ${getAuth()?`<button class="btn outline" onclick="exportEncBackup()">🔐 Backup Criptografado (.vfcbak)</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Versão protegida do backup: só abre com a sua senha. Ideal para guardar na nuvem com segurança total (LGPD).</div>`:''}
-      <input type="file" accept=".json,.vfcbak" id="importFile" class="hidden" onchange="importJSON(this)">
+      <input type="file" accept=".json,.vfcbak" id="importFile" aria-label="Importar arquivo de backup" class="hidden" onchange="importJSON(this)">
       <button class="btn outline" onclick="document.getElementById('importFile').click()">📂 Restaurar Backup</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Recupera os dados de um arquivo de backup — use ao trocar de aparelho ou após apagar os dados.</div>
       <button class="btn outline" onclick="openImportWizard()">📥 Importar de Outro Sistema (CSV)</button>
@@ -4650,7 +4651,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.27 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.28 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -6871,9 +6872,55 @@ function activeAlertDays(){
   return d.length ? d : [3];
 }
 function requestNotifPermission(){
-  if('Notification' in window && Notification.permission === 'default'){
-    Notification.requestPermission();
-  }
+  // Só pede notificação depois de explicar (exigência da Play Store).
+  // Mostra a tela de permissões uma única vez.
+  if(localStorage.getItem('vfc_perms_shown')) return;
+  if(!('Notification' in window)) return;
+  if(Notification.permission !== 'default') { localStorage.setItem('vfc_perms_shown','1'); return; }
+  // adiado para não competir com tutorial/setup ao abrir
+  setTimeout(()=>{ if(!document.querySelector('.modal')) showPermsOnboarding(); }, 1200);
+}
+
+// Tela que EXPLICA as permissões antes de pedir (requisito de revisão do Google Play)
+function showPermsOnboarding(){
+  const body = `
+    <div style="padding:4px 2px 8px">
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px">O VetFlowCare respeita a sua privacidade. Para funcionar melhor, ele pode usar estes recursos do seu aparelho — sempre com a sua permissão:</p>
+
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+        <div style="font-size:26px;flex-shrink:0">🔔</div>
+        <div><b style="font-size:14px">Notificações</b>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Para lembrar você de vacinas, retornos e pagamentos que estão vencendo. Você pode desligar quando quiser nos Ajustes.</div></div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+        <div style="font-size:26px;flex-shrink:0">📷</div>
+        <div><b style="font-size:14px">Câmera</b>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Só quando VOCÊ toca em "fotografar" — para registrar fotos de exames, documentos e o selo da ampola de vacina. Nada é enviado para fora do aparelho.</div></div>
+      </div>
+
+      <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px">
+        <div style="font-size:26px;flex-shrink:0">🎙️</div>
+        <div><b style="font-size:14px">Microfone</b>
+        <div style="font-size:12.5px;color:var(--muted);margin-top:2px">Só quando VOCÊ toca no microfone para ditar um texto (como a anamnese). O ditado é processado na hora e nada é gravado.</div></div>
+      </div>
+
+      <div style="background:var(--medbg);border-radius:12px;padding:12px;font-size:12px;color:var(--muted);margin-top:4px">
+        🔒 Seus dados ficam <b>salvos apenas neste aparelho</b> (offline). O app não envia informações de pacientes para nenhum servidor.
+      </div>
+    </div>`;
+  const foot = `<button class="btn primary" style="width:100%" onclick="ativarNotifPerms()">Entendi, ativar lembretes</button>
+    <button class="btn" style="width:100%;margin-top:8px;background:none;color:var(--muted)" onclick="pularNotifPerms()">Agora não</button>`;
+  showSheet('👋 Bem-vindo! Sobre as permissões', body, foot);
+}
+function ativarNotifPerms(){
+  localStorage.setItem('vfc_perms_shown','1');
+  closeSheet();
+  try{ Notification.requestPermission(); }catch(e){}
+}
+function pularNotifPerms(){
+  localStorage.setItem('vfc_perms_shown','1');
+  closeSheet();
 }
 function notify(title, body){
   if('Notification' in window && Notification.permission === 'granted'){
