@@ -292,14 +292,15 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.28';
+const APP_VER = '9.29';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.28',
-  titulo: 'Preparação para a Google Play + privacidade',
+  ver: '9.29',
+  titulo: 'CPF do tutor nos documentos + Play Store',
   itens: [
+    ['🪪','CPF do tutor nos documentos','Os PDFs (receituário, atestado, ficha, carteirinha) agora mostram o <b>CPF do tutor</b>. Se o tutor ainda não tem CPF cadastrado, aparece uma <b>linha em branco</b> para preencher à mão.'],
     ['📱','A caminho da Play Store','O VetFlowCare está sendo preparado para entrar na <b>Google Play</b>! Novo ícone, e ajustes internos para virar um app de verdade na loja.'],
     ['🔔','Tela de permissões clara','Ao abrir pela primeira vez, o app explica <b>por que</b> pede cada permissão (notificações, câmera, microfone) — sempre com o seu consentimento, e reforçando que os dados ficam só no seu aparelho.'],
     ['🔒','Sua privacidade em primeiro lugar','Reforçamos que o VetFlowCare é <b>offline</b>: nada dos seus pacientes é enviado para servidores.'],
@@ -3958,7 +3959,7 @@ function termPatientBlock(pet, tutor, withCpf){
   const F = v => v ? esc(v) : '<span class="fill" style="min-width:150px"></span>';
   return `<div class="box">
     <b>TUTOR:</b> ${F(tutor?.name)}<br>
-    ${withCpf?`<b>CPF/RG:</b> ${F(tutor?.cpf)}<br>`:''}
+    ${withCpf?`<b>CPF/RG:</b> ${tutor?.cpf?esc(fmtCPF(tutor.cpf)):'<span class="fill" style="min-width:150px"></span>'}<br>`:''}
     <b>ENDEREÇO:</b> ${F(tutor?.address)}${tutor?.cep?' · CEP '+esc(tutor.cep):''}<br>
     <b>ANIMAL:</b> ${esc(pet.name)} &nbsp; <b>IDADE:</b> ${calcAge(pet.birth)} &nbsp; <b>ESPÉCIE:</b> ${esc(pet.species)}<br>
     <b>RAÇA:</b> ${esc(pet.breed||'SRD')} &nbsp; <b>SEXO:</b> ${esc(pet.gender)} &nbsp; <b>PESO:</b> ${pet.weight} kg
@@ -4651,7 +4652,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.28 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.29 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -6589,7 +6590,7 @@ function patientBlockHTML(pet){
   return `<div style="background:#EDF8F7;border-radius:10px;padding:10px 14px;font-size:13px;margin-bottom:18px">
     <b>Paciente:</b> ${esc(pet.name)} · ${esc(pet.species)} · ${esc(pet.breed||'SRD')} · ${esc(pet.gender)} · ${esc(pet.fertility||'')}<br>
     <b>Idade:</b> ${calcAge(pet.birth)} · <b>Peso:</b> ${pet.weight} kg
-    ${tutorName(pet)?`<br><b>Tutor/Responsável:</b> ${esc(tutorName(pet))}`:''}
+    ${tutorName(pet)?`<br><b>Tutor/Responsável:</b> ${esc(tutorName(pet))} · <b>CPF:</b> ${tutorOf(pet)?.cpf?esc(fmtCPF(tutorOf(pet).cpf)):'<span class="fill" style="min-width:130px"></span>'}`:''}
     ${pet.chip?`<br><b>Microchip:</b> ${esc(pet.chip)}`:''}</div>`;
 }
 function signatureHTML(dateISO){
@@ -6639,6 +6640,7 @@ function rxHeaderBlockHTML(pet){
   return `<div class="box">
     <b class="bt">TUTOR E ANIMAL</b>
     <b>Tutor:</b> ${esc(t?.name || tutorName(pet) || '')}<span class="fill" style="min-width:40px"></span><br>
+    <b>CPF:</b> ${t?.cpf ? esc(fmtCPF(t.cpf)) : '<span class="fill" style="min-width:150px"></span>'}<br>
     <b>Endereço:</b> ${esc(t?.address || '')}${t?.cep ? ' · CEP '+esc(t.cep) : ''}<br>
     <b>Animal:</b> ${esc(pet.name)} &nbsp;·&nbsp; <b>Idade:</b> ${calcAge(pet.birth)} &nbsp;·&nbsp; <b>Peso:</b> ${pet.weight} kg<br>
     <b>Espécie:</b> ${esc(pet.species)} &nbsp;·&nbsp; <b>Sexo:</b> ${esc(pet.gender)}${pet.fertility?' ('+esc(pet.fertility)+')':''}
@@ -6753,7 +6755,7 @@ function printRecord(petId, apptId){
 function petSummaryText(pet){
   let t = `🐾 FICHA — ${pet.name}\n`;
   t += `${pet.species} · ${pet.breed||'SRD'} · ${pet.gender} · ${pet.fertility||''}\n`;
-  if(tutorName(pet)) t += `Tutor: ${tutorName(pet)}\n`;
+  if(tutorName(pet)){ t += `Tutor: ${tutorName(pet)}\n`; const _tc=tutorOf(pet); if(_tc?.cpf) t += `CPF: ${fmtCPF(_tc.cpf)}\n`; }
   t += `Nascimento: ${fmtDate(pet.birth)} (${calcAge(pet.birth)})\n`;
   t += `Peso: ${pet.weight} kg · Porte: ${pet.porte}\n`;
   if(pet.chip) t += `Microchip: ${pet.chip}\n`;
@@ -6819,7 +6821,7 @@ function doExportFicha(petId){
 
   if(on('exTutor') && t){
     body += H('👤 Tutor / Responsável') + `<div style="font-size:13px;line-height:1.9;margin:8px 0 18px">
-      <b>Nome:</b> ${esc(t.name)}${t.cpf?` · <b>CPF:</b> ${esc(t.cpf)}`:''}<br>
+      <b>Nome:</b> ${esc(t.name)} · <b>CPF:</b> ${t.cpf?esc(fmtCPF(t.cpf)):'<span class="fill" style="min-width:130px"></span>'}<br>
       ${t.phone?`<b>Telefone:</b> ${esc(t.phone)}<br>`:''}
       ${t.address?`<b>Endereço:</b> ${esc(t.address)}${t.cep?' · CEP '+esc(t.cep):''}`:''}</div>`;
   }
