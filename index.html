@@ -292,14 +292,19 @@ try{
 })();
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.29';
+const APP_VER = '9.31';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.29',
-  titulo: 'CPF do tutor nos documentos + Play Store',
+  ver: '9.31',
+  titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🌐','Conheça os planos no site','Ao fim do teste, você encontra os planos e o passo a passo para assinar direto no nosso site <b>vetflowcare.com.br</b> — tudo mais simples e organizado.'],
+    ['🎁','Teste grátis de 30 dias','Agora é só <b>criar sua conta</b> e você libera <b>todas as funções</b> por 30 dias, sem precisar de código. Um presente para você conhecer tudo. 🐾'],
+    ['📝','Cadastro completo','No primeiro acesso você preenche seus dados (nome, idade, sexo, CPF, usuário, e-mail e senha). O <b>CPF é validado</b> automaticamente.'],
+    ['⏳','Aviso antes de acabar','Quando faltarem <b>5 dias</b> para o teste terminar, um aviso aparece na tela inicial para você renovar com calma.'],
+    ['🔒','Depois dos 30 dias','Ao fim do teste, os recursos avançados ficam bloqueados até você assinar o <b>Pro</b> — mas <b>seus dados continuam salvos</b>, nada é apagado.'],
     ['🪪','CPF do tutor nos documentos','Os PDFs (receituário, atestado, ficha, carteirinha) agora mostram o <b>CPF do tutor</b>. Se o tutor ainda não tem CPF cadastrado, aparece uma <b>linha em branco</b> para preencher à mão.'],
     ['📱','A caminho da Play Store','O VetFlowCare está sendo preparado para entrar na <b>Google Play</b>! Novo ícone, e ajustes internos para virar um app de verdade na loja.'],
     ['🔔','Tela de permissões clara','Ao abrir pela primeira vez, o app explica <b>por que</b> pede cada permissão (notificações, câmera, microfone) — sempre com o seu consentimento, e reforçando que os dados ficam só no seu aparelho.'],
@@ -2287,11 +2292,76 @@ function saveCharge(editId, force){
 
 // ═══ LICENCIAMENTO FREE / PRO ═══
 const FREE_PET_LIMIT = 5;
-function isPro(){
+// ═══ TESTE GRÁTIS DE 30 DIAS (trial automático, sem código) ═══
+const TRIAL_DIAS = 30;
+const TRIAL_AVISO_DIAS = 5; // avisa quando faltar 5 dias ou menos
+
+// Detecta se o app está rodando instalado pela Play Store (TWA/app) ou pelo navegador/site.
+// Na Play Store, escondemos venda direta (regra do Google); no site, mostramos tudo.
+function isPlayStore(){
+  try{
+    // TWA roda em modo standalone E com referrer android-app://
+    const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
+    const twaReferrer = document.referrer && document.referrer.startsWith('android-app://');
+    // marca manual pra testes/força (se algum dia precisar)
+    const forced = localStorage.getItem('vfc_is_playstore') === '1';
+    return !!(twaReferrer || forced || (standalone && /Android/i.test(navigator.userAgent)));
+  }catch(e){ return false; }
+}
+
+// Marca "este aparelho já usou o trial" em várias chaves (sobrevive a reinstalação da maioria)
+const TRIAL_MARKS = ['vfc_trial_used', 'vfc_tu2', 'vfctrial'];
+function marcarTrialUsado(){
+  try{ TRIAL_MARKS.forEach(k => localStorage.setItem(k, '1')); }catch(e){}
+}
+function trialJaUsado(){
+  for(const k of TRIAL_MARKS){ try{ if(localStorage.getItem(k)) return true; }catch(e){} }
+  return false;
+}
+
+// Inicia o trial de 30 dias (chamado ao concluir o cadastro)
+function iniciarTrial(){
+  const hoje = todayISO();
+  DB.trial = { active:true, startedAt:hoje, expiresAt:addDays(hoje, TRIAL_DIAS) };
+  marcarTrialUsado();
+  try{ save(); }catch(e){}
+}
+
+// Trial está ativo AGORA?
+function trialAtivo(){
+  const T = DB.trial;
+  if(!T || !T.active || !T.expiresAt) return false;
+  return todayISO() <= T.expiresAt;
+}
+
+// Trial já expirou (existiu mas passou do prazo)?
+function trialExpirado(){
+  const T = DB.trial;
+  return !!(T && T.startedAt && T.expiresAt && todayISO() > T.expiresAt);
+}
+
+// Dias restantes do trial (0 se expirado/inexistente)
+function trialDiasRestantes(){
+  const T = DB.trial;
+  if(!T || !T.expiresAt) return 0;
+  const hoje = new Date(todayISO()+'T00:00:00');
+  const fim = new Date(T.expiresAt+'T00:00:00');
+  const dias = Math.ceil((fim - hoje) / 86400000);
+  return dias > 0 ? dias : 0;
+}
+
+
+function isProReal(){
   const L = DB.license;
   if(!L || !L.pro) return false;
   if(L.expiresAt && todayISO() > L.expiresAt) return false;
   return true;
+}
+// isPro agora libera TUDO se: Pro real ativo OU trial de 30 dias ativo
+function isPro(){
+  if(isProReal()) return true;
+  if(trialAtivo()) return true;
+  return false;
 }
 function proExpired(){ const L = DB.license; return !!(L && L.code && L.expiresAt && todayISO() > L.expiresAt); }
 function addMonths(iso, m){
@@ -2315,7 +2385,7 @@ function myDevId(){
   return DB.devId;
 }
 // ── Convites da fase de testes (desligue mudando para false ao abrir ao público) ──
-const BETA_GATE = true;
+const BETA_GATE = false; // v9.30: trial de 30 dias substitui o convite obrigatório
 function inviteChecksum(seed){
   let h = 7;
   const s = seed + 'CONVITEBETAVFC';
@@ -2386,11 +2456,17 @@ function openProModal(reason){
         <b style="font-size:20px;letter-spacing:3px;font-family:monospace;flex:1">AP-${myDevId()}</b>
         <button class="btn sm" style="background:var(--rx)" onclick="navigator.clipboard.writeText('AP-'+myDevId()).then(()=>toast('📋 ID copiado!'))">📋 Copiar</button></div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">Seu código Pro é gerado para ESTE ID e só funciona neste aparelho.</div></div>
-    <button class="btn" style="background:#25D366;margin-top:12px"
-      onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro! Meu ID de aparelho é AP-'+myDevId()+'. Pode me ajudar?'))">
-      💬 Assinar pelo WhatsApp da VetFlowCare</button>
-    <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
-      Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>
+    ${isPlayStore()
+      ? `<button class="btn" style="background:var(--primary);margin-top:12px"
+           onclick="window.open('https://vetflowcare.com.br/#planos','_blank')">
+           🌐 Conheça os planos no nosso site</button>
+         <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
+           Veja os planos e como assinar no nosso site. Após contratar, você recebe um código de ativação para digitar abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>`
+      : `<button class="btn" style="background:#25D366;margin-top:12px"
+           onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro! Meu ID de aparelho é AP-'+myDevId()+'. Pode me ajudar?'))">
+           💬 Assinar pelo WhatsApp da VetFlowCare</button>
+         <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
+           Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>`}
     <label>Já tem um código? Digite aqui</label>
     <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700" oninput="maskCode(this)">`,
     `<button class="btn gray" onclick="closeSheet()">Agora não</button>
@@ -2398,6 +2474,45 @@ function openProModal(reason){
 }
 function usedCodes(){
   try{ return JSON.parse(localStorage.getItem('vfc_used_codes')||'[]'); }catch(e){ return []; }
+}
+// ═══ BLOQUEIO PÓS-EXPIRAÇÃO DO TRIAL ═══
+// Retorna true (e mostra o modal) se a ação deve ser BLOQUEADA porque o trial expirou.
+// Uso: no início de uma função → if(bloqueioTrial('nome do recurso')) return;
+function bloqueioTrial(recurso){
+  // se é Pro real ou trial ainda ativo, libera
+  if(isProReal() || trialAtivo()) return false;
+  // se o trial expirou (ou nunca existiu mas o cadastro já foi feito), bloqueia
+  if(trialExpirado()){
+    openTrialExpirado(recurso);
+    return true;
+  }
+  return false;
+}
+function openTrialExpirado(recurso){
+  showSheet('⏳ Seu teste grátis terminou', `
+    <div style="text-align:center;padding:6px 0">
+      <div style="font-size:44px;margin-bottom:6px">🔒</div>
+      <div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px">Os 30 dias de teste acabaram</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:4px">
+        ${recurso?`O recurso <b>${esc(recurso)}</b> agora faz parte do Plano Pro.<br>`:''}
+        Seus dados estão <b>salvos e seguros</b> — nada foi apagado. Assine o Pro para desbloquear tudo de novo. 🐾
+      </div>
+    </div>
+    <div style="background:rgba(45,192,174,.08);border:1.5px solid var(--primary);border-radius:12px;padding:12px 14px;margin-top:10px">
+      <div style="font-size:13px;font-weight:800;color:var(--primary);margin-bottom:6px">Com o Pro você recupera:</div>
+      <div style="font-size:12.5px;line-height:1.9;color:var(--text)">
+        ✅ Receituários, termos e carteirinha de vacinação<br>
+        ✅ Financeiro (fluxo e despesas)<br>
+        ✅ Rota de visitas<br>
+        ✅ Exportar, salvar e backup dos dados<br>
+        ✅ Pacientes e tutores <b>ilimitados</b><br>
+        ✅ Cobrança pelo WhatsApp</div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:12px">
+      Conheça os planos no nosso site. Já recebeu seu código? Toque em "Já tenho código".
+    </div>`,
+    `<button class="btn" style="background:var(--primary)" onclick="window.open('https://vetflowcare.com.br/#planos','_blank')">🌐 Conheça os planos</button>
+     <button class="btn" style="background:var(--rx)" onclick="closeSheet();openProModal()">🔑 Já tenho código</button>`);
 }
 function activatePro(){
   const code = val('proCode').toUpperCase().trim();
@@ -2813,6 +2928,20 @@ function renderHome(){
   const week = evts.filter(e=>e.daysLeft>=0 && e.daysLeft<=7).slice(0,5);
 
   let h = '';
+  // 🎁 AVISO DO TESTE GRÁTIS — aparece quando faltam TRIAL_AVISO_DIAS (5) ou menos
+  if(trialAtivo() && !isProReal()){
+    const diasT = trialDiasRestantes();
+    if(diasT <= TRIAL_AVISO_DIAS){
+      h += `<div class="card" style="border:1.5px solid var(--primary);background:rgba(45,192,174,.08);margin-bottom:14px;cursor:pointer" onclick="openProModal('Seu teste grátis está acabando! Assine o Pro para continuar com tudo liberado.')">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:22px">⏳</span>
+          <div style="flex:1">
+            <b style="font-size:14px;color:var(--primary)">Seu teste grátis termina em ${diasT} ${diasT===1?'dia':'dias'}</b>
+            <div style="font-size:11.5px;color:var(--muted);margin-top:2px">Assine o <b>Plano Pro</b> para não perder o acesso às funções. Toque para saber como.</div>
+          </div>
+        </div></div>`;
+    }
+  }
   if(od.length) h += `<div class="banner" onclick="goTab('alerts')">
     <span style="font-size:20px">⚠️</span>
     <div class="t"><b>${od.length} ${od.length===1?'item vencido':'itens vencidos'} — ação necessária</b>
@@ -3587,6 +3716,7 @@ function editarSelo(petId, vacId){
 
 // Monta e gera o PDF da carteirinha
 function gerarCarteirinha(petId){
+  if(bloqueioTrial('Carteirinha de vacinação')) return;
   const pet = DB.pets.find(p=>p.id===petId);
   const t = tutorOf(pet);
   const v = DB.vet;
@@ -3923,6 +4053,7 @@ function openTermForm(petId, type){
 // Abre o painel de assinatura preservando o que já foi digitado no termo.
 // Guarda os valores dos campos, assina, e devolve o usuário ao form preenchido.
 function assinarTermo(petId){
+  if(bloqueioTrial('Termo de responsabilidade')) return;
   // preserva os campos digitados antes de trocar de tela
   window._termRascunho = {
     type: window._termTipoAtual,
@@ -4484,6 +4615,61 @@ function salvarTaxa(meio, valor){
   toast('💳 Taxa atualizada');
 }
 
+// Card de status do plano/trial nos Ajustes
+function statusPlanoCard(){
+  // Pro real ativo
+  if(isProReal()){
+    const L = DB.license || {};
+    const dias = L.expiresAt ? Math.max(0, Math.ceil((new Date(L.expiresAt+'T00:00:00') - new Date(todayISO()+'T00:00:00'))/86400000)) : null;
+    return `<div class="sec"><div class="card" style="border:1.5px solid var(--rx);background:var(--rxbg)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:26px">✨</span>
+        <div style="flex:1">
+          <b style="font-size:15px;color:var(--rx)">Plano Pro ativo</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${dias!==null?`Renova em ${dias} ${dias===1?'dia':'dias'}`:'Tudo liberado 🐾'}</div>
+        </div>
+      </div></div></div>`;
+  }
+  // Trial ativo
+  if(trialAtivo()){
+    const dias = trialDiasRestantes();
+    const acabando = dias <= TRIAL_AVISO_DIAS;
+    return `<div class="sec"><div class="card" style="border:1.5px solid ${acabando?'var(--warning)':'var(--primary)'};background:${acabando?'rgba(240,165,0,.08)':'rgba(45,192,174,.08)'}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:26px">${acabando?'⏳':'🎁'}</span>
+        <div style="flex:1">
+          <b style="font-size:15px;color:${acabando?'var(--warning)':'var(--primary)'}">Teste grátis — faltam ${dias} ${dias===1?'dia':'dias'}</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Todas as funções liberadas durante o teste.</div>
+        </div>
+      </div>
+      <button class="btn" style="background:var(--rx);margin-top:12px" onclick="openProModal()">✨ Assinar o Plano Pro</button>
+    </div></div>`;
+  }
+  // Trial expirado
+  if(trialExpirado()){
+    return `<div class="sec"><div class="card" style="border:1.5px solid var(--danger);background:rgba(224,82,82,.06)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:26px">🔒</span>
+        <div style="flex:1">
+          <b style="font-size:15px;color:var(--danger)">Teste grátis encerrado</b>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">Seus dados estão salvos. Assine o Pro para desbloquear tudo.</div>
+        </div>
+      </div>
+      <button class="btn" style="background:var(--rx);margin-top:12px" onclick="openProModal()">✨ Assinar o Plano Pro</button>
+    </div></div>`;
+  }
+  // Sem trial nem pro (raro — ex: quem já usou o trial e não assinou)
+  return `<div class="sec"><div class="card" style="border:1.5px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:26px">🐾</span>
+      <div style="flex:1">
+        <b style="font-size:15px">Plano Gratuito</b>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Até ${FREE_PET_LIMIT} pacientes. Assine o Pro para liberar tudo.</div>
+      </div>
+    </div>
+    <button class="btn" style="background:var(--rx);margin-top:12px" onclick="openProModal()">✨ Assinar o Plano Pro</button>
+  </div></div>`;
+}
 function renderSettings(){
   const s = DB.settings, v = DB.vet;
   const sw = (key, label) => `<div class="srow"><span>${label}</span>
@@ -4491,6 +4677,8 @@ function renderSettings(){
   const ufOpts = UFS.map(u=>`<option ${v.crmvUf===u?'selected':''}>${u}</option>`).join('');
 
   return `<h2 style="margin-bottom:16px">Configurações</h2>
+
+  ${statusPlanoCard()}
 
   <div class="sec"><div class="sec-h"><span>👨‍⚕️ Dados do Profissional</span></div>
     <div class="card">
@@ -4652,7 +4840,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.29 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.31 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -4786,6 +4974,7 @@ function uploadVetImg(field, input){
 
 function applyDark(){ document.body.classList.toggle('dark', DB.settings.dark); }
 function exportTutoresTXT(){
+  if(bloqueioTrial('Exportar tutores')) return;
   // Agora em PDF timbrado (nome mantido por compatibilidade)
   const blocks = DB.tutors.map((t,i) => {
     const animals = DB.pets.filter(p => p.tutorId === t.id);
@@ -5070,6 +5259,7 @@ async function sharePendFile(){
   }catch(e){ if(e.name !== 'AbortError') dlPendFile(); }
 }
 function exportEncBackup(){
+  if(bloqueioTrial('Backup dos dados')) return;
   // CORREÇÃO CRÍTICA v9.8: auth deve ir como STRING crua do localStorage.
   // Antes ia como objeto e, ao restaurar, virava "[object Object]" — credenciais
   // corrompidas faziam o app zerar tudo como se fosse usuário novo.
@@ -5102,6 +5292,7 @@ function openBackupHelp(){
     `<button class="btn" onclick="closeSheet()">Entendi</button>`);
 }
 function exportJSON(){
+  if(bloqueioTrial('Exportar dados')) return;
   if(getAuth()){
     vfcConfirm({icon:'🔓', title:'Backup sem criptografia',
       msg:'O backup JSON é exportado <b>SEM criptografia</b> — assim ele pode ser importado depois em qualquer aparelho.<br>Guarde o arquivo em local seguro.',
@@ -5470,6 +5661,7 @@ function atendsDoDia(iso){
   return out.sort((x,y) => (x.a.time||'').localeCompare(y.a.time||''));
 }
 function openRota(iso){
+  if(bloqueioTrial('Rota de visitas')) return;
   const dia = iso || todayISO();
   const lista = atendsDoDia(dia);
   const comEnd = lista.filter(x => x.end.trim());
@@ -6288,6 +6480,20 @@ function maskCPF(el){
     .replace(/(\d{3})\.(\d{3})(\d)/,'$1.$2.$3')
     .replace(/\.(\d{3})(\d{1,2})$/,'.$1-$2');
 }
+// Validação oficial de CPF (dígitos verificadores). Retorna true se válido.
+function validaCPF(v){
+  const c = (v||'').replace(/\D/g,'');
+  if(c.length !== 11) return false;
+  if(/^(\d)\1{10}$/.test(c)) return false; // rejeita 000..., 111... etc
+  let s = 0;
+  for(let i=0;i<9;i++) s += parseInt(c[i]) * (10-i);
+  let d1 = (s*10) % 11; if(d1===10) d1=0;
+  if(d1 !== parseInt(c[9])) return false;
+  s = 0;
+  for(let i=0;i<10;i++) s += parseInt(c[i]) * (11-i);
+  let d2 = (s*10) % 11; if(d2===10) d2=0;
+  return d2 === parseInt(c[10]);
+}
 function maskPhone(el){
   let d = el.value.replace(/\D/g,'').slice(0,11);
   if(d.length > 10)      el.value = d.replace(/(\d{2})(\d{5})(\d{0,4})/,'($1) $2-$3');
@@ -6527,6 +6733,7 @@ function saveRecord(petId, apptId){
 
 // ── Receituário ──
 function openRxForm(petId, rxId){
+  if(bloqueioTrial('Receituário')) return;
   const pet = DB.pets.find(p=>p.id===petId);
   const rx = rxId ? pet.prescriptions.find(x=>x.id===rxId) : null;
   showSheet(rx?'Editar Receituário':'Novo Receituário', `
@@ -6795,6 +7002,7 @@ function nativeShare(petId){
   else toast('⚠ Compartilhamento nativo não suportado');
 }
 function exportPetPDF(petId){
+  if(bloqueioTrial('Exportar ficha em PDF')) return;
   const ck = (id, label, checked, hint) => `
     <label style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);cursor:pointer;text-transform:none;letter-spacing:0;font-size:14px;color:var(--text)">
       <input type="checkbox" id="${id}" ${checked?'checked':''} style="width:20px;height:20px;accent-color:var(--primary)">
@@ -6998,6 +7206,11 @@ if('serviceWorker' in navigator){
 // ═══════════ INIT ═══════════
 function bootApp(){
   applyDark();
+  // ── MIGRAÇÃO v9.30: testador antigo (tem conta, mas nunca teve trial nem Pro) ganha o trial ──
+  // Garante que quem já usava o app NÃO fica travado ao atualizar.
+  if(getAuth() && !isProReal() && !DB.trial && !trialJaUsado()){
+    iniciarTrial();
+  }
   scheduleLocalCheck();
   migrateDocsToIDB();
   initDataProtection();
@@ -7090,8 +7303,25 @@ function showEntryRegister(){
     </div>
     <input id="regInvite" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13" oninput="maskCode(this)"
       style="width:100%;max-width:340px;box-sizing:border-box;text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;padding:13px;border-radius:13px;border:none;margin-top:8px">` : ''}
-    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:${needInvite?'14px':'20px'} 0 6px">👤 Crie seu acesso</div>
+    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:${needInvite?'14px':'18px'} 0 6px">👤 Crie sua conta</div>
     <div style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:9px">
+      <input id="regNome" type="text" placeholder="Nome completo" autocomplete="name"
+        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
+      <div style="display:flex;gap:9px">
+        <input id="regIdade" type="number" min="18" max="120" placeholder="Idade" inputmode="numeric"
+          style="width:90px;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
+        <select id="regSexo" style="flex:1;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px;color:#555">
+          <option value="">Sexo</option>
+          <option value="Feminino">Feminino</option>
+          <option value="Masculino">Masculino</option>
+          <option value="Outro">Outro</option>
+          <option value="Prefiro não informar">Prefiro não informar</option>
+        </select>
+      </div>
+      <input id="regCPF" type="text" placeholder="CPF" inputmode="numeric" maxlength="14" oninput="maskCPF(this)"
+        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
+      <input id="regUser" type="text" placeholder="Nome de usuário" autocapitalize="none" autocomplete="username"
+        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
       <input id="regEmail" type="email" placeholder="Seu e-mail" autocomplete="email"
         style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
       <div class="pwwrap"><input id="regPass" type="password" placeholder="Crie uma senha (mín. 6)" autocomplete="new-password"
@@ -7100,6 +7330,10 @@ function showEntryRegister(){
       <div class="pwwrap"><input id="regPass2" type="password" placeholder="Confirme a senha" autocomplete="new-password"
         style="padding:13px;border-radius:13px;border:none;font-size:16px">
         <button type="button" class="eye" onclick="togglePw('regPass2',this)">👁</button></div>
+    </div>
+    <div style="background:rgba(45,192,174,.18);border:1.5px solid rgba(45,192,174,.5);border-radius:12px;padding:10px 13px;margin-top:12px;max-width:340px;width:100%;box-sizing:border-box">
+      <div style="color:#fff;font-weight:800;font-size:13px">🎁 Teste grátis por 30 dias</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;margin-top:2px">Ao criar sua conta, você libera <b>todas as funções</b> por 30 dias, sem compromisso.</div>
     </div>
     <button onclick="doEntryRegister()" style="margin-top:14px">✓ Criar acesso e entrar</button>
     <div id="regErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>
@@ -7111,9 +7345,26 @@ function showEntryRegister(){
 async function doEntryRegister(){
   const err = document.getElementById('regErr');
   err.textContent = '';
+  // ── coleta os campos ──
+  const nome  = (document.getElementById('regNome').value||'').trim();
+  const idade = (document.getElementById('regIdade').value||'').trim();
+  const sexo  = (document.getElementById('regSexo').value||'').trim();
+  const cpf   = (document.getElementById('regCPF').value||'').trim();
+  const user  = (document.getElementById('regUser').value||'').trim();
+  const email = (document.getElementById('regEmail').value||'').trim();
+  // ── validações ──
+  if(nome.length < 3 || !nome.includes(' ')){ err.textContent = '⚠ Informe seu nome completo'; return; }
+  const idadeN = parseInt(idade);
+  if(!idadeN || idadeN < 18 || idadeN > 120){ err.textContent = '⚠ Informe uma idade válida (18+)'; return; }
+  if(!sexo){ err.textContent = '⚠ Selecione o sexo'; return; }
+  if(!validaCPF(cpf)){ err.textContent = '⚠ CPF inválido — confira os números'; return; }
+  if(user.length < 3){ err.textContent = '⚠ Escolha um nome de usuário (mín. 3)'; return; }
+  if(!email || !email.includes('@')){ err.textContent = '⚠ Informe um e-mail válido'; return; }
+
   const needInvite = BETA_GATE && !localStorage.getItem('vfc_invite');
   if(needInvite){
-    const code = document.getElementById('regInvite').value;
+    const codeEl = document.getElementById('regInvite');
+    const code = codeEl ? codeEl.value : '';
     if(!inviteCheck(code)){
       err.textContent = '⚠ Convite inválido — confira com a equipe VetFlowCare';
       return;
@@ -7121,13 +7372,48 @@ async function doEntryRegister(){
     localStorage.setItem('vfc_invite', JSON.stringify({code:code.toUpperCase().trim(), at:new Date().toISOString()}));
     gcEvent('convite-validado');
   }
-  const ok = await createAccountCore(
-    (document.getElementById('regEmail').value||'').trim(),
+  const ok = await createAccountCore(email,
     document.getElementById('regPass').value,
     document.getElementById('regPass2').value);
   if(!ok) return;
-  toast('✅ Acesso criado! Bem-vindo(a) ao VetFlowCare 🐾');
+  // ── salva o perfil do usuário ──
+  DB.userProfile = { nome, idade:idadeN, sexo, cpf:cpf.replace(/\D/g,''), user, email, createdAt:todayISO() };
+  // ── aproveita nome/email pra pré-preencher os Dados do Profissional (evita digitar 2x) ──
+  if(DB.vet){
+    if(!DB.vet.name)  DB.vet.name  = nome;
+    if(!DB.vet.email) DB.vet.email = email;
+  }
+  // ── inicia o trial de 30 dias (só se este aparelho ainda não usou) ──
+  if(!trialJaUsado()){
+    iniciarTrial();
+    toast('🎁 Conta criada! Você tem 30 dias grátis com tudo liberado 🐾');
+    enterApp();
+    // avisa a equipe B&G que um novo testador começou (opcional pra pessoa)
+    setTimeout(avisarInicioTrial, 1200);
+    return;
+  } else {
+    try{ save(); }catch(e){}
+    toast('✅ Conta criada! Bem-vindo(a) ao VetFlowCare 🐾');
+  }
   enterApp();
+}
+// Convida a pessoa a avisar a equipe B&G pelo WhatsApp que começou o teste (opcional)
+function avisarInicioTrial(){
+  const p = DB.userProfile || {};
+  vfcConfirm({
+    icon: '🐾',
+    title: 'Avise que você começou!',
+    msg: 'Quer avisar a equipe VetFlowCare que você começou seu teste de 30 dias? Assim acompanhamos seu acesso e te ajudamos no que precisar. (opcional)',
+    yesLabel: '💬 Avisar pelo WhatsApp',
+    yesBg: '#25D366',
+    noLabel: 'Agora não',
+    yes: 'doAvisarInicioTrial()'
+  });
+}
+function doAvisarInicioTrial(){
+  const p = DB.userProfile || {};
+  const msg = `Olá, equipe VetFlowCare! 🐾\n\nAcabei de começar meu teste grátis de 30 dias.\n\n*Nome:* ${p.nome||'—'}\n*Usuário:* ${p.user||'—'}\n*E-mail:* ${p.email||'—'}\n*ID do aparelho:* AP-${myDevId()}\n\nEstou animado(a) para testar o app!`;
+  window.open('https://wa.me/5511912659906?text=' + encodeURIComponent(msg));
 }
 function afterLGPD(){
   if(getAuth()){
