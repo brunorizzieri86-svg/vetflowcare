@@ -291,15 +291,20 @@ try{
   }
 })();
 
+// ═══ LOGOS (embutidos — app offline arquivo único) ═══
+// Ícone do site (globo WWW). Instagram entra quando o PNG chegar.
+const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
+
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.31';
+const APP_VER = '9.32';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.31',
+  ver: '9.32',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['📸','Siga a gente no Instagram','Agora tem um botão para seguir o <b>@vetflowcare.app</b> na tela inicial, nos ajustes e aqui nas novidades. Siga para receber dicas, novidades e falar direto com a equipe! 💚'],
     ['🌐','Conheça os planos no site','Ao fim do teste, você encontra os planos e o passo a passo para assinar direto no nosso site <b>vetflowcare.com.br</b> — tudo mais simples e organizado.'],
     ['🎁','Teste grátis de 30 dias','Agora é só <b>criar sua conta</b> e você libera <b>todas as funções</b> por 30 dias, sem precisar de código. Um presente para você conhecer tudo. 🐾'],
     ['📝','Cadastro completo','No primeiro acesso você preenche seus dados (nome, idade, sexo, CPF, usuário, e-mail e senha). O <b>CPF é validado</b> automaticamente.'],
@@ -359,7 +364,10 @@ function showWhatsNew(){
     Quer ver como usar? O guia completo está em <b>Ajustes → 📖 Ver Tutorial do App</b>.<br><br>
     Continue mandando ideias — este app é construído junto com quem usa. 💙<br>
     Bom trabalho e ótimos atendimentos! 🐾<br>
-    <span style="color:var(--muted);font-size:12px">— Claudinho & equipe B&G Systems</span></div>`,
+    <span style="color:var(--muted);font-size:12px">— Claudinho & equipe B&G Systems</span></div>
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+      ${blocoComunidadeSutil()}
+    </div>`,
     `<button class="btn gray" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet();openTutorial(0)">📖 Ver tutorial</button>
      <button class="btn" onclick="localStorage.setItem('vfc_seen_ver', APP_VER);closeSheet()">Vamos lá! ✨</button>`);
   localStorage.setItem('vfc_seen_ver', APP_VER);
@@ -2311,12 +2319,34 @@ function isPlayStore(){
 
 // Marca "este aparelho já usou o trial" em várias chaves (sobrevive a reinstalação da maioria)
 const TRIAL_MARKS = ['vfc_trial_used', 'vfc_tu2', 'vfctrial'];
+const TRIAL_IDB_KEY = 'vfc_trial_flag'; // marca espelhada no IndexedDB (mais resistente a limpeza)
+
+// Grava a marca de "trial já usado" no localStorage E no IndexedDB (dupla camada).
 function marcarTrialUsado(){
   try{ TRIAL_MARKS.forEach(k => localStorage.setItem(k, '1')); }catch(e){}
+  // espelha no IndexedDB (sobrevive melhor a "limpar dados do site")
+  try{ idbStore('mirror','readwrite', s => s.put({used:1, at:new Date().toISOString()}, TRIAL_IDB_KEY)); }catch(e){}
 }
+
+// Checagem rápida (síncrona) — só localStorage. Usada onde não dá pra esperar.
 function trialJaUsado(){
   for(const k of TRIAL_MARKS){ try{ if(localStorage.getItem(k)) return true; }catch(e){} }
   return false;
+}
+
+// Checagem forte (assíncrona) — localStorage OU IndexedDB, com AUTO-CURA:
+// se uma camada tem a marca e a outra não, reescreve a que faltou.
+async function trialJaUsadoForte(){
+  const ls = trialJaUsado();
+  let idb = false;
+  try{
+    const v = await idbStore('mirror','readonly', s => s.get(TRIAL_IDB_KEY));
+    idb = !!(v && v.used);
+  }catch(e){}
+  // auto-cura: se só uma camada tem, restaura a outra
+  if(ls && !idb){ try{ idbStore('mirror','readwrite', s => s.put({used:1, at:new Date().toISOString()}, TRIAL_IDB_KEY)); }catch(e){} }
+  if(idb && !ls){ try{ TRIAL_MARKS.forEach(k => localStorage.setItem(k,'1')); }catch(e){} }
+  return ls || idb;
 }
 
 // Inicia o trial de 30 dias (chamado ao concluir o cadastro)
@@ -3066,7 +3096,37 @@ function renderHome(){
   h += `</div>`;
 
   if(od.length) h += `<div class="sec"><div class="sec-h"><span>⚠️ Ação Necessária</span></div>${od.map(evtRow).join('')}</div>`;
+
+  // 🐾 FIQUE POR DENTRO — divulgação do site + Instagram (novidades, dicas e parcerias)
+  h += cardComunidade();
   return h;
+}
+
+// Card de comunidade (site + Instagram) — reutilizado na Home.
+// Botão largo do Instagram (estilo do site) — degradê + glyph branco + texto.
+function botaoInstagram(){
+  return `<a href="https://www.instagram.com/vetflowcare.app" target="_blank" rel="noopener"
+     style="display:flex;align-items:center;justify-content:center;gap:11px;text-decoration:none;color:#fff;font-weight:800;font-size:15px;padding:15px 20px;border-radius:30px;background:linear-gradient(95deg,#F58529 0%,#DD2A7B 55%,#8134AF 100%);box-shadow:0 8px 22px rgba(221,42,123,.35)">
+    ${IG_GLYPH}<span>Seguir @vetflowcare.app</span>
+  </a>`;
+}
+
+// Card da Home — mensagem curta + botão do Instagram.
+function cardComunidade(){
+  return `<div class="sec"><div class="card" style="padding:20px 16px;background:linear-gradient(135deg,rgba(45,192,174,.09),rgba(30,58,110,.05));border:1.5px solid var(--border);border-radius:18px;text-align:center">
+    <div style="font-size:13.5px;color:var(--text);margin-bottom:15px;line-height:1.5;font-weight:600">
+      Siga a gente e fique por dentro das novidades 🐾
+    </div>
+    ${botaoInstagram()}
+  </div></div>`;
+}
+
+// Versão para Ajustes e Novidades — mesma mensagem + botão, sem o card de fundo.
+function blocoComunidadeSutil(){
+  return `<div style="text-align:center;margin-top:18px">
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.5">Siga a gente e fique por dentro das novidades 🐾</div>
+    ${botaoInstagram()}
+  </div>`;
 }
 
 function toggleMedDone(petId, medId){
@@ -4840,7 +4900,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.31 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.32 · Gestão Veterinária</div>
     <div style="color:var(--muted);font-size:10px;margin-top:12px;line-height:1.7;text-align:left;max-width:320px;margin-left:auto;margin-right:auto">
       <b>Novidades da v9.21:</b><br>
       • 🗂️ <b>Arquivo Morto</b>: em Ajustes, exporte o prontuário de um ano inteiro em PDF (atendimentos, receitas e índice por paciente) para guarda legal — o CFMV exige guardar por 20 anos<br>
@@ -4933,6 +4993,7 @@ function renderSettings(){
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
       <div style="font-size:10px;color:var(--muted);margin-top:2px">Todos os direitos reservados · © 2026</div>
+      ${blocoComunidadeSutil()}
     </div></div>`;
 }
 
@@ -7211,6 +7272,9 @@ function bootApp(){
   if(getAuth() && !isProReal() && !DB.trial && !trialJaUsado()){
     iniciarTrial();
   }
+  // ── AUTO-CURA das marcas do trial (localStorage ↔ IndexedDB) ──
+  // Se a pessoa limpou o localStorage mas o IndexedDB sobreviveu, restaura a marca.
+  try{ trialJaUsadoForte(); }catch(e){}
   scheduleLocalCheck();
   migrateDocsToIDB();
   initDataProtection();
@@ -7384,7 +7448,9 @@ async function doEntryRegister(){
     if(!DB.vet.email) DB.vet.email = email;
   }
   // ── inicia o trial de 30 dias (só se este aparelho ainda não usou) ──
-  if(!trialJaUsado()){
+  // checagem FORTE: localStorage + IndexedDB (com auto-cura), difícil de burlar
+  const jaUsou = await trialJaUsadoForte();
+  if(!jaUsou){
     iniciarTrial();
     toast('🎁 Conta criada! Você tem 30 dias grátis com tudo liberado 🐾');
     enterApp();

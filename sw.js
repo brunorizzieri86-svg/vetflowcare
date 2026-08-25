@@ -2,7 +2,7 @@
    Estratégia: NETWORK-FIRST para o app (index.html) → atualizações chegam sempre
    que houver internet; o cache só responde quando estiver offline.
    Isso elimina o problema de versão velha presa no celular. */
-const CACHE = 'vetflowcare-v9.31';
+const CACHE = 'vetflowcare-v9.32';
 const ASSETS = ['./', './index.html', './manifest.json', './logo.jpg', './icon-192.png', './icon-512.png', './icon-512-maskable.png'];
 
 self.addEventListener('install', e => {
