@@ -1,54 +1,55 @@
-/* VetFlowCare — Service Worker v9.8
-   Estratégia: NETWORK-FIRST para o app (index.html) → atualizações chegam sempre
-   que houver internet; o cache só responde quando estiver offline.
-   Isso elimina o problema de versão velha presa no celular. */
+// VetFlowCare — Service Worker v9.32
+// Estratégia: Network-First (busca atualização na rede; cache só responde offline)
+// B&G Systems | Todos os direitos reservados
+
 const CACHE = 'vetflowcare-v9.32';
-const ASSETS = ['./', './index.html', './manifest.json', './logo.jpg', './icon-192.png', './icon-512.png', './icon-512-maskable.png'];
 
+const CORE_FILES = [
+  './index.html',
+  './manifest.json',
+  './logo.jpg',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-512-maskable.png'
+];
+
+// ── Instalação: pré-cacheia os arquivos essenciais ──
 self.addEventListener('install', e => {
-  self.skipWaiting(); // assume o controle imediatamente
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).catch(()=>{}));
+  e.waitUntil(
+    caches.open(CACHE).then(c => c.addAll(CORE_FILES))
+  );
+  self.skipWaiting();
 });
 
+// ── Ativação: apaga caches de versões antigas ──
 self.addEventListener('activate', e => {
-  e.waitUntil((async () => {
-    // apaga TODOS os caches antigos (v9.7, v9.6…)
-    const keys = await caches.keys();
-    await Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)));
-    await self.clients.claim();
-  })());
+  e.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+      )
+    )
+  );
+  self.clients.claim();
 });
 
+// ── Fetch: Network-First ──
 self.addEventListener('fetch', e => {
-  const req = e.request;
-  if(req.method !== 'GET') return;
-  const url = new URL(req.url);
-  if(url.origin !== location.origin) return; // não intercepta terceiros
+  // Ignora requisições não-GET e externas (GoatCounter, ViaCEP, etc.)
+  if (e.request.method !== 'GET') return;
+  const url = new URL(e.request.url);
+  if (url.origin !== location.origin) return;
 
-  const isShell = req.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname.endsWith('/');
-
-  if(isShell){
-    // NETWORK-FIRST: tenta a rede (versão nova); cai no cache só offline
-    e.respondWith((async () => {
-      try{
-        const fresh = await fetch(req, {cache:'no-store'});
-        const c = await caches.open(CACHE);
-        c.put('./index.html', fresh.clone());
-        return fresh;
-      }catch(err){
-        return (await caches.match('./index.html')) || (await caches.match('./')) || Response.error();
-      }
-    })());
-    return;
-  }
-
-  // Demais arquivos (logo, manifest…): cache-first com atualização em segundo plano
-  e.respondWith((async () => {
-    const cached = await caches.match(req);
-    const fetchP = fetch(req).then(res => {
-      if(res && res.ok) caches.open(CACHE).then(c => c.put(req, res.clone()));
-      return res;
-    }).catch(()=>null);
-    return cached || (await fetchP) || Response.error();
-  })());
+  e.respondWith(
+    fetch(e.request)
+      .then(resp => {
+        // Atualiza o cache com a resposta mais nova
+        if (resp && resp.status === 200 && resp.type === 'basic') {
+          const clone = resp.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return resp;
+      })
+      .catch(() => caches.match(e.request)) // offline: serve do cache
+  );
 });
