@@ -2493,7 +2493,7 @@ function openProModal(reason){
          <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
            Veja os planos e como assinar no nosso site. Após contratar, você recebe um código de ativação para digitar abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>`
       : `<button class="btn" style="background:#25D366;margin-top:12px"
-           onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi, gostaria de assinar o plano Pro! Meu ID de aparelho é AP-'+myDevId()+'. Pode me ajudar?'))">
+           onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent(msgProWhats()))">
            💬 Assinar pelo WhatsApp da VetFlowCare</button>
          <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
            Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>`}
@@ -2501,6 +2501,27 @@ function openProModal(reason){
     <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700" oninput="maskCode(this)">`,
     `<button class="btn gray" onclick="closeSheet()">Agora não</button>
      <button class="btn" style="background:var(--rx)" onclick="activatePro()">✨ Ativar Pro</button>`);
+}
+function msgProWhats(){
+  const id = 'AP-' + myDevId();
+  const p  = DB.userProfile || {};
+  const nome = p.nome ? ' — ' + p.nome : '';
+  // Trial ainda ativo: quer Pro antes de acabar
+  if(trialAtivo()){
+    const t = DB.trial || {};
+    const dias = t.expiresAt ? Math.max(0, Math.ceil((new Date(t.expiresAt)-new Date())/(1000*60*60*24))) : '?';
+    return `Olá, equipe VetFlowCare! 🐾\n\nEstou no período de teste grátis (${dias} dia(s) restante(s)) e gostaria de assinar o Plano Pro antecipadamente.\n\n*ID do aparelho:* ${id}${nome}\n\nPodem me ajudar?`;
+  }
+  // Trial expirou: quer continuar como Pro
+  if(DB.trial && DB.trial.startedAt && !trialAtivo() && !isProReal()){
+    return `Olá, equipe VetFlowCare! 🐾\n\nMeu período de teste grátis de 30 dias acabou e gostaria de assinar o Plano Pro para continuar.\n\n*ID do aparelho:* ${id}${nome}\n\nPodem me ajudar?`;
+  }
+  // Pro vencido: renovação
+  if(proExpired()){
+    return `Olá, equipe VetFlowCare! 🐾\n\nMeu Plano Pro venceu e gostaria de renovar.\n\n*ID do aparelho:* ${id}${nome}\n\nPodem me ajudar?`;
+  }
+  // Usuário novo sem trial: quer Pro direto
+  return `Olá, equipe VetFlowCare! 🐾\n\nGostaria de assinar o Plano Pro diretamente.\n\n*ID do aparelho:* ${id}${nome}\n\nPodem me ajudar?`;
 }
 function usedCodes(){
   try{ return JSON.parse(localStorage.getItem('vfc_used_codes')||'[]'); }catch(e){ return []; }
@@ -2661,20 +2682,17 @@ const TUT_STEPS = [
    ✅ Proteja tudo com <b>senha criptografada</b> e <b>backups</b><br><br>
    Este guia mostra <b>cada módulo</b> do sistema. Pode pular e rever quando quiser em <b>Ajustes → Ajuda</b>.`,
    action:{label:'📲 Instalar o App agora (1º passo!)', fn:'promptInstall()'}},
-  {emo:'✨', title:'🎁 Ative seu Plano Pro GRÁTIS por 30 dias!',
+  {emo:'🎁', title:'Seu teste grátis já está ativo!',
    body:`<div style="background:linear-gradient(135deg,rgba(45,192,174,.12),rgba(78,142,172,.12));border:1.5px solid var(--primary);border-radius:12px;padding:12px 14px;margin-bottom:10px">
-   <b style="color:var(--primary);font-size:14px">Teste TODO o app sem limites por 30 dias!</b></div>
-   O Plano Pro libera <b>tudo</b>:<br><br>
-   • 🐾 Pacientes <b>ilimitados</b> (grátis: até ${FREE_PET_LIMIT})<br>
+   <b style="color:var(--primary);font-size:14px">✅ Acesso completo liberado por 30 dias — sem código, sem pagamento!</b></div>
+   Ao criar sua conta, o teste já começou automaticamente. Você pode explorar <b>tudo</b> sem precisar falar com ninguém:<br><br>
+   • 🐾 Pacientes <b>ilimitados</b><br>
    • 💰 <b>Financeiro completo</b>: fluxo de caixa, despesas, relatórios<br>
    • 💬 <b>Cobrança pelo WhatsApp</b> com um toque<br>
    • 🎨 Sua <b>logo e assinatura</b> nos documentos<br>
    • 💊 <b>Controle Especial</b> · sem marca-d'água<br><br>
-   <b>Como ativar em 3 passos:</b><br>
-   1️⃣ Toque no botão abaixo (ou vá em <b>Ajustes → ✨ Pro</b>)<br>
-   2️⃣ Solicite seu código pelo WhatsApp<br>
-   3️⃣ Insira o código e pronto — <b>tudo liberado!</b> 🚀`,
-   action:{label:'✨ Ativar Plano Pro (Grátis 30 dias)', fn:'finishTutorial(true);openProModal()'}},
+   Ao fim dos 30 dias, se quiser continuar, é só assinar o Plano Pro em <b>Ajustes → ✨ Pro</b>. <b>Seus dados ficam salvos</b> independente de qualquer coisa.`,
+   action:{label:'🚀 Entendi, vamos explorar!', fn:'finishTutorial(true)'}},
   {emo:'🏠', title:'Início — seu painel do dia',
    body:`Ao abrir, você vê tudo que importa <b>hoje</b>:<br><br>
    • <b>Índice de saúde</b>: anel com a média dos pacientes<br>
@@ -2812,8 +2830,8 @@ const TUT_STEPS = [
   {emo:'🎉', title:'Tudo pronto!',
    body:`Você conhece o essencial do VetFlowCare. 🐾<br><br>
    Reveja este guia quando quiser em <b>Ajustes → Ajuda</b>.<br><br>
-   E não esqueça: você tem <b>30 dias grátis</b> do Pro esperando por você — aproveite tudo que o app oferece! ✨`,
-   action:{label:'✨ Ativar Plano Pro (Grátis 30 dias)', fn:'finishTutorial(true);openProModal()'}}
+   E lembre: você já tem <b>30 dias grátis</b> com tudo liberado — é só usar! ✨`,
+   action:{label:'🐾 Começar a usar o app!', fn:'finishTutorial(true)'}}
 ];
 function goReceitaDemo(){
   finishTutorial(true);
