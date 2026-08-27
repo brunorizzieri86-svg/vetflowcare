@@ -4868,8 +4868,11 @@ function renderSettings(){
     <div class="card">
       <button class="btn" onclick="promptInstall()">📲 Instalar o App neste celular</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Coloca o VetFlowCare como aplicativo de verdade: ícone próprio, tela cheia, sem barra do navegador.</div>
-      <button class="btn outline" onclick="openTutorial(0)">📖 Ver Tutorial do App</button>
-      <button class="btn sm outline" style="margin-top:10px;width:100%;display:block;text-align:center" onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Preciso de ajuda com o VetFlowCare.'))">💬 Suporte e Dúvidas (WhatsApp)</button></div></div>
+      <button class="btn outline" onclick="openTutorial(0)">📖 Tutorial Rápido (guia passo a passo)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 10px">Guia interativo com os módulos principais do app.</div>
+      <button class="btn outline" onclick="window.open('https://vetflowcare.com.br/tutorial_vetflowcare.html','_blank')">📚 Tutorial Completo (manual detalhado)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Manual completo com todos os recursos, dicas e perguntas frequentes.</div>
+      <button class="btn sm outline" style="width:100%;display:block;text-align:center" onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Preciso de ajuda com o VetFlowCare.'))">💬 Suporte e Dúvidas (WhatsApp)</button></div></div>
 
   <div class="sec"><div class="sec-h"><span>🛡️ Proteção de Dados</span></div>
     <div class="card" style="cursor:pointer;border-color:${['var(--success)','var(--vac)','var(--warning)','var(--danger)'][nivelRisco()]}" onclick="openCentralProtecao()">
