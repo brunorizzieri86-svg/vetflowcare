@@ -296,14 +296,15 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.33';
+const APP_VER = '9.34';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.33',
+  ver: '9.34',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['📋','SIPEAGRO/MAPA atualizado','O campo agora aceita o novo formato <b>MV</b> do MAPA (ex: MV00409372021). Um aviso aparece em Ajustes → Dados do Profissional orientando a atualização.'],
     ['🔑','Dica de senha','Ao criar sua conta você pode cadastrar uma <b>dica de senha</b> — uma frase que aparece se você esquecer a senha, sem comprometer a segurança.'],
     ['📚','Tutorial Completo','Em Ajustes → Ajuda tem agora o link para o <b>Manual Completo</b> do app — todos os módulos detalhados, dicas profissionais e perguntas frequentes.'],
     ['💬','Mensagens Pro inteligentes','Ao solicitar o Plano Pro, a mensagem já informa se você está <b>no trial, após o trial, renovando ou assinando direto</b>.'],
@@ -2655,7 +2656,7 @@ function openVetSetup(){
       <select id="sUf" style="width:90px"><option value="">UF</option>${ufOpts}</select>
       <input id="sNum" value="${esc(DB.vet.crmvNum)}" placeholder="Número · Ex: 12345" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
     </div>
-    <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: 12345678/2020">
+    <label>SIPEAGRO / MAPA</label><input id="sSipe" value="${esc(DB.vet.sipeagro)}" placeholder="Ex: MV00409372021 ou 0040937/2021">
     <label>E-mail</label><input id="sEmail" type="email" value="${esc(DB.vet.email)}" placeholder="contato@clinica.com.br">
     <div style="color:var(--muted);font-size:11px;margin-top:12px">💡 O upload do logo e da assinatura eletrônica fica em <b>Ajustes → Dados do Profissional</b>.</div>`,
     `<button class="btn gray" onclick="closeSheet()">Depois</button>
@@ -2663,7 +2664,7 @@ function openVetSetup(){
 }
 function vetIdsOk(num, sipe){
   if(num && !/^\d{3,6}$/.test(num)){ toast('⚠ CRMV inválido — use só números (3 a 6 dígitos)'); return false; }
-  if(sipe && !/^\d{4,8}\/\d{4}$/.test(sipe)){ toast('⚠ SIPEAGRO/MAPA inválido — formato: 12345678/2020'); return false; }
+  if(sipe && !/^[A-Za-z0-9\/\-\s]{4,30}$/.test(sipe)){ toast('⚠ SIPEAGRO/MAPA inválido — ex: MV00409372021'); return false; }
   return true;
 }
 function saveVetSetup(){
@@ -4783,7 +4784,10 @@ function renderSettings(){
         <input id="vNum" value="${esc(v.crmvNum)}" placeholder="Número · Ex: 12345">
       </div>
       <label>SIPEAGRO / MAPA</label>
-      <input id="vSipe" value="${esc(v.sipeagro)}" placeholder="Nº de registro SIPEAGRO/MAPA">
+      ${(()=>{ const d=localStorage.getItem('vfc_sipe_notice'); const show=!d||((Date.now()-parseInt(d))<60*24*60*60*1000&&d); const first=!d; if(!d) localStorage.setItem('vfc_sipe_notice', Date.now()); return first||show ? `<div style="background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(251,191,36,.08));border:1.5px solid rgba(245,158,11,.4);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;color:#92400E;line-height:1.5">
+      <b>🔔 Mudança no SIPEAGRO/MAPA:</b> O MAPA atualizou a numeração dos médicos-veterinários. O novo número começa com <b>MV</b> seguido de 11 dígitos (ex: <b>MV00409372021</b>). Consulte seu número atualizado no site do SIPEAGRO e atualize aqui. <span style="color:#B45309;font-weight:700">A numeração anterior foi descontinuada.</span>
+      </div>` : ''; })()}
+      <input id="vSipe" value="${esc(v.sipeagro)}" placeholder="Ex: MV00409372021 ou 0040937/2021">
       <label>E-mail</label>
       <input id="vEmail" type="email" value="${esc(v.email)}" placeholder="contato@clinica.com.br">
       <label>Certificado digital ICP-Brasil (opcional)</label>
@@ -4936,7 +4940,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.33 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.34 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
