@@ -296,14 +296,17 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.34';
+const APP_VER = '9.36';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.34',
+  ver: '9.36',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🔑','Esqueceu a senha? Agora funciona','Ao clicar em <b>Esqueci minha senha</b>, a tela muda na hora — exibe a dica de senha, botão de ajuda pelo WhatsApp e a opção de apagar (com confirmação extra).'],
+    ['💬','Lembrete de senha no WhatsApp','Ao criar a conta ou ativar a senha, o app oferece enviar um lembrete pra você mesmo no WhatsApp com e-mail e dica — backup no histórico do WA.'],
+    ['💉','Excluir doses de vacina','Agora todas as doses aplicadas têm o botão <b>🗑️ Excluir esta dose</b> — tanto as com foto de selo quanto as sem foto. A exclusão pede confirmação antes de apagar.'],
     ['📋','SIPEAGRO/MAPA atualizado','O campo agora aceita o novo formato <b>MV</b> do MAPA (ex: MV00409372021). Um aviso aparece em Ajustes → Dados do Profissional orientando a atualização.'],
     ['🔑','Dica de senha','Ao criar sua conta você pode cadastrar uma <b>dica de senha</b> — uma frase que aparece se você esquecer a senha, sem comprometer a segurança.'],
     ['📚','Tutorial Completo','Em Ajustes → Ajuda tem agora o link para o <b>Manual Completo</b> do app — todos os módulos detalhados, dicas profissionais e perguntas frequentes.'],
@@ -1015,22 +1018,72 @@ async function unlockApp(){
   }catch(e){ err.textContent = '⚠ Erro ao desbloquear: ' + (e.message||e); console.warn(e); }
 }
 function lockForgot(){
+  // Modifica o conteúdo do próprio lockScreen (z-index 998)
+  // para evitar que dialogs fiquem escondidos atrás
+  const lock = document.getElementById('lockScreen');
+  if(!lock) return;
   const hint = localStorage.getItem('vfc_pw_hint')||'';
-  const hintTxt = hint
-    ? `<div style="background:rgba(45,192,174,.15);border:1.5px solid rgba(45,192,174,.4);border-radius:10px;padding:10px 12px;margin:10px 0;font-size:13px;color:var(--primary)">
-        🔑 <b>Sua dica de senha:</b><br><span style="font-size:15px;font-weight:700">${esc(hint)}</span></div>
-        <div style="font-size:12px;color:var(--muted)">Isso ajuda a lembrar? Se sim, volte e tente novamente.</div>`
-    : `<div style="font-size:12px;color:var(--muted);margin:8px 0">💡 Da próxima vez, cadastre uma dica de senha em Ajustes → 🔐 Segurança para situações como essa.</div>`;
-  vfcConfirm({icon:'🔑', title:'Esqueceu a senha?',
-    msg:`${hintTxt}<br>Se não conseguir lembrar, a única opção é apagar os dados deste aparelho e restaurar um <b>backup JSON</b>, se tiver um salvo.`,
-    note:'Deseja apagar todos os dados e recomeçar?',
-    noLabel:'← Tentar novamente', yesLabel:'Apagar dados', yesBg:'var(--danger)', yes:'lockForgot2()'});
+  const auth = getAuth();
+  const email = auth?.email||'';
+
+  const hintBox = hint
+    ? `<div style="background:rgba(45,192,174,.15);border:1.5px solid rgba(45,192,174,.5);border-radius:14px;padding:14px 16px;margin:18px 0 8px;width:100%;max-width:320px;text-align:left">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:rgba(255,255,255,.5);margin-bottom:6px">🔑 SUA DICA DE SENHA</div>
+        <div style="font-size:18px;font-weight:800;color:#2DC0AE">${esc(hint)}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:4px">Isso ajuda a lembrar? Tente novamente!</div>
+      </div>`
+    : `<div style="background:rgba(255,255,255,.08);border-radius:14px;padding:14px 16px;margin:18px 0 8px;width:100%;max-width:320px;font-size:12px;color:rgba(255,255,255,.45);line-height:1.5">
+        💡 Você não cadastrou uma dica de senha.<br>Da próxima vez, faça isso em Ajustes → 🔐 Segurança.
+      </div>`;
+
+  lock.innerHTML = `
+    <div style="color:rgba(255,255,255,.5);font-size:22px;margin-bottom:8px">🔑</div>
+    <div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px">Esqueceu a senha?</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.55);max-width:300px;line-height:1.5">
+      Sem a senha, os dados criptografados não podem ser recuperados.
+    </div>
+    ${hintBox}
+    <div style="width:100%;max-width:320px;margin-top:8px;display:flex;flex-direction:column;gap:10px">
+      <button onclick="document.getElementById('lockScreen').remove();showLockScreen()"
+        style="width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-weight:700;cursor:pointer">
+        ← Tentar a senha novamente
+      </button>
+      ${email ? `<button onclick="lockForgotWhats('${esc(email)}')"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#25D366,#1da851);color:#fff;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 18px rgba(37,211,102,.35)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Pedir ajuda pelo WhatsApp
+      </button>` : ''}
+      <button onclick="lockForgot2()"
+        style="width:100%;padding:13px;border-radius:14px;border:1.5px solid rgba(224,82,82,.4);background:rgba(224,82,82,.1);color:#FF8888;font-size:13px;font-weight:700;cursor:pointer">
+        🗑️ Apagar todos os dados e recomeçar
+      </button>
+    </div>`;
+}
+function lockForgotWhats(email){
+  const hint = localStorage.getItem('vfc_pw_hint')||'';
+  const msg = 'Olá! Esqueci minha senha do VetFlowCare.%0A%0AE-mail: ' + encodeURIComponent(email) + '%0A' + (hint ? 'Dica cadastrada: ' + encodeURIComponent(hint) + '%0A' : '') + '%0APode me ajudar?';
+  window.open('https://wa.me/5511912659906?text=' + msg, '_blank');
 }
 function lockForgot2(){
-  vfcConfirm({icon:'🗑️', title:'Tem certeza ABSOLUTA?',
-    msg:'Todos os dados deste aparelho serão apagados agora.',
-    note:'Esta ação não pode ser desfeita.',
-    noLabel:'Não, manter', yesLabel:'Sim, apagar tudo', yes:'doWipeCrypto()'});
+  const lock = document.getElementById('lockScreen');
+  if(!lock) return;
+  lock.innerHTML = `
+    <div style="color:rgba(255,255,255,.5);font-size:22px;margin-bottom:8px">🗑️</div>
+    <div style="font-size:20px;font-weight:900;color:#fff;margin-bottom:10px">Tem certeza ABSOLUTA?</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.55);max-width:300px;line-height:1.6;margin-bottom:24px">
+      Todos os dados deste aparelho serão apagados permanentemente.<br>
+      <b style="color:#FF8888">Esta ação não pode ser desfeita.</b>
+    </div>
+    <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px">
+      <button onclick="document.getElementById('lockScreen').remove();showLockScreen()"
+        style="width:100%;padding:14px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:15px;font-weight:700;cursor:pointer">
+        ← Não, manter meus dados
+      </button>
+      <button onclick="doWipeCrypto()"
+        style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#E05252,#c0392b);color:#fff;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 18px rgba(224,82,82,.4)">
+        🗑️ Sim, apagar tudo
+      </button>
+    </div>`;
 }
 function doWipeCrypto(){
   localStorage.removeItem(LS_KEY);
@@ -1075,8 +1128,10 @@ async function doSecuritySetup(){
   const hint = (document.getElementById('secHint')?.value||'').trim();
   if(hint) localStorage.setItem('vfc_pw_hint', hint);
   else localStorage.removeItem('vfc_pw_hint');
+  const emailSetup = val('secEmail') || (getAuth()||{}).email || '';
   closeSheet(); render();
   toast('🔐 Proteção ativada! Dados criptografados.');
+  setTimeout(() => ofereceWhatsLembrete(emailSetup, hint), 600);
 }
 
 // ═══ CADASTRO OBRIGATÓRIO NO PRIMEIRO ACESSO ═══
@@ -3593,8 +3648,11 @@ function renderPetHealth(pet){
           <div style="display:flex;gap:6px;margin-top:6px">
           ${d.selo
             ? `<button class="btn sm gray" style="flex:1" onclick="editarSelo('${pet.id}','${d.id}')">✂️ Ajustar selo</button>
-               <button class="btn sm dangero" style="flex:1" onclick="removerSelo('${pet.id}','${d.id}')">🗑️ Remover</button>`
-            : `<button class="btn sm gray" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}')">📷 Fotografar selo da ampola</button>`}
+               <button class="btn sm dangero" style="flex:1" onclick="removerSelo('${pet.id}','${d.id}')">🗑️ Remover selo</button>`
+            : `<button class="btn sm gray" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}')">📷 Fotografar selo</button>`}
+          </div>
+          <div style="margin-top:4px">
+            <button class="btn sm dangero" style="width:100%" onclick="delAppliedDose('${pet.id}','${d.id}')">🗑️ Excluir esta dose</button>
           </div>
         </div>`).join('')}</div>` : ''}
 
@@ -3800,6 +3858,61 @@ function removerSelo(petId, vacId){
   const pet = DB.pets.find(p=>p.id===petId);
   const v = pet.vaccines.find(x=>x.id===vacId);
   if(v){ delete v.selo; save(); render(); toast('Selo removido'); }
+}
+function delAppliedDose(petId, doseId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  if(!pet) return;
+  const dose = pet.vaccines.find(v=>v.id===doseId);
+  const nome = dose ? (dose.name||'dose') : 'dose';
+  askDel('🗑️ Excluir dose aplicada', `Remover o registro desta dose de <b>${esc(nome)}</b>?<br><span style="font-size:12px;color:var(--muted)">Esta ação não pode ser desfeita.</span>`, `doDelAppliedDose('${petId}','${doseId}')`);
+}
+function ofereceWhatsLembrete(email, hint){
+  const data = new Date().toLocaleDateString('pt-BR');
+  const hintLine = hint ? `🔑 Dica de senha: ${hint}` : '🔑 Dica de senha: (não informada)';
+  const msg = `🐾 VetFlowCare — Lembrete de acesso
+
+📧 E-mail: ${email}
+${hintLine}
+📅 Configurado em: ${data}
+
+Guarde esta mensagem! Se esquecer a senha, a dica vai ajudar a lembrar.
+
+VetFlowCare · Organiza · Conecta · Cuida`;
+  const url = 'https://wa.me/?text=' + encodeURIComponent(msg);
+
+  const el = document.createElement('div');
+  el.id = 'modalWhatsLembrete';
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(10,30,60,.6);z-index:9999;display:flex;align-items:flex-end;justify-content:center';
+  el.innerHTML = `
+    <div style="background:#fff;border-radius:24px 24px 0 0;padding:28px 24px 36px;width:100%;max-width:480px;text-align:center;box-shadow:0 -8px 40px rgba(0,0,0,.15)">
+      <div style="width:36px;height:4px;background:#dde3ea;border-radius:99px;margin:0 auto 20px"></div>
+      <div style="font-size:36px;margin-bottom:12px;filter:drop-shadow(0 0 8px rgba(37,211,102,.4))">💬</div>
+      <div style="font-size:18px;font-weight:800;color:#0d2240;margin-bottom:8px">Salvar lembrete no WhatsApp?</div>
+      <div style="font-size:13px;color:#4a5568;line-height:1.6;margin-bottom:20px">
+        Envia uma mensagem pra <b>você mesmo</b> com seu e-mail e dica de senha.<br>
+        Fica salvo no histórico do WhatsApp — seu backup particular.
+      </div>
+      <div style="background:#f0fdf8;border:1.5px solid #c6f0e8;border-radius:12px;padding:12px 14px;margin-bottom:20px;font-size:12px;color:#2a7a5a;text-align:left;line-height:1.7">
+        📧 <b>${esc(email)}</b><br>
+        ${hint ? `🔑 Dica: <b>${esc(hint)}</b><br>` : ''}📅 Data: <b>${data}</b>
+      </div>
+      <button onclick="window.open('${url.replace(/'/g,'\'')}','_blank');document.getElementById('modalWhatsLembrete').remove()"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#25D366,#1da851);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;box-shadow:0 4px 18px rgba(37,211,102,.35)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        Enviar pra mim no WhatsApp
+      </button>
+      <button onclick="document.getElementById('modalWhatsLembrete').remove()"
+        style="width:100%;padding:13px;border-radius:14px;border:1.5px solid #dde3ea;background:#fff;color:#4a5568;font-size:14px;font-weight:600;cursor:pointer">
+        Não, obrigado
+      </button>
+    </div>`;
+  document.body.appendChild(el);
+}
+function doDelAppliedDose(petId, doseId){
+  const pet = DB.pets.find(p=>p.id===petId);
+  if(!pet) return;
+  pet.vaccines = pet.vaccines.filter(v=>v.id!==doseId);
+  save(); render(); toast('✅ Dose removida');
 }
 // Reabre o recortador com o selo JÁ salvo (para reajustar o enquadramento)
 function editarSelo(petId, vacId){
@@ -4940,7 +5053,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.34 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.36 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -7398,6 +7511,9 @@ async function doEntryRegister(){
   const hint = (document.getElementById('regHint')?.value||'').trim();
   if(hint) localStorage.setItem('vfc_pw_hint', hint);
   else localStorage.removeItem('vfc_pw_hint');
+  // ── oferece lembrete no WhatsApp ──
+  const emailReg = document.getElementById('regEmail')?.value||'';
+  setTimeout(() => ofereceWhatsLembrete(emailReg, hint), 2500); // após o modal de boas-vindas
   // ── salva o perfil do usuário ──
   DB.userProfile = { nome, idade:idadeN, sexo, cpf:cpf.replace(/\D/g,''), user, email, createdAt:todayISO() };
   // ── aproveita nome/email pra pré-preencher os Dados do Profissional (evita digitar 2x) ──
