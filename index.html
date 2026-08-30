@@ -296,14 +296,15 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.36';
+const APP_VER = '9.37';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.36',
+  ver: '9.37',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🔓','Senha opcional no cadastro','No primeiro acesso, um toggle permite escolher: <b>com senha</b> (criptografado, recomendado) ou <b>sem senha</b> (abre direto). Pode mudar depois em Ajustes → Segurança.'],
     ['🔑','Esqueceu a senha? Agora funciona','Ao clicar em <b>Esqueci minha senha</b>, a tela muda na hora — exibe a dica de senha, botão de ajuda pelo WhatsApp e a opção de apagar (com confirmação extra).'],
     ['💬','Lembrete de senha no WhatsApp','Ao criar a conta ou ativar a senha, o app oferece enviar um lembrete pra você mesmo no WhatsApp com e-mail e dica — backup no histórico do WA.'],
     ['💉','Excluir doses de vacina','Agora todas as doses aplicadas têm o botão <b>🗑️ Excluir esta dose</b> — tanto as com foto de selo quanto as sem foto. A exclusão pede confirmação antes de apagar.'],
@@ -4948,15 +4949,44 @@ function renderSettings(){
   <div class="sec"><div class="sec-h"><span>🔐 Segurança e Login</span></div>
     <div class="card">
       ${getAuth()
-        ? `<div style="display:flex;align-items:center;gap:10px">
-            <div style="width:44px;height:44px;border-radius:12px;background:var(--medbg);display:flex;align-items:center;justify-content:center;font-size:20px">🔐</div>
-            <div style="flex:1"><b style="color:var(--success)">Dados criptografados (AES-256)</b>
-            <div style="color:var(--muted);font-size:12px">${esc(getAuth().email)}</div></div></div>
-          <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-            <button class="btn sm outline" onclick="openChangePass()">🔑 Alterar senha</button>
-            <button class="btn sm dangero" onclick="openRemovePass()">Remover proteção</button></div>`
-        : `<div style="font-size:13px;color:var(--muted);margin-bottom:10px">Crie um login com e-mail e senha — todos os dados sensíveis (tutores, CPFs, telefones, prontuários) passam a ser gravados com <b>criptografia AES-256</b> no aparelho.</div>
-          <div style="font-size:12px;color:var(--muted)">O acesso é criado na tela de entrada do app.</div>`}
+        ? `<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+            <div style="width:44px;height:44px;border-radius:12px;background:var(--medbg);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🔐</div>
+            <div style="flex:1">
+              <b style="color:var(--success)">Dados criptografados (AES-256)</b>
+              <div style="color:var(--muted);font-size:12px">${esc(getAuth().email)}</div>
+            </div>
+          </div>
+          <div style="border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text)">🔒 Exigir senha ao abrir</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Desativar deixa o app abrir sem pedir senha</div>
+              </div>
+              <div onclick="openRemovePass()"
+                style="width:50px;height:28px;border-radius:99px;background:var(--primary);cursor:pointer;position:relative;flex-shrink:0;box-shadow:0 2px 8px rgba(45,192,174,.35)">
+                <div style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2)"></div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+              💡 Com senha ativa, seus dados estão protegidos mesmo se alguém pegar o celular.
+            </div>
+          </div>
+          <button class="btn sm outline" onclick="openChangePass()">🔑 Alterar senha</button>`
+        : `<div style="border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text)">🔓 Exigir senha ao abrir</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:2px">Ativar criptografa seus dados com AES-256</div>
+              </div>
+              <div onclick="openSecuritySetup()"
+                style="width:50px;height:28px;border-radius:99px;background:var(--border);cursor:pointer;position:relative;flex-shrink:0">
+                <div style="position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2)"></div>
+              </div>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+              ⚠ Sem senha, qualquer pessoa com acesso ao celular pode ver os dados.
+            </div>
+          </div>`}
     </div></div>
 
   <div class="sec"><div class="sec-h"><span>✨ VetFlowCare Pro</span></div>
@@ -5053,7 +5083,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.36 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.37 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -7414,6 +7444,21 @@ function maskCode(el){
   if(v.length > 4) out += '-' + v.slice(4,8);
   el.value = out;
 }
+function toggleRegSenha(){
+  const tog = document.getElementById('regSenhaToggle');
+  const knob = document.getElementById('regSenhaKnob');
+  const campos = document.getElementById('regSenhaCampos');
+  const nao = document.getElementById('regSenhaNao');
+  if(!tog) return;
+  const on = tog.dataset.on !== 'false'; // default true
+  const novoOn = !on;
+  tog.dataset.on = novoOn ? 'true' : 'false';
+  tog.style.background = novoOn ? '#2DC0AE' : 'rgba(255,255,255,.2)';
+  knob.style.right = novoOn ? '3px' : '';
+  knob.style.left  = novoOn ? '' : '3px';
+  campos.style.display = novoOn ? '' : 'none';
+  nao.style.display    = novoOn ? 'none' : '';
+}
 function showEntryRegister(){
   document.getElementById('appHeader').classList.add('hidden');
   document.getElementById('mainNav').classList.add('hidden');
@@ -7451,16 +7496,36 @@ function showEntryRegister(){
         style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
       <input id="regUser" type="text" placeholder="Nome de usuário" autocapitalize="none" autocomplete="username"
         style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
-      <input id="regEmail" type="email" placeholder="Seu e-mail" autocomplete="email"
-        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
-      <div class="pwwrap"><input id="regPass" type="password" placeholder="Crie uma senha (mín. 6)" autocomplete="new-password"
-        style="padding:13px;border-radius:13px;border:none;font-size:16px">
-        <button type="button" class="eye" onclick="togglePw('regPass',this)">👁</button></div>
-      <div class="pwwrap"><input id="regPass2" type="password" placeholder="Confirme a senha" autocomplete="new-password"
-        style="padding:13px;border-radius:13px;border:none;font-size:16px">
-        <button type="button" class="eye" onclick="togglePw('regPass2',this)">👁</button></div>
-      <input id="regHint" type="text" placeholder="🔑 Dica de senha (opcional — ex: nome do meu pet)" maxlength="80" autocomplete="off"
-        style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:14px;color:#aaa">
+      <!-- TOGGLE SENHA -->
+      <div style="background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.18);border-radius:14px;padding:14px;max-width:340px;width:100%;box-sizing:border-box;margin-top:2px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="color:#fff;font-weight:800;font-size:13px">🔐 Proteger com senha?</div>
+            <div style="color:rgba(255,255,255,.5);font-size:11px;margin-top:2px">Recomendado — criptografa seus dados</div>
+          </div>
+          <div id="regSenhaToggle" onclick="toggleRegSenha()"
+            style="width:50px;height:28px;border-radius:99px;background:#2DC0AE;cursor:pointer;position:relative;flex-shrink:0;box-shadow:0 2px 10px rgba(45,192,174,.4);transition:background .2s">
+            <div id="regSenhaKnob" style="position:absolute;right:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:all .2s"></div>
+          </div>
+        </div>
+        <div id="regSenhaCampos">
+          <input id="regEmail" type="email" placeholder="Seu e-mail" autocomplete="email"
+            style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:6px">
+          <div class="pwwrap"><input id="regPass" type="password" placeholder="Crie uma senha (mín. 6)" autocomplete="new-password"
+            style="padding:13px;border-radius:13px;border:none;font-size:16px">
+            <button type="button" class="eye" onclick="togglePw('regPass',this)">👁</button></div>
+          <div class="pwwrap"><input id="regPass2" type="password" placeholder="Confirme a senha" autocomplete="new-password"
+            style="padding:13px;border-radius:13px;border:none;font-size:16px">
+            <button type="button" class="eye" onclick="togglePw('regPass2',this)">👁</button></div>
+          <input id="regHint" type="text" placeholder="🔑 Dica de senha (opcional — ex: nome do meu pet)" maxlength="80" autocomplete="off"
+            style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:14px;color:#aaa;margin-top:6px">
+          <div style="color:rgba(255,255,255,.45);font-size:11px;margin-top:8px;line-height:1.5">
+            🔐 Dados criptografados (AES-256) · ⚠️ Guarde bem a senha</div>
+        </div>
+        <div id="regSenhaNao" style="display:none;color:rgba(255,255,255,.5);font-size:11px;line-height:1.5">
+          ✅ Ok! Você pode ativar a senha quando quiser em <b style="color:rgba(255,255,255,.7)">Ajustes → 🔐 Segurança</b>
+        </div>
+      </div>
     </div>
     <div style="background:rgba(45,192,174,.18);border:1.5px solid rgba(45,192,174,.5);border-radius:12px;padding:10px 13px;margin-top:12px;max-width:340px;width:100%;box-sizing:border-box">
       <div style="color:#fff;font-weight:800;font-size:13px">🎁 Teste grátis por 30 dias</div>
@@ -7468,9 +7533,6 @@ function showEntryRegister(){
     </div>
     <button onclick="doEntryRegister()" style="margin-top:14px">✓ Criar acesso e entrar</button>
     <div id="regErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>
-    <div style="color:rgba(255,255,255,.5);font-size:11px;max-width:320px;line-height:1.6">
-      🔐 Seus dados ficam criptografados (AES-256) neste aparelho.<br>
-      ⚠️ Guarde bem a senha — sem ela os dados não podem ser recuperados.</div>
     <div class="sub" style="margin-top:14px">B&G Systems · Gestão veterinária completa</div>`;
 }
 async function doEntryRegister(){
@@ -7490,7 +7552,11 @@ async function doEntryRegister(){
   if(!sexo){ err.textContent = '⚠ Selecione o sexo'; return; }
   if(!validaCPF(cpf)){ err.textContent = '⚠ CPF inválido — confira os números'; return; }
   if(user.length < 3){ err.textContent = '⚠ Escolha um nome de usuário (mín. 3)'; return; }
-  if(!email || !email.includes('@')){ err.textContent = '⚠ Informe um e-mail válido'; return; }
+  // ── verifica se o usuário quer senha ──
+  const togEl = document.getElementById('regSenhaToggle');
+  const querSenha = !togEl || togEl.dataset.on !== 'false'; // default: sim
+
+  if(querSenha && (!email || !email.includes('@'))){ err.textContent = '⚠ Informe um e-mail válido'; return; }
 
   const needInvite = BETA_GATE && !localStorage.getItem('vfc_invite');
   if(needInvite){
@@ -7503,17 +7569,21 @@ async function doEntryRegister(){
     localStorage.setItem('vfc_invite', JSON.stringify({code:code.toUpperCase().trim(), at:new Date().toISOString()}));
     gcEvent('convite-validado');
   }
-  const ok = await createAccountCore(email,
-    document.getElementById('regPass').value,
-    document.getElementById('regPass2').value);
-  if(!ok) return;
-  // ── salva dica de senha (não criptografada, só pra lembrar) ──
-  const hint = (document.getElementById('regHint')?.value||'').trim();
-  if(hint) localStorage.setItem('vfc_pw_hint', hint);
-  else localStorage.removeItem('vfc_pw_hint');
-  // ── oferece lembrete no WhatsApp ──
-  const emailReg = document.getElementById('regEmail')?.value||'';
-  setTimeout(() => ofereceWhatsLembrete(emailReg, hint), 2500); // após o modal de boas-vindas
+
+  if(querSenha){
+    // Com senha: cria conta criptografada normalmente
+    const ok = await createAccountCore(email,
+      document.getElementById('regPass').value,
+      document.getElementById('regPass2').value);
+    if(!ok) return;
+    // ── salva dica de senha ──
+    const hint = (document.getElementById('regHint')?.value||'').trim();
+    if(hint) localStorage.setItem('vfc_pw_hint', hint);
+    else localStorage.removeItem('vfc_pw_hint');
+    // ── oferece lembrete no WhatsApp ──
+    setTimeout(() => ofereceWhatsLembrete(email, hint), 2500);
+  }
+  // Se sem senha: não cria auth, DB fica sem criptografia, abre direto
   // ── salva o perfil do usuário ──
   DB.userProfile = { nome, idade:idadeN, sexo, cpf:cpf.replace(/\D/g,''), user, email, createdAt:todayISO() };
   // ── aproveita nome/email pra pré-preencher os Dados do Profissional (evita digitar 2x) ──
