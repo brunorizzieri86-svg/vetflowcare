@@ -296,12 +296,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.37';
+const APP_VER = '9.38';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.37',
+  ver: '9.38',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['🔓','Senha opcional no cadastro','No primeiro acesso, um toggle permite escolher: <b>com senha</b> (criptografado, recomendado) ou <b>sem senha</b> (abre direto). Pode mudar depois em Ajustes → Segurança.'],
@@ -2423,6 +2423,7 @@ async function trialJaUsadoForte(){
 
 // Inicia o trial de 30 dias (chamado ao concluir o cadastro)
 function iniciarTrial(){
+  gcEvent('conta-criada');
   const hoje = todayISO();
   DB.trial = { active:true, startedAt:hoje, expiresAt:addDays(hoje, TRIAL_DIAS) };
   marcarTrialUsado();
@@ -3477,6 +3478,7 @@ function saveTutorForm(tutorId){
       currentTutorId = t.id; tutorTab = 'animais';
     }
   }
+  if(!tutorId) gcEvent('tutor-criado');
   save(); closeSheet(); render(); toast(tutorId?'✏️ Tutor atualizado!':'👤 Tutor cadastrado!');
 }
 function delTutor(id){
@@ -3924,6 +3926,7 @@ function editarSelo(petId, vacId){
 
 // Monta e gera o PDF da carteirinha
 function gerarCarteirinha(petId){
+  gcEvent('carteirinha-gerada');
   if(bloqueioTrial('Carteirinha de vacinação')) return;
   const pet = DB.pets.find(p=>p.id===petId);
   const t = tutorOf(pet);
@@ -5083,7 +5086,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.37 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.38 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5459,6 +5462,7 @@ function exportJSON(){
   doExportJSON();
 }
 function doExportJSON(){
+  gcEvent('backup-feito');
   zerarAlteracoes();
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
   if(true){ saveFileSAF('vetflowcare_backup_' + todayISO() + '.json', blob); return; }
@@ -6280,6 +6284,7 @@ function savePetForm(petId){
       weightHistory: [{date:todayISO(), kg:weight}]}));
   }
   window._presetTutor = '';
+  if(!petId) gcEvent('paciente-criado');
   save(); closeSheet(); render(); toast(petId?'✏️ Paciente atualizado!':'🐾 Paciente cadastrado!');
 }
 
@@ -6831,6 +6836,7 @@ function saveAppt(petId, force){
   }
   save(); closeSheet(); render();
   const dTxt = despesas.length ? ` · ${despesas.length} despesa${despesas.length>1?'s':''} → Financeiro` : '';
+  if(!apptId) gcEvent('atendimento-criado');
   toast(retorno ? `🩺 Salvo! Retorno agendado para ${fmtDate(retorno)}${dTxt}` : `🩺 Atendimento salvo!${dTxt}`);
 }
 
@@ -7052,6 +7058,7 @@ function openSignInfo(){
 }
 
 function printRx(petId, rxId){
+  gcEvent('receita-gerada');
   const pet = DB.pets.find(p=>p.id===petId);
   const rx = pet.prescriptions.find(x=>x.id===rxId);
   if(!DB.vet.name) toast('⚠ Complete os dados profissionais em Ajustes');
@@ -7323,6 +7330,7 @@ document.getElementById('installBtn')?.addEventListener('click', async () => {
   if(!deferredPrompt) return;
   deferredPrompt.prompt();
   await deferredPrompt.userChoice;
+  gcEvent('app-instalado');
   deferredPrompt = null;
   document.getElementById('installBanner').classList.add('hidden');
 });
@@ -7362,6 +7370,7 @@ if('serviceWorker' in navigator){
 // ═══════════ INIT ═══════════
 function bootApp(){
   applyDark();
+  try{ const _hj=todayISO(); if(localStorage.getItem('vfc_gc_day')!==_hj){ localStorage.setItem('vfc_gc_day',_hj); gcEvent('app-aberto'); } }catch(e){}
   // ── MIGRAÇÃO v9.30: testador antigo (tem conta, mas nunca teve trial nem Pro) ganha o trial ──
   // Garante que quem já usava o app NÃO fica travado ao atualizar.
   if(getAuth() && !isProReal() && !DB.trial && !trialJaUsado()){
@@ -7570,6 +7579,7 @@ async function doEntryRegister(){
     gcEvent('convite-validado');
   }
 
+  if(!querSenha) gcEvent('sem-senha-cadastro');
   if(querSenha){
     // Com senha: cria conta criptografada normalmente
     const ok = await createAccountCore(email,
