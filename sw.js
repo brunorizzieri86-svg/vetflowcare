@@ -1,8 +1,8 @@
-// VetFlowCare — Service Worker v9.38
+// VetFlowCare — Service Worker v9.43
 // Estratégia: Network-First (busca atualização na rede; cache só responde offline)
 // B&G Systems | Todos os direitos reservados
 
-const CACHE = 'vetflowcare-v9.38';
+const CACHE = 'vetflowcare-v9.43';
 
 const CORE_FILES = [
   './index.html',
