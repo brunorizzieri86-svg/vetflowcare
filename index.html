@@ -296,14 +296,15 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.43';
+const APP_VER = '9.44';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.43',
+  ver: '9.44',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
     ['🔐','Já tenho cadastro','Nova opção na tela de acesso: <b>Já tenho cadastro — entrar</b>. Para quem apagou o app e quer recuperar o acesso. Após entrar aparece aviso para restaurar o backup em Ajustes.'],
     ['🐛','Correção: erro na Agenda','Corrigido erro <i>apptId is not defined</i> que aparecia ao salvar atendimentos na tela de Agenda.'],
     ['🛡️','Domínio autorizado','O endereço <b>app.vetflowcare.com.br</b> foi adicionado aos domínios oficiais do anti-cópia.'],
@@ -3655,7 +3656,8 @@ function renderPetHealth(pet){
           ${d.selo
             ? `<button class="btn sm gray" style="flex:1" onclick="editarSelo('${pet.id}','${d.id}')">✂️ Ajustar selo</button>
                <button class="btn sm dangero" style="flex:1" onclick="removerSelo('${pet.id}','${d.id}')">🗑️ Remover selo</button>`
-            : `<button class="btn sm gray" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}')">📷 Fotografar selo</button>`}
+            : `<button class="btn sm gray" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}','camera')">📷 Câmera</button>
+               <button class="btn sm outline" style="flex:1" onclick="fotografarSelo('${pet.id}','${d.id}','gallery')">🖼️ Galeria</button>`}
           </div>
           <div style="margin-top:4px">
             <button class="btn sm dangero" style="width:100%" onclick="delAppliedDose('${pet.id}','${d.id}')">🗑️ Excluir esta dose</button>
@@ -3754,9 +3756,10 @@ function apagarNotaCarteirinha(petId){
 }
 
 // Foto do selo da ampola por dose aplicada — com recorte/ajuste antes de salvar
-function fotografarSelo(petId, vacId){
+function fotografarSelo(petId, vacId, modo){
   const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*'; inp.capture = 'environment';
+  inp.type = 'file'; inp.accept = 'image/*';
+  if(modo !== 'gallery') inp.capture = 'environment'; // camera abre câmera direta; gallery abre galeria
   inp.onchange = e => {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
@@ -5089,7 +5092,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.43 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.44 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
