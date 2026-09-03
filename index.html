@@ -297,12 +297,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.46';
+const APP_VER = '9.47';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.46',
+  ver: '9.47',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
@@ -5092,7 +5092,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.46 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.47 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -7492,7 +7492,20 @@ function showEntryRegister(){
     </div>
     <input id="regInvite" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13" oninput="maskCode(this)"
       style="width:100%;max-width:340px;box-sizing:border-box;text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;padding:13px;border-radius:13px;border:none;margin-top:8px">` : ''}
-    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:${needInvite?'14px':'18px'} 0 6px">👤 Crie sua conta</div>
+    <div onclick="showLoginExistente()" style="background:rgba(45,192,174,.18);border:1.5px solid rgba(45,192,174,.55);border-radius:14px;padding:12px 16px;margin-bottom:14px;max-width:340px;width:100%;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px">
+      <div style="font-size:24px">🔐</div>
+      <div style="flex:1">
+        <div style="color:#fff;font-weight:800;font-size:13px">Já tenho cadastro</div>
+        <div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:2px">Toque aqui para entrar com e-mail e senha</div>
+      </div>
+      <div style="color:#2DC0AE;font-size:20px">›</div>
+    </div>
+    <div style="color:rgba(255,255,255,.4);font-size:11px;margin-bottom:10px;display:flex;align-items:center;gap:8px;max-width:340px;width:100%">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>
+      <span>ou crie uma conta nova</span>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>
+    </div>
+    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:0 0 6px">👤 Crie sua conta</div>
     <div style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:9px">
       <input id="regNome" type="text" placeholder="Nome completo" autocomplete="name"
         style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
@@ -7550,6 +7563,70 @@ function showEntryRegister(){
     <div id="regErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>
     <div class="sub" style="margin-top:14px">B&G Systems · Gestão veterinária completa</div>`;
 }
+// ── Histórico de e-mails e CPFs registrados neste dispositivo ──────────────
+// Sobrevive à limpeza do banco principal (chave separada)
+function showLoginExistente(){
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 50%,#0d6060 100%);text-align:center';
+  wrap.innerHTML = [
+    '<img src="logo.jpg" alt="VetFlowCare" style=""width:90px;height:90px;border-radius:18px;object-fit:contain;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.3)">',
+    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style=\'color:#2DC0AE\'>Care</span></div>',
+    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:24px">ORGANIZA · CONECTA · CUIDA</div>',
+    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>',
+    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">',
+    '💡 Seus dados ficam salvos <b style=\'color:#fff\'>no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style=\'color:#fff\'>backup JSON</b> em Ajustes.',
+    '</div>',
+    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">',
+    '<div style="width:100%;max-width:340px;margin-bottom:8px;position:relative">',
+    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">',
+    '</div>',
+    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>',
+    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>',
+    '<button onclick="showEntryRegister()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>',
+    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>'
+  ].join('');
+  document.body.innerHTML = '';
+  document.body.appendChild(wrap);
+}
+async function doLoginExistente(){
+  const err = document.getElementById('loginErr');
+  if(err) err.textContent = '';
+  const email = (document.getElementById('loginEmail')?.value||'').trim();
+  const pass  = document.getElementById('loginPass')?.value||'';
+  if(!email || !email.includes('@')){ if(err) err.textContent = '⚠ Informe um e-mail válido'; return; }
+  if(!pass || pass.length < 6){ if(err) err.textContent = '⚠ Senha deve ter pelo menos 6 caracteres'; return; }
+  const ok = await createAccountCore(email, pass, pass);
+  if(!ok) return;
+  iniciarTrial();
+  setTimeout(()=>{
+    const b = document.createElement('div');
+    b.id = 'bannerBkp';
+    b.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;background:linear-gradient(135deg,#1E3A6E,#2563EB);color:#fff;border-radius:16px;padding:14px 16px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px';
+    b.innerHTML = '<div style="font-size:26px">💾</div><div style="flex:1"><div style="font-weight:800;font-size:13px">Possui um backup salvo?</div><div style="font-size:11px;opacity:.8;margin-top:2px">Restaure seus dados em Ajustes → Restaurar Backup</div></div><button onclick="goTab(\'settings\');document.getElementById(\'bannerBkp\')?.remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:10px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Ir agora</button><button onclick="document.getElementById(\'bannerBkp\')?.remove()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;padding:0 6px">✕</button>';
+    document.body.appendChild(b);
+    setTimeout(()=>b?.remove(), 30000);
+  }, 1200);
+}
+function regHistAdd(email, cpf){
+  try{
+    const h = JSON.parse(localStorage.getItem('vfc_reg_hist')||'{"emails":[],"cpfs":[]}');
+    const em = (email||'').toLowerCase().trim();
+    const cp = (cpf||'').replace(/\D/g,'');
+    if(em && !h.emails.includes(em)) h.emails.push(em);
+    if(cp && !h.cpfs.includes(cp))   h.cpfs.push(cp);
+    localStorage.setItem('vfc_reg_hist', JSON.stringify(h));
+  }catch(e){}
+}
+function regHistCheck(email, cpf){
+  try{
+    const h = JSON.parse(localStorage.getItem('vfc_reg_hist')||'{"emails":[],"cpfs":[]}');
+    const em = (email||'').toLowerCase().trim();
+    const cp = (cpf||'').replace(/\D/g,'');
+    if(em && h.emails.includes(em)) return 'email';
+    if(cp && h.cpfs.includes(cp))   return 'cpf';
+  }catch(e){}
+  return null;
+}
 async function doEntryRegister(){
   const err = document.getElementById('regErr');
   err.textContent = '';
@@ -7566,6 +7643,19 @@ async function doEntryRegister(){
   if(!idadeN || idadeN < 18 || idadeN > 120){ err.textContent = '⚠ Informe uma idade válida (18+)'; return; }
   if(!sexo){ err.textContent = '⚠ Selecione o sexo'; return; }
   if(!validaCPF(cpf)){ err.textContent = '⚠ CPF inválido — confira os números'; return; }
+  // ── checa e-mail e CPF já cadastrados neste dispositivo ──
+  const togElCheck = document.getElementById('regSenhaToggle');
+  const querSenhaCheck = !togElCheck || togElCheck.dataset.on !== 'false';
+  const emailCheck = querSenhaCheck ? (document.getElementById('regEmail').value||'').trim() : '';
+  const dupCheck = regHistCheck(emailCheck, cpf);
+  if(dupCheck === 'email'){
+    err.innerHTML = '⚠ Este e-mail já foi cadastrado neste dispositivo.<br><span style="font-size:12px">Use o botão <b>"Já tenho cadastro"</b> acima para entrar.</span>';
+    return;
+  }
+  if(dupCheck === 'cpf'){
+    err.innerHTML = '⚠ Este CPF já foi cadastrado neste dispositivo.<br><span style="font-size:12px">Use o botão <b>"Já tenho cadastro"</b> acima para entrar.</span>';
+    return;
+  }
   if(user.length < 3){ err.textContent = '⚠ Escolha um nome de usuário (mín. 3)'; return; }
   // ── verifica se o usuário quer senha ──
   const togEl = document.getElementById('regSenhaToggle');
@@ -7602,6 +7692,8 @@ async function doEntryRegister(){
   // Se sem senha: não cria auth, DB fica sem criptografia, abre direto
   // ── salva o perfil do usuário ──
   DB.userProfile = { nome, idade:idadeN, sexo, cpf:cpf.replace(/\D/g,''), user, email, createdAt:todayISO() };
+  // ── grava no histórico de e-mails e CPFs deste dispositivo ──
+  regHistAdd(email, cpf);
   // ── aproveita nome/email pra pré-preencher os Dados do Profissional (evita digitar 2x) ──
   if(DB.vet){
     if(!DB.vet.name)  DB.vet.name  = nome;
