@@ -297,12 +297,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.52';
+const APP_VER = '9.53';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.52',
+  ver: '9.53',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['🛡️','Backup mais seguro','A exportação de backup agora tem fallback garantido — nunca some silenciosamente. O espelho interno é salvo ao fechar o app. Mesclar backup agora preserva configurações e dados do profissional.'],
@@ -523,7 +523,16 @@ function loadDB(){
     if(raw){
       try{
         const parsed = JSON.parse(raw);
-        if(parsed && parsed.__enc){ window._LOCKED = true; return defaultDB(); }
+        if(parsed && parsed.__enc){
+            // Detecta estado impossível: dados criptografados mas sem credenciais
+            const hasAuth = !!localStorage.getItem(LS_AUTH);
+            if(!hasAuth){
+              window._LOCKED_NO_AUTH = true;
+              window._RESCUE = true;
+              try{ localStorage.setItem('vetflowcare_rescue', raw); }catch(e){}
+            }
+            window._LOCKED = true; return defaultDB();
+          }
         return migrate(parsed);
       }catch(err){
         // Dados ilegíveis: preserva TUDO num resgate antes de qualquer coisa
@@ -867,10 +876,10 @@ async function initDataProtection(){
       window._persistOK = await navigator.storage.persisted() || await navigator.storage.persist();
     }
   }catch(e){ window._persistOK = false; }
-  // 2) Pontos de restauração escalonados (7 diários + 4 semanais + 6 mensais)
-  try{ await snapshotEscalonado(); }catch(e){ console.warn('snap', e); }
-  // 2b) Se o armazenamento principal sumiu, resgata da cópia interna
+  // 2) PRIMEIRO: resgata espelho se localStorage sumiu (protege dados antes de qualquer snapshot)
   try{ await checarEspelhoNaAbertura(); }catch(e){ console.warn('espelho', e); }
+  // 2b) SÓ DEPOIS: pontos de restauração escalonados (7 diários + 4 semanais + 6 mensais)
+  try{ await snapshotEscalonado(); }catch(e){ console.warn('snap', e); }
   // 2c) Confere se algum volume de dados despencou desde a última sessão
   try{ conferirIntegridade(); }catch(e){ console.warn('integridade', e); }
   // 3) Estado corrompido resgatado?
@@ -895,7 +904,7 @@ async function dailySnapshot(){
   window._snapList = await listSnapshots();
 }
 function listSnapshots(){
-  return idbStore('snap', 'readonly', s => s.getAllKeys()).catch(()=>[]);
+  return idbStore('snap', 'readonly', s => s.getAllKeys()).catch((e)=>{ console.warn('snapshots IDB falhou:', e); return []; });
 }
 async function makeSnapshotNow(){
   const raw = localStorage.getItem(LS_KEY);
@@ -917,8 +926,16 @@ async function doRestoreSnapshot(key){
   const snap = await idbStore('snap','readonly', s => s.get(key));
   if(!snap){ toast('⚠ Ponto não encontrado'); return; }
   localStorage.setItem(LS_KEY, snap);
-  toast('↩ Restaurado! Recarregando…');
-  setTimeout(()=>location.reload(), 900);
+  // Verifica persistência antes de recarregar (Safari/iOS pode ter delay)
+  let _rt = 0;
+  const _rv = setInterval(()=>{
+    _rt++;
+    if(localStorage.getItem(LS_KEY)===snap || _rt>8){
+      clearInterval(_rv);
+      if(_rt<=8){ toast('↩ Restaurado! Recarregando…'); setTimeout(()=>location.reload(),300); }
+      else{ toast('⚠ Falha ao salvar — tente novamente'); }
+    }
+  },200);
 }
 function downloadRescue(){
   const raw = localStorage.getItem('vetflowcare_rescue');
@@ -1102,9 +1119,15 @@ function lockForgot2(){
       </button>
     </div>`;
 }
-function doWipeCrypto(){
+async function doWipeCrypto(){
   localStorage.removeItem(LS_KEY);
   localStorage.removeItem(LS_AUTH);
+  localStorage.removeItem('vfc_mirror_sync');
+  // Limpa espelho do IndexedDB para não oferecer dados que o usuário quis apagar
+  try{
+    await idbStore('mirror','readwrite', s => s.clear());
+    await idbStore('snap','readwrite', s => s.clear());
+  }catch(e){}
   location.reload();
 }
 
@@ -5104,7 +5127,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.52 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.53 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5531,10 +5554,27 @@ function importJSON(input){
 }
 function doImportSubstituir(){
   const imported = window._pendImport; if(!imported) return;
-  DB = imported;
   window._pendImport = null;
-  save(); applyDark(); render();
-  toast('✅ Backup restaurado com sucesso!');
+  // Valida estrutura mínima antes de substituir
+  if(!imported || typeof imported !== 'object' || !Array.isArray(imported.pets)){
+    toast('⚠ Arquivo inválido ou incompatível — backup não aplicado'); return;
+  }
+  DB = imported.version >= 4 ? imported : migrate(imported);
+  save();
+  try{ if(typeof migrateDocsToIDB==='function') migrateDocsToIDB(); }catch(e){}
+  // Navega o calendário para o mês mais recente dos dados importados
+  const _datas = [];
+  (DB.pets||[]).forEach(p=>{
+    (p.appointments||[]).forEach(a=>{ if(a.date) _datas.push(a.date); });
+    (p.vaccines||[]).forEach(v=>{ if(v.applied) _datas.push(v.applied); });
+  });
+  if(_datas.length){
+    const _last = _datas.sort().pop();
+    const _d = new Date(_last+'T12:00:00');
+    if(!isNaN(_d)) calMonth = new Date(_d.getFullYear(), _d.getMonth(), 1);
+  }
+  applyDark(); render();
+  toast('✅ Backup restaurado! Agenda ajustada para o mês dos seus dados.');
 }
 function doImportMesclar(){
   const imp = window._pendImport; if(!imp) return;
@@ -5581,7 +5621,9 @@ function doImportMesclar(){
   (imp.charges||[]).forEach(c => { if(!chgIds.has(c.id)) DB.charges.push(c); });
   const expIds = new Set((DB.expenses||[]).map(e=>e.id));
   (imp.expenses||[]).forEach(e => { if(!expIds.has(e.id)) DB.expenses.push(e); });
-  save(); applyDark();
+  save();
+  try{ if(typeof migrateDocsToIDB==='function') migrateDocsToIDB(); }catch(e){}
+  applyDark();
   const _mDatas = [];
   (imp.pets||[]).forEach(p=>{
     (p.appointments||[]).forEach(a=>{ if(a.date) _mDatas.push(a.date); });
@@ -5742,6 +5784,8 @@ function semanaISO(d){
 async function snapshotEscalonado(){
   if(window._LOCKED) return;
   if(window._RESCUE) return;
+  // Não grava snapshot idêntico ao mais recente (economiza espaço IDB)
+  window._lastSnapRaw = window._lastSnapRaw || null;
   const raw = localStorage.getItem(LS_KEY);
   if(!raw || raw.length < 60) return;
   const hoje = new Date();
