@@ -297,12 +297,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.56';
+const APP_VER = '9.57';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.56',
+  ver: '9.57',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['⚡','Motor de backup reforçado','Correções internas no sistema de snapshots automáticos: deduplicação inteligente, ordem segura de inicialização e migração de documentos com prioridade garantida. Nenhum dado visível muda — só a confiabilidade do backup aumenta.'],
@@ -5128,7 +5128,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.56 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.57 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -7759,7 +7759,8 @@ async function doLoginExistente(){
   const ok = await createAccountCore(email, pass, pass);
   if(!ok) return;
   iniciarTrial();
-  // Entra no app primeiro — só depois mostra o banner
+  // Remove o overlay ANTES de entrar no app
+  document.getElementById('loginOverlay')?.remove();
   enterApp();
   setTimeout(()=>{
     const b = document.createElement('div');
