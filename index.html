@@ -297,12 +297,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.48';
+const APP_VER = '9.49';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.48',
+  ver: '9.49',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
@@ -5092,7 +5092,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.48 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.49 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -7561,7 +7561,10 @@ function showEntryRegister(){
     </div>
     <button onclick="doEntryRegister()" style="margin-top:14px">✓ Criar acesso e entrar</button>
     <div id="regErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>
-    <div class="sub" style="margin-top:14px">B&G Systems · Gestão veterinária completa</div>`;
+    <div style="background:rgba(255,200,0,.12);border:1px solid rgba(255,200,0,.35);border-radius:10px;padding:10px 14px;margin-top:4px;max-width:340px;width:100%;box-sizing:border-box;text-align:left">
+      <div style="color:rgba(255,255,255,.85);font-size:11px;line-height:1.6">⚠️ <b style="color:#FFD54F">Dados salvos somente neste celular.</b> A B&G Systems não se responsabiliza por perda sem backup. Faça backups em <b style="color:#FFD54F">Ajustes → 💾 Dados</b>.</div>
+    </div>
+    <div class="sub" style="margin-top:10px">B&G Systems · Gestão veterinária completa</div>`;
 }
 // ── Histórico de e-mails e CPFs registrados neste dispositivo ──────────────
 // Sobrevive à limpeza do banco principal (chave separada)
@@ -7598,6 +7601,8 @@ async function doLoginExistente(){
   const ok = await createAccountCore(email, pass, pass);
   if(!ok) return;
   iniciarTrial();
+  // Entra no app primeiro — só depois mostra o banner
+  enterApp();
   setTimeout(()=>{
     const b = document.createElement('div');
     b.id = 'bannerBkp';
