@@ -297,12 +297,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.54';
+const APP_VER = '9.56';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.54',
+  ver: '9.56',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['⚡','Motor de backup reforçado','Correções internas no sistema de snapshots automáticos: deduplicação inteligente, ordem segura de inicialização e migração de documentos com prioridade garantida. Nenhum dado visível muda — só a confiabilidade do backup aumenta.'],
@@ -5128,7 +5128,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.54 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.56 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5575,6 +5575,7 @@ function doImportSubstituir(){
     if(!isNaN(_d)) calMonth = new Date(_d.getFullYear(), _d.getMonth(), 1);
   }
   applyDark(); render();
+  salvarAssinatura(); // Reset da assinatura após importar — evita falso alerta de "dados sumidos"
   toast('✅ Backup restaurado! Agenda ajustada para o mês dos seus dados.');
 }
 function doImportMesclar(){
@@ -5637,6 +5638,7 @@ function doImportMesclar(){
   }
   render();
   const nPets = imp.pets?.length||0, nTuts = imp.tutors?.length||0;
+  salvarAssinatura(); // Reset da assinatura após mesclar — evita falso alerta
   toast('✅ Dados mesclados! ' + nPets + ' paciente(s) e ' + nTuts + ' tutor(es) unidos.');
 }
 function doRestoreVfcbak(){
@@ -5753,8 +5755,15 @@ function conferirIntegridade(){
   const perdas = [];
   const cmp = (k, nome) => {
     const a = ant[k] || 0, b = ag[k] || 0;
-    if(a >= 3 && b < a * 0.5) perdas.push(`${nome}: ${a} → ${b}`);
+    // Só alerta se a queda for severa (>=3 itens antes, caiu >70%) E pets também caíram
+    // Evita falso positivo após re-cadastro, restore parcial ou troca de domínio
+    const qd = a >= 3 && b < a * 0.3;
+    if(qd) perdas.push(`${nome}: ${a} → ${b}`);
   };
+  // Se os pets atuais são >= 1 e não houve perda neles, ignora quedas em sub-itens
+  // (vacinas/atendimentos voltam a 0 se o usuário apagou um paciente)
+  const antPets = ant['pets']||0, agPets = ag['pets']||0;
+  if(antPets >= 3 && agPets > 0 && agPets >= antPets * 0.5) return;
   cmp('pets','pacientes'); cmp('tutors','tutores');
   cmp('atend','atendimentos'); cmp('vac','vacinas'); cmp('rx','receitas');
   if(perdas.length){
@@ -5763,7 +5772,7 @@ function conferirIntegridade(){
       vfcConfirm({icon:'🚨', title:'Parte dos dados pode ter sumido',
         msg:`Comparando com a última vez que você usou o app:<br><br><b>${perdas.join('<br>')}</b><br><br>Isso pode ter sido você mesmo apagando — ou uma falha. <b>Não cadastre nada agora</b> até conferir.`,
         note:'Abra a Central de Proteção para restaurar um ponto anterior.', noteColor:'var(--danger)',
-        noLabel:'Está certo, fui eu', yesLabel:'🛡️ Abrir Central', yesBg:'var(--danger)',
+        noLabel:'Está certo, fui eu', no:'salvarAssinatura()', yesLabel:'🛡️ Abrir Central', yesBg:'var(--danger)',
         yes:'openCentralProtecao()'});
     }, 1200);
   } else {
@@ -7712,28 +7721,33 @@ function showEntryRegister(){
 }
 // ── Histórico de e-mails e CPFs registrados neste dispositivo ──────────────
 // Sobrevive à limpeza do banco principal (chave separada)
+function fecharLoginOverlay(){
+  document.getElementById('loginOverlay')?.remove();
+  showEntryRegister();
+}
 function showLoginExistente(){
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 50%,#0d6060 100%);text-align:center';
-  wrap.innerHTML = [
-    '<img src="logo.jpg" alt="VetFlowCare" style=""width:90px;height:90px;border-radius:18px;object-fit:contain;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.3)">',
-    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style=\'color:#2DC0AE\'>Care</span></div>',
-    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:24px">ORGANIZA · CONECTA · CUIDA</div>',
-    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>',
-    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">',
-    '💡 Seus dados ficam salvos <b style=\'color:#fff\'>no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style=\'color:#fff\'>backup JSON</b> em Ajustes.',
-    '</div>',
-    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">',
-    '<div style="width:100%;max-width:340px;margin-bottom:8px;position:relative">',
-    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">',
-    '</div>',
-    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>',
-    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>',
-    '<button onclick="showEntryRegister()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>',
-    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>'
-  ].join('');
-  document.body.innerHTML = '';
-  document.body.appendChild(wrap);
+  // Usa overlay para não destruir o CSS da página (fix do bug do logo gigante)
+  document.getElementById('loginOverlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'loginOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 55%,#0d6060 100%);text-align:center;overflow-y:auto';
+  ov.innerHTML =
+    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style="color:#2DC0AE">Care</span></div>' +
+    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:22px">ORGANIZA · CONECTA · CUIDA</div>' +
+    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>' +
+    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">' +
+    '💡 Seus dados ficam salvos <b style="color:#fff">no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style="color:#fff">backup JSON</b> em Ajustes.' +
+    '</div>' +
+    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">' +
+    '<div style="width:100%;max-width:340px;margin-bottom:8px">' +
+    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">' +
+    '</div>' +
+    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>' +
+    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>' +
+    '<button onclick="fecharLoginOverlay()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>' +
+    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>';
+  document.body.appendChild(ov);
+  setTimeout(()=>{ document.getElementById('loginEmail')?.focus(); }, 100);
 }
 async function doLoginExistente(){
   const err = document.getElementById('loginErr');
