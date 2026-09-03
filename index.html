@@ -297,14 +297,15 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.49';
+const APP_VER = '9.50';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.49',
+  ver: '9.50',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🔀','Mesclar backups','Ao restaurar um backup com dados já existentes no aparelho, o app agora pergunta: <b>Substituir tudo</b> ou <b>Mesclar</b>. Mesclar une pacientes, tutores, vacinas, atendimentos e cobranças dos dois períodos sem apagar nada.'],
     ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
     ['🔐','Já tenho cadastro','Nova opção na tela de acesso: <b>Já tenho cadastro — entrar</b>. Para quem apagou o app e quer recuperar o acesso. Após entrar aparece aviso para restaurar o backup em Ajustes.'],
     ['🐛','Correção: erro na Agenda','Corrigido erro <i>apptId is not defined</i> que aparecia ao salvar atendimentos na tela de Agenda.'],
@@ -5092,7 +5093,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.49 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.50 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5493,12 +5494,82 @@ function importJSON(input){
           noLabel:'Cancelar', yesLabel:'🔐 Sim, restaurar', yesBg:'var(--primary)', yes:'doRestoreVfcbak()'});
         return;
       }
-      DB = data.version >= 4 ? migrate(data) : migrateV3(data);
-      save(); applyDark(); render(); toast('✅ Dados importados com sucesso!');
+      const imported = data.version >= 4 ? migrate(data) : migrateV3(data);
+      // Guarda o backup importado e pergunta: substituir ou mesclar
+      window._pendImport = imported;
+      const temDados = DB.pets.length > 0 || DB.tutors.length > 0 || DB.charges.length > 0;
+      if(temDados){
+        const nPets = imported.pets?.length || 0;
+        const nTuts = imported.tutors?.length || 0;
+        const nChg  = imported.charges?.length || 0;
+        vfcConfirm({icon:'📂', title:'Como deseja restaurar?',
+          msg:`O backup contém <b>${nPets} paciente(s)</b>, <b>${nTuts} tutor(es)</b> e <b>${nChg} cobrança(s)</b>.<br><br>
+          <b>Substituir:</b> apaga os dados atuais e restaura somente o backup.<br>
+          <b>Mesclar:</b> une o backup com os dados atuais — útil para combinar dois períodos.`,
+          note:'💡 Para unir Julho + Agosto: exporte um, abra o outro e escolha Mesclar.',
+          noLabel:'✏️ Mesclar', yesBg:'var(--danger)',
+          yesLabel:'🗑️ Substituir tudo', yes:'doImportSubstituir()',
+          no:'doImportMesclar()'});
+      } else {
+        doImportSubstituir();
+      }
     }catch(err){ toast('⚠ Arquivo inválido'); }
   };
   r.readAsText(f);
   input.value = '';
+}
+function doImportSubstituir(){
+  const imported = window._pendImport; if(!imported) return;
+  DB = imported;
+  window._pendImport = null;
+  save(); applyDark(); render();
+  toast('✅ Backup restaurado com sucesso!');
+}
+function doImportMesclar(){
+  const imp = window._pendImport; if(!imp) return;
+  window._pendImport = null;
+  // ── Mescla tutores (por CPF ou nome) ──
+  const tutMap = {};
+  (DB.tutors||[]).forEach(t => { tutMap[t.id] = t; });
+  (imp.tutors||[]).forEach(t => {
+    const dup = (DB.tutors||[]).find(x =>
+      (x.cpf && t.cpf && x.cpf === t.cpf) ||
+      (x.name && t.name && x.name.toLowerCase() === t.name.toLowerCase()));
+    if(!dup) DB.tutors.push(t);
+  });
+  // ── Mescla pacientes (por nome + tutor, evita duplicata) ──
+  (imp.pets||[]).forEach(p => {
+    const dup = (DB.pets||[]).find(x =>
+      x.name && p.name &&
+      x.name.toLowerCase() === p.name.toLowerCase() &&
+      x.tutorId === p.tutorId);
+    if(!dup){
+      DB.pets.push(p);
+    } else {
+      // Une vacinas e atendimentos do mesmo paciente
+      const existing = dup;
+      (p.vaccines||[]).forEach(v => {
+        const vDup = (existing.vaccines||[]).find(x => x.id===v.id || (x.name===v.name && x.applied===v.applied));
+        if(!vDup)(existing.vaccines = existing.vaccines||[]).push(v);
+      });
+      (p.appointments||[]).forEach(a => {
+        const aDup = (existing.appointments||[]).find(x => x.id===a.id || (x.title===a.title && x.date===a.date));
+        if(!aDup)(existing.appointments = existing.appointments||[]).push(a);
+      });
+      (p.medications||[]).forEach(m => {
+        const mDup = (existing.medications||[]).find(x => x.id===m.id);
+        if(!mDup)(existing.medications = existing.medications||[]).push(m);
+      });
+    }
+  });
+  // ── Mescla cobranças e despesas (por ID) ──
+  const chgIds = new Set((DB.charges||[]).map(c=>c.id));
+  (imp.charges||[]).forEach(c => { if(!chgIds.has(c.id)) DB.charges.push(c); });
+  const expIds = new Set((DB.expenses||[]).map(e=>e.id));
+  (imp.expenses||[]).forEach(e => { if(!expIds.has(e.id)) DB.expenses.push(e); });
+  save(); applyDark(); render();
+  const nPets = imp.pets?.length||0, nTuts = imp.tutors?.length||0;
+  toast('✅ Dados mesclados! ' + nPets + ' paciente(s) e ' + nTuts + ' tutor(es) do backup unidos.');
 }
 function doRestoreVfcbak(){
   const data = window._pendBak; if(!data) return;
