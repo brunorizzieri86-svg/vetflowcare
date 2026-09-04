@@ -297,18 +297,17 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.51';
+const APP_VER = '9.59';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.51',
+  ver: '9.59',
   titulo: 'Novidades da versão 🚀',
   itens: [
-    ['🔀','Mesclar backups','Ao restaurar um backup com dados já existentes no aparelho, o app agora pergunta: <b>Substituir tudo</b> ou <b>Mesclar</b>. Mesclar une pacientes, tutores, vacinas, atendimentos e cobranças dos dois períodos sem apagar nada.'],
-    ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
     ['🔐','Já tenho cadastro','Nova opção na tela de acesso: <b>Já tenho cadastro — entrar</b>. Para quem apagou o app e quer recuperar o acesso. Após entrar aparece aviso para restaurar o backup em Ajustes.'],
     ['🐛','Correção: erro na Agenda','Corrigido erro <i>apptId is not defined</i> que aparecia ao salvar atendimentos na tela de Agenda.'],
+    ['🛡️','Domínio autorizado','O endereço <b>app.vetflowcare.com.br</b> foi adicionado aos domínios oficiais do anti-cópia.'],
     ['🔓','Senha opcional no cadastro','No primeiro acesso, um toggle permite escolher: <b>com senha</b> (criptografado, recomendado) ou <b>sem senha</b> (abre direto). Pode mudar depois em Ajustes → Segurança.'],
     ['🔑','Esqueceu a senha? Agora funciona','Ao clicar em <b>Esqueci minha senha</b>, a tela muda na hora — exibe a dica de senha, botão de ajuda pelo WhatsApp e a opção de apagar (com confirmação extra).'],
     ['💬','Lembrete de senha no WhatsApp','Ao criar a conta ou ativar a senha, o app oferece enviar um lembrete pra você mesmo no WhatsApp com e-mail e dica — backup no histórico do WA.'],
@@ -3760,7 +3759,7 @@ function apagarNotaCarteirinha(petId){
 function fotografarSelo(petId, vacId, modo){
   const inp = document.createElement('input');
   inp.type = 'file'; inp.accept = 'image/*';
-  if(modo !== 'gallery') inp.capture = 'environment'; // camera abre câmera direta; gallery abre galeria
+  if(modo !== 'gallery') inp.capture = 'environment';
   inp.onchange = e => {
     const file = e.target.files[0]; if(!file) return;
     const reader = new FileReader();
@@ -5093,7 +5092,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.51 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.59 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5468,11 +5467,14 @@ function exportJSON(){
   }
   doExportJSON();
 }
-function doExportJSON(){
+async function doExportJSON(){
   gcEvent('backup-feito');
   zerarAlteracoes();
   const blob = new Blob([JSON.stringify(DB,null,2)], {type:'application/json'});
-  if(true){ saveFileSAF('vetflowcare_backup_' + todayISO() + '.json', blob); return; }
+  try{
+    if(window.showSaveFilePicker){ await saveFileSAF('vetflowcare_backup_'+todayISO()+'.json', blob); toast('💾 Backup salvo!'); return; }
+    throw new Error('unsupported');
+  }catch(e){ if(e?.name==='AbortError') return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `vetflowcare_backup_${todayISO()}.json`;
@@ -5494,93 +5496,12 @@ function importJSON(input){
           noLabel:'Cancelar', yesLabel:'🔐 Sim, restaurar', yesBg:'var(--primary)', yes:'doRestoreVfcbak()'});
         return;
       }
-      const imported = data.version >= 4 ? migrate(data) : migrateV3(data);
-      // Guarda o backup importado e pergunta: substituir ou mesclar
-      window._pendImport = imported;
-      const temDados = DB.pets.length > 0 || DB.tutors.length > 0 || DB.charges.length > 0;
-      if(temDados){
-        const nPets = imported.pets?.length || 0;
-        const nTuts = imported.tutors?.length || 0;
-        const nChg  = imported.charges?.length || 0;
-        vfcConfirm({icon:'📂', title:'Como deseja restaurar?',
-          msg:`O backup contém <b>${nPets} paciente(s)</b>, <b>${nTuts} tutor(es)</b> e <b>${nChg} cobrança(s)</b>.<br><br>
-          <b>Substituir:</b> apaga os dados atuais e restaura somente o backup.<br>
-          <b>Mesclar:</b> une o backup com os dados atuais — útil para combinar dois períodos.`,
-          note:'💡 Para unir Julho + Agosto: exporte um, abra o outro e escolha Mesclar.',
-          noLabel:'✏️ Mesclar', yesBg:'var(--danger)',
-          yesLabel:'🗑️ Substituir tudo', yes:'doImportSubstituir()',
-          no:'doImportMesclar()'});
-      } else {
-        doImportSubstituir();
-      }
+      DB = data.version >= 4 ? migrate(data) : migrateV3(data);
+      save(); applyDark(); render(); toast('✅ Dados importados com sucesso!');
     }catch(err){ toast('⚠ Arquivo inválido'); }
   };
   r.readAsText(f);
   input.value = '';
-}
-function doImportSubstituir(){
-  const imported = window._pendImport; if(!imported) return;
-  DB = imported;
-  window._pendImport = null;
-  save(); applyDark(); render();
-  toast('✅ Backup restaurado com sucesso!');
-}
-function doImportMesclar(){
-  const imp = window._pendImport; if(!imp) return;
-  window._pendImport = null;
-  // ── Mescla tutores (por CPF ou nome) ──
-  const tutMap = {};
-  (DB.tutors||[]).forEach(t => { tutMap[t.id] = t; });
-  (imp.tutors||[]).forEach(t => {
-    const dup = (DB.tutors||[]).find(x =>
-      (x.cpf && t.cpf && x.cpf === t.cpf) ||
-      (x.name && t.name && x.name.toLowerCase() === t.name.toLowerCase()));
-    if(!dup) DB.tutors.push(t);
-  });
-  // ── Mescla pacientes (por nome + tutor, evita duplicata) ──
-  (imp.pets||[]).forEach(p => {
-    const dup = (DB.pets||[]).find(x =>
-      x.name && p.name &&
-      x.name.toLowerCase() === p.name.toLowerCase() &&
-      x.tutorId === p.tutorId);
-    if(!dup){
-      DB.pets.push(p);
-    } else {
-      // Une vacinas e atendimentos do mesmo paciente
-      const existing = dup;
-      (p.vaccines||[]).forEach(v => {
-        const vDup = (existing.vaccines||[]).find(x => x.id===v.id || (x.name===v.name && x.applied===v.applied));
-        if(!vDup)(existing.vaccines = existing.vaccines||[]).push(v);
-      });
-      (p.appointments||[]).forEach(a => {
-        const aDup = (existing.appointments||[]).find(x => x.id===a.id || (x.title===a.title && x.date===a.date));
-        if(!aDup)(existing.appointments = existing.appointments||[]).push(a);
-      });
-      (p.medications||[]).forEach(m => {
-        const mDup = (existing.medications||[]).find(x => x.id===m.id);
-        if(!mDup)(existing.medications = existing.medications||[]).push(m);
-      });
-    }
-  });
-  // ── Mescla cobranças e despesas (por ID) ──
-  const chgIds = new Set((DB.charges||[]).map(c=>c.id));
-  (imp.charges||[]).forEach(c => { if(!chgIds.has(c.id)) DB.charges.push(c); });
-  const expIds = new Set((DB.expenses||[]).map(e=>e.id));
-  (imp.expenses||[]).forEach(e => { if(!expIds.has(e.id)) DB.expenses.push(e); });
-  save(); applyDark();
-  const _mDatas = [];
-  (imp.pets||[]).forEach(p=>{
-    (p.appointments||[]).forEach(a=>{ if(a.date) _mDatas.push(a.date); });
-    (p.vaccines||[]).forEach(v=>{ if(v.applied) _mDatas.push(v.applied); });
-  });
-  if(_mDatas.length){
-    const _mLast = _mDatas.sort().pop();
-    const _mD = new Date(_mLast+'T12:00:00');
-    if(!isNaN(_mD)) calMonth = new Date(_mD.getFullYear(), _mD.getMonth(), 1);
-  }
-  render();
-  const nPets = imp.pets?.length||0, nTuts = imp.tutors?.length||0;
-  toast('✅ Dados mesclados! ' + nPets + ' paciente(s) e ' + nTuts + ' tutor(es) unidos.');
 }
 function doRestoreVfcbak(){
   const data = window._pendBak; if(!data) return;
@@ -7574,20 +7495,7 @@ function showEntryRegister(){
     </div>
     <input id="regInvite" placeholder="VFC-XXXX-0000" autocapitalize="characters" maxlength="13" oninput="maskCode(this)"
       style="width:100%;max-width:340px;box-sizing:border-box;text-align:center;font-size:16px;font-weight:800;letter-spacing:2px;padding:13px;border-radius:13px;border:none;margin-top:8px">` : ''}
-    <div onclick="showLoginExistente()" style="background:rgba(45,192,174,.18);border:1.5px solid rgba(45,192,174,.55);border-radius:14px;padding:12px 16px;margin-bottom:14px;max-width:340px;width:100%;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px">
-      <div style="font-size:24px">🔐</div>
-      <div style="flex:1">
-        <div style="color:#fff;font-weight:800;font-size:13px">Já tenho cadastro</div>
-        <div style="color:rgba(255,255,255,.65);font-size:11px;margin-top:2px">Toque aqui para entrar com e-mail e senha</div>
-      </div>
-      <div style="color:#2DC0AE;font-size:20px">›</div>
-    </div>
-    <div style="color:rgba(255,255,255,.4);font-size:11px;margin-bottom:10px;display:flex;align-items:center;gap:8px;max-width:340px;width:100%">
-      <div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>
-      <span>ou crie uma conta nova</span>
-      <div style="flex:1;height:1px;background:rgba(255,255,255,.15)"></div>
-    </div>
-    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:0 0 6px">👤 Crie sua conta</div>
+    <div style="color:rgba(255,255,255,.85);font-weight:800;font-size:15px;margin:${needInvite?'14px':'18px'} 0 6px">👤 Crie sua conta</div>
     <div style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:9px">
       <input id="regNome" type="text" placeholder="Nome completo" autocomplete="name"
         style="width:100%;box-sizing:border-box;padding:13px;border-radius:13px;border:none;font-size:16px">
@@ -7642,75 +7550,75 @@ function showEntryRegister(){
       <div style="color:rgba(255,255,255,.75);font-size:11px;margin-top:2px">Ao criar sua conta, você libera <b>todas as funções</b> por 30 dias, sem compromisso.</div>
     </div>
     <button onclick="doEntryRegister()" style="margin-top:14px">✓ Criar acesso e entrar</button>
+    <button onclick="showLoginExistente()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer;display:block;width:100%;text-align:center">Já tenho cadastro — entrar</button>
     <div id="regErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>
-    <div style="background:rgba(255,200,0,.12);border:1px solid rgba(255,200,0,.35);border-radius:10px;padding:10px 14px;margin-top:4px;max-width:340px;width:100%;box-sizing:border-box;text-align:left">
-      <div style="color:rgba(255,255,255,.85);font-size:11px;line-height:1.6">⚠️ <b style="color:#FFD54F">Dados salvos somente neste celular.</b> A B&G Systems não se responsabiliza por perda sem backup. Faça backups em <b style="color:#FFD54F">Ajustes → 💾 Dados</b>.</div>
-    </div>
-    <div class="sub" style="margin-top:10px">B&G Systems · Gestão veterinária completa</div>`;
+    <div class="sub" style="margin-top:14px">B&G Systems · Gestão veterinária completa</div>`;
 }
-// ── Histórico de e-mails e CPFs registrados neste dispositivo ──────────────
-// Sobrevive à limpeza do banco principal (chave separada)
+function irRestaurarBkp(){ goTab('settings'); document.getElementById('bannerBkp')?.remove(); }
+function fecharBannerBkp(){ document.getElementById('bannerBkp')?.remove(); }
+function fecharLgvOverlay(){ document.getElementById('lgvOverlay')?.remove(); }
 function showLoginExistente(){
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 50%,#0d6060 100%);text-align:center';
-  wrap.innerHTML = [
-    '<img src="logo.jpg" alt="VetFlowCare" style=""width:90px;height:90px;border-radius:18px;object-fit:contain;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.3)">',
-    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style=\'color:#2DC0AE\'>Care</span></div>',
-    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:24px">ORGANIZA · CONECTA · CUIDA</div>',
-    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>',
-    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">',
-    '💡 Seus dados ficam salvos <b style=\'color:#fff\'>no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style=\'color:#fff\'>backup JSON</b> em Ajustes.',
-    '</div>',
-    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">',
-    '<div style="width:100%;max-width:340px;margin-bottom:8px;position:relative">',
-    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">',
-    '</div>',
-    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>',
-    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>',
-    '<button onclick="showEntryRegister()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>',
-    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>'
-  ].join('');
-  document.body.innerHTML = '';
-  document.body.appendChild(wrap);
+  document.getElementById('lgvOverlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'lgvOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#0d2240,#1E3A6E,#0d6060);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;text-align:center';
+  ov.innerHTML =
+    '<div style="font-size:22px;font-weight:900;color:#fff;margin-bottom:4px">VetFlow<span style="color:#2DC0AE">Care</span></div>'+
+    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:20px">ORGANIZA · CONECTA · CUIDA</div>'+
+    '<div style="font-weight:800;color:#fff;font-size:16px;margin-bottom:8px">🔐 Entrar com sua conta</div>'+
+    '<div style="background:rgba(45,192,174,.15);border:1px solid rgba(45,192,174,.4);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.7);line-height:1.6;box-sizing:border-box;text-align:left">'+
+    '💡 Seus dados ficam salvos <b style="color:#fff">no celular</b>. Se apagou o app, entre com seu e-mail e senha e restaure o <b style="color:#fff">backup JSON</b> em Ajustes.</div>'+
+    '<input id="lgvEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:15px;margin-bottom:8px;box-sizing:border-box">'+
+    '<input id="lgvPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:15px;margin-bottom:10px;box-sizing:border-box">'+
+    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer">✓ Entrar</button>'+
+    '<div id="lgvErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>'+
+'<button onclick="fecharLgvOverlay()" style="margin-top:8px;background:none;border:none;color:rgba(255,255,255,.45);font-size:13px;text-decoration:underline;cursor:pointer">← Voltar ao cadastro</button>'
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('lgvEmail')?.focus(),100);
 }
 async function doLoginExistente(){
-  const err = document.getElementById('loginErr');
+  const err = document.getElementById('lgvErr');
   if(err) err.textContent = '';
-  const email = (document.getElementById('loginEmail')?.value||'').trim();
-  const pass  = document.getElementById('loginPass')?.value||'';
-  if(!email || !email.includes('@')){ if(err) err.textContent = '⚠ Informe um e-mail válido'; return; }
-  if(!pass || pass.length < 6){ if(err) err.textContent = '⚠ Senha deve ter pelo menos 6 caracteres'; return; }
+  const email = (document.getElementById('lgvEmail')?.value||'').trim();
+  const pass  = document.getElementById('lgvPass')?.value||'';
+  if(!email||!email.includes('@')){ if(err) err.textContent='⚠ E-mail inválido'; return; }
+  if(!pass||pass.length<6){ if(err) err.textContent='⚠ Senha: mínimo 6 caracteres'; return; }
+  // SEGURANÇA: se já tem dados (criptografados ou não), NÃO sobrescreve
+  const dadosExist = localStorage.getItem('vetflowcare_v5') || localStorage.getItem(LS_KEY);
+  if(dadosExist){
+    if(err) err.innerHTML = '⚠ Seus dados ainda estão neste aparelho.<br><small>Feche esta tela e entre com sua senha normalmente.<br>Ou acesse Ajustes → Restaurar Backup.</small>';
+    return;
+  }
+  // Só cria nova conta se não há dados existentes (app apagado/limpo)
   const ok = await createAccountCore(email, pass, pass);
   if(!ok) return;
   iniciarTrial();
-  // Entra no app primeiro — só depois mostra o banner
+  document.getElementById('lgvOverlay')?.remove();
   enterApp();
   setTimeout(()=>{
-    const b = document.createElement('div');
-    b.id = 'bannerBkp';
-    b.style.cssText = 'position:fixed;bottom:80px;left:16px;right:16px;background:linear-gradient(135deg,#1E3A6E,#2563EB);color:#fff;border-radius:16px;padding:14px 16px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px';
-    b.innerHTML = '<div style="font-size:26px">💾</div><div style="flex:1"><div style="font-weight:800;font-size:13px">Possui um backup salvo?</div><div style="font-size:11px;opacity:.8;margin-top:2px">Restaure seus dados em Ajustes → Restaurar Backup</div></div><button onclick="goTab(\'settings\');document.getElementById(\'bannerBkp\')?.remove()" style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:10px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">Ir agora</button><button onclick="document.getElementById(\'bannerBkp\')?.remove()" style="background:none;border:none;color:rgba(255,255,255,.5);font-size:20px;cursor:pointer;padding:0 6px">✕</button>';
+    const b=document.createElement('div');
+    b.id='bannerBkp';
+    b.style.cssText='position:fixed;bottom:80px;left:16px;right:16px;background:linear-gradient(135deg,#1E3A6E,#2563EB);color:#fff;border-radius:16px;padding:14px 16px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.3);display:flex;align-items:center;gap:12px';
+    b.innerHTML = "<div style='font-size:24px'>💾</div><div style='flex:1'><div style='font-weight:800;font-size:13px'>Possui um backup salvo?</div><div style='font-size:11px;opacity:.8;margin-top:2px'>Ajustes → Restaurar Backup</div></div><button onclick='irRestaurarBkp()' style='background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:10px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer'>Ir agora</button><button onclick='fecharBannerBkp()' style='background:none;border:none;color:rgba(255,255,255,.5);font-size:18px;cursor:pointer;padding:0 4px'>✕</button>";
     document.body.appendChild(b);
-    setTimeout(()=>b?.remove(), 30000);
-  }, 1200);
+    setTimeout(()=>b?.remove(),30000);
+  },1000);
 }
 function regHistAdd(email, cpf){
   try{
     const h = JSON.parse(localStorage.getItem('vfc_reg_hist')||'{"emails":[],"cpfs":[]}');
-    const em = (email||'').toLowerCase().trim();
-    const cp = (cpf||'').replace(/\D/g,'');
+    const em=(email||'').toLowerCase().trim(), cp=(cpf||'').replace(/\D/g,'');
     if(em && !h.emails.includes(em)) h.emails.push(em);
-    if(cp && !h.cpfs.includes(cp))   h.cpfs.push(cp);
-    localStorage.setItem('vfc_reg_hist', JSON.stringify(h));
+    if(cp && !h.cpfs.includes(cp)) h.cpfs.push(cp);
+    localStorage.setItem('vfc_reg_hist',JSON.stringify(h));
   }catch(e){}
 }
 function regHistCheck(email, cpf){
   try{
     const h = JSON.parse(localStorage.getItem('vfc_reg_hist')||'{"emails":[],"cpfs":[]}');
-    const em = (email||'').toLowerCase().trim();
-    const cp = (cpf||'').replace(/\D/g,'');
+    const em=(email||'').toLowerCase().trim(), cp=(cpf||'').replace(/\D/g,'');
     if(em && h.emails.includes(em)) return 'email';
-    if(cp && h.cpfs.includes(cp))   return 'cpf';
+    if(cp && h.cpfs.includes(cp)) return 'cpf';
   }catch(e){}
   return null;
 }
@@ -7730,19 +7638,6 @@ async function doEntryRegister(){
   if(!idadeN || idadeN < 18 || idadeN > 120){ err.textContent = '⚠ Informe uma idade válida (18+)'; return; }
   if(!sexo){ err.textContent = '⚠ Selecione o sexo'; return; }
   if(!validaCPF(cpf)){ err.textContent = '⚠ CPF inválido — confira os números'; return; }
-  // ── checa e-mail e CPF já cadastrados neste dispositivo ──
-  const togElCheck = document.getElementById('regSenhaToggle');
-  const querSenhaCheck = !togElCheck || togElCheck.dataset.on !== 'false';
-  const emailCheck = querSenhaCheck ? (document.getElementById('regEmail').value||'').trim() : '';
-  const dupCheck = regHistCheck(emailCheck, cpf);
-  if(dupCheck === 'email'){
-    err.innerHTML = '⚠ Este e-mail já foi cadastrado neste dispositivo.<br><span style="font-size:12px">Use o botão <b>"Já tenho cadastro"</b> acima para entrar.</span>';
-    return;
-  }
-  if(dupCheck === 'cpf'){
-    err.innerHTML = '⚠ Este CPF já foi cadastrado neste dispositivo.<br><span style="font-size:12px">Use o botão <b>"Já tenho cadastro"</b> acima para entrar.</span>';
-    return;
-  }
   if(user.length < 3){ err.textContent = '⚠ Escolha um nome de usuário (mín. 3)'; return; }
   // ── verifica se o usuário quer senha ──
   const togEl = document.getElementById('regSenhaToggle');
@@ -7779,8 +7674,6 @@ async function doEntryRegister(){
   // Se sem senha: não cria auth, DB fica sem criptografia, abre direto
   // ── salva o perfil do usuário ──
   DB.userProfile = { nome, idade:idadeN, sexo, cpf:cpf.replace(/\D/g,''), user, email, createdAt:todayISO() };
-  // ── grava no histórico de e-mails e CPFs deste dispositivo ──
-  regHistAdd(email, cpf);
   // ── aproveita nome/email pra pré-preencher os Dados do Profissional (evita digitar 2x) ──
   if(DB.vet){
     if(!DB.vet.name)  DB.vet.name  = nome;
@@ -7848,93 +7741,6 @@ function doAvisarInicioTrial(){
   document.getElementById('modalBV')?.remove();
   window.open('https://wa.me/5511912659906?text=' + encodeURIComponent(msg));
 }
-// ══════════════════════════════════════════════════════
-// MODO RECUPERAÇÃO — exporta dados sem precisar de login
-// Ativado via URL: ...?recover
-// ══════════════════════════════════════════════════════
-function showRecoverMode(){
-  document.body.style.cssText = 'margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:linear-gradient(135deg,#0d2240,#1E3A6E,#0d6060);min-height:100vh;display:flex;align-items:center;justify-content:center';
-  const wrap = document.createElement('div');
-  wrap.style.cssText = 'max-width:360px;width:100%;padding:28px 20px;text-align:center;color:#fff';
-
-  // Coleta todos os dados VFC do localStorage
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('vfc') || k.startsWith('vetflow'));
-  let dbRaw = null, authRaw = null;
-  try{ dbRaw   = localStorage.getItem('vetflowcare_v5'); }catch(e){}
-  try{ authRaw = localStorage.getItem('vetflowcare_auth'); }catch(e){}
-
-  let db = null, pacientes = 0, tutores = 0, atend = 0, cobr = 0, dataRef = '?';
-  try{
-    db = JSON.parse(dbRaw||'null');
-    if(db){
-      pacientes = (db.pets||[]).length;
-      tutores   = (db.tutors||[]).length;
-      cobr      = (db.charges||[]).length;
-      (db.pets||[]).forEach(p=>{ atend += (p.appointments||[]).length; });
-      // Detecta data mais recente nos dados
-      const datas = [];
-      (db.pets||[]).forEach(p=>{
-        (p.appointments||[]).forEach(a=>{ if(a.date) datas.push(a.date); });
-        (p.vaccines||[]).forEach(v=>{ if(v.applied) datas.push(v.applied); });
-      });
-      if(datas.length) dataRef = datas.sort().pop().split('-').reverse().join('/');
-    }
-  }catch(e){}
-
-  const temDados = db && (pacientes > 0 || tutores > 0);
-
-  wrap.innerHTML = `
-    <div style="font-size:30px;margin-bottom:8px">🚑</div>
-    <div style="font-size:22px;font-weight:900;letter-spacing:-0.5px">VetFlowCare</div>
-    <div style="font-size:13px;opacity:.6;margin-bottom:24px">Modo de Recuperação</div>
-
-    ${temDados ? `
-    <div style="background:rgba(45,192,174,.15);border:1.5px solid rgba(45,192,174,.5);border-radius:16px;padding:16px;margin-bottom:20px;text-align:left">
-      <div style="font-weight:800;font-size:14px;margin-bottom:10px">✅ Dados encontrados neste celular</div>
-      <div style="font-size:13px;opacity:.8;line-height:1.8">
-        👤 ${tutores} tutor(es)<br>
-        🐾 ${pacientes} paciente(s)<br>
-        📅 ${atend} atendimento(s)<br>
-        💰 ${cobr} cobrança(s)<br>
-        📆 Registro mais recente: <b>${dataRef}</b>
-      </div>
-    </div>
-    <button id="btnExport" style="width:100%;padding:15px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-bottom:10px">
-      💾 Exportar backup completo
-    </button>
-    <div style="font-size:11px;opacity:.5;margin-bottom:20px">Salva um arquivo JSON com todos os seus dados</div>
-    ` : `
-    <div style="background:rgba(255,100,100,.15);border:1.5px solid rgba(255,100,100,.4);border-radius:16px;padding:16px;margin-bottom:20px">
-      <div style="font-weight:800;font-size:14px">⚠️ Nenhum dado encontrado</div>
-      <div style="font-size:12px;opacity:.7;margin-top:6px">Este endereço não possui dados salvos neste celular.</div>
-    </div>
-    `}
-
-    <div style="background:rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;text-align:left;font-size:12px;opacity:.7;line-height:1.7">
-      📱 Endereço atual: <b style="color:#2DC0AE">${location.hostname}</b><br>
-      🗝️ Chaves no storage: <b>${keys.length}</b>
-    </div>
-
-    <div style="margin-top:20px;font-size:11px;opacity:.4">B&G Systems · VetFlowCare Recovery</div>
-  `;
-  document.body.appendChild(wrap);
-
-  // Auto-exporta se tiver dados
-  if(temDados){
-    document.getElementById('btnExport').onclick = () => {
-      const payload = { exportedAt: new Date().toISOString(), hostname: location.hostname, data: db };
-      const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'vetflowcare_recuperacao_' + location.hostname.replace(/\./g,'_') + '_' + new Date().toISOString().slice(0,10) + '.json';
-      document.body.appendChild(a); a.click(); a.remove();
-      document.getElementById('btnExport').textContent = '✅ Arquivo exportado! Agora restaure no app.';
-      document.getElementById('btnExport').style.background = '#059669';
-    };
-    // Auto-dispara após 1.5s
-    setTimeout(()=>{ document.getElementById('btnExport')?.click(); }, 1500);
-  }
-}
 function afterLGPD(){
   if(getAuth()){
     if(window._LOCKED){ showLockScreen(); } else { bootApp(); }
@@ -7942,10 +7748,7 @@ function afterLGPD(){
     showEntryRegister();
   }
 }
-// ── MODO RECUPERAÇÃO (?recover na URL) ─────────────────────────
-if(new URLSearchParams(location.search).get('recover') !== null){
-  showRecoverMode();
-} else if(!localStorage.getItem('vfc_lgpd')){
+if(!localStorage.getItem('vfc_lgpd')){
   showLGPD();
 } else {
   afterLGPD();
