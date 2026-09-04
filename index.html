@@ -297,16 +297,14 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.57';
+const APP_VER = '9.51';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.57',
+  ver: '9.51',
   titulo: 'Novidades da versão 🚀',
   itens: [
-    ['⚡','Motor de backup reforçado','Correções internas no sistema de snapshots automáticos: deduplicação inteligente, ordem segura de inicialização e migração de documentos com prioridade garantida. Nenhum dado visível muda — só a confiabilidade do backup aumenta.'],
-    ['🛡️','Backup mais seguro','A exportação de backup agora tem fallback garantido — nunca some silenciosamente. O espelho interno é salvo ao fechar o app. Mesclar backup agora preserva configurações e dados do profissional.'],
     ['🔀','Mesclar backups','Ao restaurar um backup com dados já existentes no aparelho, o app agora pergunta: <b>Substituir tudo</b> ou <b>Mesclar</b>. Mesclar une pacientes, tutores, vacinas, atendimentos e cobranças dos dois períodos sem apagar nada.'],
     ['🖼️','Selo da vacina por galeria','Na carteirinha de vacinação, doses sem foto agora mostram dois botões: <b>📷 Câmera</b> (abre câmera diretamente) e <b>🖼️ Galeria</b> (escolhe do rolo de fotos). Depois de ambos, abre a tela de ajuste e recorte normal.'],
     ['🔐','Já tenho cadastro','Nova opção na tela de acesso: <b>Já tenho cadastro — entrar</b>. Para quem apagou o app e quer recuperar o acesso. Após entrar aparece aviso para restaurar o backup em Ajustes.'],
@@ -429,18 +427,8 @@ function gcEvent(p){
   }catch(e){}
 }
 
-// Flush do espelho ao fechar o app (evita perda de dados)
-window.addEventListener('beforeunload', ()=>{
-  clearTimeout(_mirrorTimer);
-  try{
-    const raw = localStorage.getItem('vetflowcare_v5');
-    if(raw && raw.length > 100) gravarEspelho(raw);
-  }catch(e){}
-});
-
 // Erros de execução aparecem na tela (facilita suporte)
 window.onerror = function(msg, s2, line){
-  if(window._errActive) return; window._errActive = true; setTimeout(()=>{window._errActive=false;},2000);
   try{
     // Script externo bloqueado por AdBlock/DNS (métricas) — não é erro do app
     if(String(msg).includes("Unexpected token '<'") || String(msg) === 'Script error.'){
@@ -524,16 +512,7 @@ function loadDB(){
     if(raw){
       try{
         const parsed = JSON.parse(raw);
-        if(parsed && parsed.__enc){
-            // Detecta estado impossível: dados criptografados mas sem credenciais
-            const hasAuth = !!localStorage.getItem(LS_AUTH);
-            if(!hasAuth){
-              window._LOCKED_NO_AUTH = true;
-              window._RESCUE = true;
-              try{ localStorage.setItem('vetflowcare_rescue', raw); }catch(e){}
-            }
-            window._LOCKED = true; return defaultDB();
-          }
+        if(parsed && parsed.__enc){ window._LOCKED = true; return defaultDB(); }
         return migrate(parsed);
       }catch(err){
         // Dados ilegíveis: preserva TUDO num resgate antes de qualquer coisa
@@ -877,10 +856,10 @@ async function initDataProtection(){
       window._persistOK = await navigator.storage.persisted() || await navigator.storage.persist();
     }
   }catch(e){ window._persistOK = false; }
-  // 2) PRIMEIRO: resgata espelho se localStorage sumiu (protege dados antes de qualquer snapshot)
-  try{ await checarEspelhoNaAbertura(); }catch(e){ console.warn('espelho', e); }
-  // 2b) SÓ DEPOIS: pontos de restauração escalonados (7 diários + 4 semanais + 6 mensais)
+  // 2) Pontos de restauração escalonados (7 diários + 4 semanais + 6 mensais)
   try{ await snapshotEscalonado(); }catch(e){ console.warn('snap', e); }
+  // 2b) Se o armazenamento principal sumiu, resgata da cópia interna
+  try{ await checarEspelhoNaAbertura(); }catch(e){ console.warn('espelho', e); }
   // 2c) Confere se algum volume de dados despencou desde a última sessão
   try{ conferirIntegridade(); }catch(e){ console.warn('integridade', e); }
   // 3) Estado corrompido resgatado?
@@ -905,7 +884,7 @@ async function dailySnapshot(){
   window._snapList = await listSnapshots();
 }
 function listSnapshots(){
-  return idbStore('snap', 'readonly', s => s.getAllKeys()).catch((e)=>{ console.warn('snapshots IDB falhou:', e); return []; });
+  return idbStore('snap', 'readonly', s => s.getAllKeys()).catch(()=>[]);
 }
 async function makeSnapshotNow(){
   const raw = localStorage.getItem(LS_KEY);
@@ -927,16 +906,8 @@ async function doRestoreSnapshot(key){
   const snap = await idbStore('snap','readonly', s => s.get(key));
   if(!snap){ toast('⚠ Ponto não encontrado'); return; }
   localStorage.setItem(LS_KEY, snap);
-  // Verifica persistência antes de recarregar (Safari/iOS pode ter delay)
-  let _rt = 0;
-  const _rv = setInterval(()=>{
-    _rt++;
-    if(localStorage.getItem(LS_KEY)===snap || _rt>8){
-      clearInterval(_rv);
-      if(_rt<=8){ toast('↩ Restaurado! Recarregando…'); setTimeout(()=>location.reload(),300); }
-      else{ toast('⚠ Falha ao salvar — tente novamente'); }
-    }
-  },200);
+  toast('↩ Restaurado! Recarregando…');
+  setTimeout(()=>location.reload(), 900);
 }
 function downloadRescue(){
   const raw = localStorage.getItem('vetflowcare_rescue');
@@ -1120,15 +1091,9 @@ function lockForgot2(){
       </button>
     </div>`;
 }
-async function doWipeCrypto(){
+function doWipeCrypto(){
   localStorage.removeItem(LS_KEY);
   localStorage.removeItem(LS_AUTH);
-  localStorage.removeItem('vfc_mirror_sync');
-  // Limpa espelho do IndexedDB para não oferecer dados que o usuário quis apagar
-  try{
-    await idbStore('mirror','readwrite', s => s.clear());
-    await idbStore('snap','readwrite', s => s.clear());
-  }catch(e){}
   location.reload();
 }
 
@@ -5128,7 +5093,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.57 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.51 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -5555,35 +5520,14 @@ function importJSON(input){
 }
 function doImportSubstituir(){
   const imported = window._pendImport; if(!imported) return;
+  DB = imported;
   window._pendImport = null;
-  // Valida estrutura mínima antes de substituir
-  if(!imported || typeof imported !== 'object' || !Array.isArray(imported.pets)){
-    toast('⚠ Arquivo inválido ou incompatível — backup não aplicado'); return;
-  }
-  DB = imported.version >= 4 ? imported : migrate(imported);
-  save();
-  try{ if(typeof migrateDocsToIDB==='function') migrateDocsToIDB(); }catch(e){}
-  // Navega o calendário para o mês mais recente dos dados importados
-  const _datas = [];
-  (DB.pets||[]).forEach(p=>{
-    (p.appointments||[]).forEach(a=>{ if(a.date) _datas.push(a.date); });
-    (p.vaccines||[]).forEach(v=>{ if(v.applied) _datas.push(v.applied); });
-  });
-  if(_datas.length){
-    const _last = _datas.sort().pop();
-    const _d = new Date(_last+'T12:00:00');
-    if(!isNaN(_d)) calMonth = new Date(_d.getFullYear(), _d.getMonth(), 1);
-  }
-  applyDark(); render();
-  salvarAssinatura(); // Reset da assinatura após importar — evita falso alerta de "dados sumidos"
-  toast('✅ Backup restaurado! Agenda ajustada para o mês dos seus dados.');
+  save(); applyDark(); render();
+  toast('✅ Backup restaurado com sucesso!');
 }
 function doImportMesclar(){
   const imp = window._pendImport; if(!imp) return;
   window._pendImport = null;
-  if(imp.version && imp.version < 3){ toast('⚠ Backup muito antigo — use Substituir'); return; }
-  if(imp.vet && !DB.vet.name) DB.vet = Object.assign({}, imp.vet, DB.vet);
-  DB.settings = Object.assign({}, imp.settings||{}, DB.settings||{});
   // ── Mescla tutores (por CPF ou nome) ──
   const tutMap = {};
   (DB.tutors||[]).forEach(t => { tutMap[t.id] = t; });
@@ -5623,9 +5567,7 @@ function doImportMesclar(){
   (imp.charges||[]).forEach(c => { if(!chgIds.has(c.id)) DB.charges.push(c); });
   const expIds = new Set((DB.expenses||[]).map(e=>e.id));
   (imp.expenses||[]).forEach(e => { if(!expIds.has(e.id)) DB.expenses.push(e); });
-  save();
-  try{ if(typeof migrateDocsToIDB==='function') migrateDocsToIDB(); }catch(e){}
-  applyDark();
+  save(); applyDark();
   const _mDatas = [];
   (imp.pets||[]).forEach(p=>{
     (p.appointments||[]).forEach(a=>{ if(a.date) _mDatas.push(a.date); });
@@ -5638,7 +5580,6 @@ function doImportMesclar(){
   }
   render();
   const nPets = imp.pets?.length||0, nTuts = imp.tutors?.length||0;
-  salvarAssinatura(); // Reset da assinatura após mesclar — evita falso alerta
   toast('✅ Dados mesclados! ' + nPets + ' paciente(s) e ' + nTuts + ' tutor(es) unidos.');
 }
 function doRestoreVfcbak(){
@@ -5755,15 +5696,8 @@ function conferirIntegridade(){
   const perdas = [];
   const cmp = (k, nome) => {
     const a = ant[k] || 0, b = ag[k] || 0;
-    // Só alerta se a queda for severa (>=3 itens antes, caiu >70%) E pets também caíram
-    // Evita falso positivo após re-cadastro, restore parcial ou troca de domínio
-    const qd = a >= 3 && b < a * 0.3;
-    if(qd) perdas.push(`${nome}: ${a} → ${b}`);
+    if(a >= 3 && b < a * 0.5) perdas.push(`${nome}: ${a} → ${b}`);
   };
-  // Se os pets atuais são >= 1 e não houve perda neles, ignora quedas em sub-itens
-  // (vacinas/atendimentos voltam a 0 se o usuário apagou um paciente)
-  const antPets = ant['pets']||0, agPets = ag['pets']||0;
-  if(antPets >= 3 && agPets > 0 && agPets >= antPets * 0.5) return;
   cmp('pets','pacientes'); cmp('tutors','tutores');
   cmp('atend','atendimentos'); cmp('vac','vacinas'); cmp('rx','receitas');
   if(perdas.length){
@@ -5772,7 +5706,7 @@ function conferirIntegridade(){
       vfcConfirm({icon:'🚨', title:'Parte dos dados pode ter sumido',
         msg:`Comparando com a última vez que você usou o app:<br><br><b>${perdas.join('<br>')}</b><br><br>Isso pode ter sido você mesmo apagando — ou uma falha. <b>Não cadastre nada agora</b> até conferir.`,
         note:'Abra a Central de Proteção para restaurar um ponto anterior.', noteColor:'var(--danger)',
-        noLabel:'Está certo, fui eu', no:'salvarAssinatura()', yesLabel:'🛡️ Abrir Central', yesBg:'var(--danger)',
+        noLabel:'Está certo, fui eu', yesLabel:'🛡️ Abrir Central', yesBg:'var(--danger)',
         yes:'openCentralProtecao()'});
     }, 1200);
   } else {
@@ -5792,13 +5726,8 @@ function semanaISO(d){
   return `${t.getFullYear()}-W${String(n).padStart(2,'0')}`;
 }
 async function snapshotEscalonado(){
-  if(window._LOCKED) return;
-  if(window._RESCUE) return;
   const raw = localStorage.getItem(LS_KEY);
   if(!raw || raw.length < 60) return;
-  // Não grava snapshot idêntico ao último gravado (economiza espaço IDB)
-  if(window._lastSnapRaw === raw) return;
-  window._lastSnapRaw = raw;
   const hoje = new Date();
   const chaves = {
     ['d:' + todayISO()]: 7,
@@ -7527,7 +7456,7 @@ if('serviceWorker' in navigator){
 }
 
 // ═══════════ INIT ═══════════
-async function bootApp(){
+function bootApp(){
   applyDark();
   try{ const _hj=todayISO(); if(localStorage.getItem('vfc_gc_day')!==_hj){ localStorage.setItem('vfc_gc_day',_hj); gcEvent('app-aberto'); } }catch(e){}
   // ── MIGRAÇÃO v9.30: testador antigo (tem conta, mas nunca teve trial nem Pro) ganha o trial ──
@@ -7539,7 +7468,7 @@ async function bootApp(){
   // Se a pessoa limpou o localStorage mas o IndexedDB sobreviveu, restaura a marca.
   try{ trialJaUsadoForte(); }catch(e){}
   scheduleLocalCheck();
-  await migrateDocsToIDB().catch(e=>console.warn('migrateDocsToIDB',e));
+  migrateDocsToIDB();
   initDataProtection();
   if(localStorage.getItem('vfc_entered')){
     document.getElementById('splash').classList.add('hidden');
@@ -7721,33 +7650,28 @@ function showEntryRegister(){
 }
 // ── Histórico de e-mails e CPFs registrados neste dispositivo ──────────────
 // Sobrevive à limpeza do banco principal (chave separada)
-function fecharLoginOverlay(){
-  document.getElementById('loginOverlay')?.remove();
-  showEntryRegister();
-}
 function showLoginExistente(){
-  // Usa overlay para não destruir o CSS da página (fix do bug do logo gigante)
-  document.getElementById('loginOverlay')?.remove();
-  const ov = document.createElement('div');
-  ov.id = 'loginOverlay';
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 55%,#0d6060 100%);text-align:center;overflow-y:auto';
-  ov.innerHTML =
-    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style="color:#2DC0AE">Care</span></div>' +
-    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:22px">ORGANIZA · CONECTA · CUIDA</div>' +
-    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>' +
-    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">' +
-    '💡 Seus dados ficam salvos <b style="color:#fff">no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style="color:#fff">backup JSON</b> em Ajustes.' +
-    '</div>' +
-    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">' +
-    '<div style="width:100%;max-width:340px;margin-bottom:8px">' +
-    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">' +
-    '</div>' +
-    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>' +
-    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>' +
-    '<button onclick="fecharLoginOverlay()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>' +
-    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>';
-  document.body.appendChild(ov);
-  setTimeout(()=>{ document.getElementById('loginEmail')?.focus(); }, 100);
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:32px 20px;background:linear-gradient(135deg,#0d2240 0%,#1E3A6E 50%,#0d6060 100%);text-align:center';
+  wrap.innerHTML = [
+    '<img src="logo.jpg" alt="VetFlowCare" style=""width:90px;height:90px;border-radius:18px;object-fit:contain;margin-bottom:10px;box-shadow:0 4px 20px rgba(0,0,0,.3)">',
+    '<div style="font-size:26px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:2px">VetFlow<span style=\'color:#2DC0AE\'>Care</span></div>',
+    '<div style="font-size:11px;letter-spacing:3px;color:rgba(255,255,255,.5);margin-bottom:24px">ORGANIZA · CONECTA · CUIDA</div>',
+    '<div style="color:rgba(255,255,255,.85);font-weight:800;font-size:16px;margin:0 0 8px">🔐 Entrar com sua conta</div>',
+    '<div style="background:rgba(45,192,174,.12);border:1px solid rgba(45,192,174,.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;max-width:340px;width:100%;font-size:12px;color:rgba(255,255,255,.65);line-height:1.6;box-sizing:border-box;text-align:left">',
+    '💡 Seus dados ficam salvos <b style=\'color:#fff\'>no celular</b>. Se apagou o app ou trocou de aparelho, entre aqui e restaure seu <b style=\'color:#fff\'>backup JSON</b> em Ajustes.',
+    '</div>',
+    '<input id="loginEmail" type="email" placeholder="Seu e-mail" autocomplete="email" style="width:100%;max-width:340px;padding:13px;border-radius:13px;border:none;font-size:16px;margin-bottom:8px;box-sizing:border-box">',
+    '<div style="width:100%;max-width:340px;margin-bottom:8px;position:relative">',
+    '<input id="loginPass" type="password" placeholder="Sua senha" autocomplete="current-password" style="width:100%;padding:13px;border-radius:13px;border:none;font-size:16px;box-sizing:border-box">',
+    '</div>',
+    '<button onclick="doLoginExistente()" style="width:100%;max-width:340px;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,#2DC0AE,#1a9d8e);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin-top:4px">✓ Entrar</button>',
+    '<div id="loginErr" style="color:#FF8C69;font-size:13px;font-weight:700;min-height:18px;margin-top:8px"></div>',
+    '<button onclick="showEntryRegister()" style="margin-top:6px;background:none;border:none;color:rgba(255,255,255,.5);font-size:13px;text-decoration:underline;cursor:pointer">← Criar nova conta</button>',
+    '<div style="color:rgba(255,255,255,.3);font-size:11px;margin-top:20px">B&G Systems · Gestão veterinária completa</div>'
+  ].join('');
+  document.body.innerHTML = '';
+  document.body.appendChild(wrap);
 }
 async function doLoginExistente(){
   const err = document.getElementById('loginErr');
@@ -7759,8 +7683,7 @@ async function doLoginExistente(){
   const ok = await createAccountCore(email, pass, pass);
   if(!ok) return;
   iniciarTrial();
-  // Remove o overlay ANTES de entrar no app
-  document.getElementById('loginOverlay')?.remove();
+  // Entra no app primeiro — só depois mostra o banner
   enterApp();
   setTimeout(()=>{
     const b = document.createElement('div');
