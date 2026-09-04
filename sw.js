@@ -2,7 +2,7 @@
 // Estratégia: Network-First (busca atualização na rede; cache só responde offline)
 // B&G Systems | Todos os direitos reservados
 
-const CACHE = 'vetflowcare-v9.61';
+const CACHE = 'vetflowcare-v9.62';
 
 const CORE_FILES = [
   './index.html',

@@ -227,7 +227,7 @@ canvas{width:100%!important}
       <div class="care">Care</div>
     </div>
     <div class="spacer"></div>
-    <button onclick="abrirBusca()" style="background:rgba(255,255,255,.12);border:none;border-radius:50%;width:36px;height:36px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-right:6px" title="Busca global">🔍</button>
+    <button onclick="abrirBusca()" style="background:rgba(45,192,174,.25);border:1.5px solid rgba(45,192,174,.6);color:#fff;border-radius:20px;padding:7px 13px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;margin-right:8px;letter-spacing:.3px">🔍 Buscar</button>
     <button class="profile-chip" onclick="goTab('settings')">👨‍⚕️ <span id="profileName">Profissional</span></button>
   </div>
   <div class="scorecard" id="scorecard"></div>
@@ -298,12 +298,12 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '9.61';
+const APP_VER = '9.62';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '9.61',
+  ver: '9.62',
   titulo: 'Novidades da versão 🚀',
   itens: [
     ['🔍','Busca global','Encontre qualquer paciente, tutor, atendimento ou vacina com uma busca rápida. Toque no ícone 🔍 no topo do app. Os resultados são agrupados por categoria e navegam direto para o paciente ou atendimento.'],
@@ -354,10 +354,14 @@ const NOVIDADES = {
 // Se houver outro formulário aberto na frente (ex: cadastro do profissional),
 // espera fechar em vez de simplesmente desistir — era assim que o aviso sumia.
 let _novTentativas = 0;
-function fecharAvisoAtualizacao(){ document.querySelector('.vfc-aviso')?.remove(); }
+function fecharAvisoAtualizacao(){
+  document.querySelector('.vfc-aviso')?.remove();
+  // Só mostra novidades DEPOIS que o usuário fechou o aviso
+  setTimeout(checarNovidades, 400);
+}
 function mostrarAvisoAtualizacao(){
-  if(localStorage.getItem('vfc_aviso_set26')) return;
-  localStorage.setItem('vfc_aviso_set26','1');
+  if(localStorage.getItem('vfc_aviso_set26c')) return;
+  localStorage.setItem('vfc_aviso_set26c','1');
   const ov = document.createElement('div');
   ov.className = 'vfc-aviso';
   ov.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(13,34,64,.85);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(4px)';
@@ -2735,8 +2739,12 @@ function enterApp(){
   render();
   if(!localStorage.getItem('vfc_tut_done')){ setTimeout(()=>openTutorial(parseInt(localStorage.getItem('vfc_tut_step')||'0')), 500); }
   else if(!DB.vet.name){ setTimeout(openVetSetup, 500); }
-  checarNovidades();
-  setTimeout(mostrarAvisoAtualizacao, 1000);
+  // Aviso aparece primeiro (500ms). Se não mostrar (já viu), novidades aparecem normalmente.
+  setTimeout(function(){
+    const jaViu = localStorage.getItem('vfc_aviso_set26c');
+    if(!jaViu){ mostrarAvisoAtualizacao(); }  // aviso → ao fechar → dispara novidades
+    else{ checarNovidades(); }                 // sem aviso → novidades normalmente
+  }, 500);
 }
 
 // Modal obrigatório de primeiro acesso — dados do profissional
@@ -5302,7 +5310,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.61 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v9.62 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
