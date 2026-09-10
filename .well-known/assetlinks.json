@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "br.com.vetflowcare.app",
-        "sha256_cert_fingerprints": ["80:64:98:E5:0D:A7:69:DD:CC:00:8D:39:25:10:DC:2F:F9:1B:6D:79:06:AA:68:ED:7C:3D:25:B6:7E:30:8A:0C"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "br.com.vetflowcare.app",
+    "sha256_cert_fingerprints": ["80:64:98:E5:0D:A7:69:DD:CC:00:8D:39:25:10:DC:2F:F9:1B:6D:79:06:AA:68:ED:7C:3D:25:B6:7E:30:8A:0C"]
+  }
+}]
