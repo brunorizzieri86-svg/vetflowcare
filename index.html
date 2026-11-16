@@ -3211,7 +3211,22 @@ buffer/index.js:
 */
 </script>
 <style>.voice-tools{margin:12px 0;padding:14px;border:1px solid #b9dedb;border-radius:14px;background:#f3fbfa;color:var(--text);max-width:100%;overflow-wrap:anywhere}.voice-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.voice-tools .btn{min-height:42px;white-space:normal;flex:none}.voice-actions>span{font-size:12px;flex:1;min-width:130px;line-height:1.5}.voice-tools label{font-size:12px;letter-spacing:0;text-transform:none}.voice-tools select,.voice-tools textarea{max-width:100%;box-sizing:border-box}.voice-tools summary{padding:12px 0;font-size:13px;font-weight:700;cursor:pointer}.voice-live{border-left:3px solid #008d8b;padding:10px;background:white;font-size:14px}.voice-help,.voice-review p{font-size:12px;line-height:1.6;color:var(--muted);margin:10px 0 0}.voice-review{margin-top:12px;border-top:1px solid #c5dfdd;padding-top:12px}.voice-review h4{margin:0 0 8px;font-size:16px}.voice-review h5{font-size:13px;margin:14px 0 6px}.voice-review ul{padding-left:20px;font-size:14px;line-height:1.7}.voice-review textarea{font-size:16px;line-height:1.5}.voice-tools [hidden]{display:none!important}.voice-review-actions{margin-top:10px}.voice-tools button:disabled{opacity:.55}textarea[readonly]{background:#f3f8f8}.voice-pending-textarea{font-size:16px;line-height:1.6;min-height:160px}.voice-tools .btn[aria-pressed="true"]{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important;box-shadow:inset 0 0 0 2px #ffffff55}.voice-tools .btn{transition:background-color .15s ease,color .15s ease,border-color .15s ease}.voice-tools .btn.tap{background:var(--primary)!important;color:#fff!important;border-color:var(--primary)!important}.voice-engine-group{display:inline-flex;gap:8px;flex-wrap:wrap;align-items:center} @media(max-width:360px){.voice-tools{padding:10px}.voice-review-actions>.btn{font-size:12px;padding:8px}}
-</style></head>
+</style><style data-v1011>
+.btn,.chip,nav button,.ptabs button,.x{transition:transform .08s ease,filter .08s ease,background-color .15s ease,box-shadow .15s ease;-webkit-tap-highlight-color:rgba(45,192,174,.25);touch-action:manipulation}
+.btn:active,.chip:active,.ptabs button:active,.x:active{transform:scale(.95);filter:brightness(.88)}
+nav button:active{transform:scale(.9)}
+.btn.outline:active,.chip:active{background:rgba(45,192,174,.22)}
+.btn.outline.on{background:var(--primary);color:#fff}
+.btn.pulou{animation:vfcPulou .35s ease}
+@keyframes vfcPulou{0%{transform:scale(1)}40%{transform:scale(.93);filter:brightness(.85)}100%{transform:scale(1)}}
+.btn.feito{background:var(--success)!important;color:#fff!important;border-color:var(--success)!important}
+.sCusto,#fPCustoTxt{color:var(--danger)!important}
+.sCusto::placeholder{color:rgba(224,82,82,.55)}
+.srow.catlinha{border-left:3px solid var(--primary);padding-left:8px;border-radius:2px}
+.srow.novo{animation:vfcNovo 1.4s ease}
+@keyframes vfcNovo{0%{background:rgba(45,192,174,.35)}100%{background:transparent}}
+</style>
+</head>
 <body>
 
 <div id="splash">
@@ -3252,6 +3267,7 @@ buffer/index.js:
   <button data-tab="fin" onclick="goFinance()"><span class="nic">💰</span>Financeiro</button>
   <button data-tab="calendar" onclick="goTab('calendar')"><span class="nic">📅</span>Agenda</button>
   <button data-tab="alerts" onclick="goTab('alerts')"><span class="nic">🔔</span>Alertas<span class="nbadge hidden" id="alertBadge"></span></button>
+  <button data-tab="catalog" onclick="goTab('catalog')"><span class="nic">📚</span>Catálogo</button>
   <button data-tab="settings" onclick="goTab('settings')"><span class="nic">⚙️</span>Ajustes</button>
 </nav>
 
@@ -3308,14 +3324,40 @@ try{
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '10.03';
+const APP_VER = '10.25';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '10.03',
+  ver: '10.25',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🧾','Orçamento de vários animais também no Novo Atendimento','No Novo Atendimento, ao lado de “Orçamento em PDF”, apareceu o botão <b>🧾 Vários animais</b>. Ele traz o tutor do paciente e os animais dele, leva os serviços que você já lançou para o primeiro animal e deixa você adicionar os outros. O atendimento que você está preenchendo <b>não é perdido</b>. Toque em “ⓘ Como funciona” para ver o passo a passo.'],
+    ['🧾','Orçamento para vários animais do mesmo tutor','Na ficha do tutor, toque em <b>🧾 Orçamento (vários animais)</b>: adicione cada animal, lance os serviços dele (digitando ou puxando do catálogo), e o app soma tudo em um só PDF com o total, <b>à vista com desconto (ex.: 5%)</b> e <b>parcelamento em 2x, 3x…</b> sem juros. O orçamento fica guardado na ficha do tutor para reimprimir ou editar.'],
+    ['🧩','Lista do catálogo se ajusta a nomes grandes','Corrigido: quando o nome do item era comprido (ex.: “Aplicação Agemoxi CL”), o selo “Por peso” e o preço quebravam de linha e bagunçavam o cartão. Agora o nome ocupa a linha toda, o selo nunca quebra e o preço desce para a sua própria linha, tudo alinhado.'],
+    ['📦','Filtro de Pacotes e lista do catálogo mais clara','Novo botão <b>📦 Pacotes</b> (e 🐾 Por peso) na tela do Catálogo e ao puxar do catálogo no atendimento: toque e veja só os pacotes. A lista ficou mais limpa: nome em destaque, tipo do item, preço grande, desconto do pacote em destaque e o quadro “O pacote inclui” com cada item e seu valor.'],
+    ['📦','Pacotes mostram os valores e deixam você montar o preço','No Catálogo, cada item do pacote mostra o valor de tabela e você pode <b>alterar o valor dele dentro do pacote</b> (ex.: exame de R$ 50 por R$ 45). O app soma tudo, mostra o desconto e o lucro, e você ainda pode digitar o <b>total do pacote</b> ou um <b>% de desconto</b> que ele divide entre os itens. Na lista e na busca, o pacote já aparece com o preço total e o que tem dentro.'],
+    ['✅','Aviso de backup some depois de fazer o backup','Corrigido: a faixa vermelha “Seus dados estão em risco” continuava aparecendo mesmo depois de salvar o backup. Agora, assim que o arquivo é salvo (ou enviado ao destino escolhido), o contador zera e a faixa some. Se você cancelar, o aviso continua.'],
+    ['⚖️','Catálogo: pesos do jeito que você quiser','Nos itens “Varia por peso” agora você digita cada peso (1 kg, 2 kg, 3 kg, 4 kg, 7,5 kg…) com o seu preço e custo, adiciona e remove linhas, ou gera uma tabela de 1 em 1, 2 em 2, 3 em 3, 5 em 5 ou 10 em 10 kg e ajusta depois.'],
+    ['🔁','Restaurar backup sem pedir cadastro de novo','Corrigido: depois de restaurar um backup antigo, o app voltava a mostrar “Crie seu acesso” ao reabrir. Agora ele reconhece seus dados e abre direto. Quem já estava nesse problema é reconhecido automaticamente ao atualizar.'],
+    ['📥','Restaurar backup ficou mais fácil','Na tela de cadastro, toque em “Já tenho cadastro — entrar ou restaurar backup” e depois em “Restaurar backup agora” para trazer seus dados de volta com um arquivo de backup, sem refazer tudo. O aviso de backup também ficou mais firme, e na Central de Proteção há um guia de como limpar o Chrome sem apagar o VetFlowCare.'],
+    ['🛡️','Proteção de dados reforçada','O lembrete de backup ficou mais firme (aviso ao abrir o app e faixa que não some quando o risco é alto). Novo guia na Central de Proteção: como limpar o histórico do Chrome SEM apagar o VetFlowCare. O app também tenta de novo travar o armazenamento contra limpeza automática do Android.'],
+    ['🗄️','Restaurar backup grande da clínica funciona','Fotos, logo e assinatura agora ficam no armazenamento grande do aparelho, e não mais na gaveta pequena dos dados principais. Isso resolve o erro "Memória do navegador cheia" ao restaurar backups de clínicas com muitos pacientes.'],
+    ['🧾','Custos em vermelho, “Lucro total” sem ícone','No Novo Atendimento, os custos agora aparecem em vermelho (no item e no total) e o “Lucro total” ficou só com o texto em verde, sem o coração.'],
+    ['💾','Backups grandes (100 MB ou mais) agora funcionam','O backup e a restauração passaram a trabalhar em pedaços, sem carregar o arquivo inteiro na memória do celular. Clínicas com muitos anexos (PDFs, fotos, termos) conseguem fazer e restaurar o backup completo. Durante a restauração aparece o andamento em porcentagem.'],
+    ['🛟','Restaurar backup mais forte','Se a restauração falhar, o app agora mostra o motivo completo (com botão “Copiar detalhes”) e mantém seus dados atuais. Um anexo com problema não derruba mais a restauração inteira: os dados voltam e o app avisa quais arquivos ficaram de fora. Também tratamos memória cheia e arquivo de backup incompleto.'],
+    ['👆','Botões que respondem ao toque','Todos os botões e opções agora dão um efeito ao serem tocados (afundam, mudam de cor e vibram de leve), para você ter certeza de que o toque funcionou.'],
+    ['📚','Catálogo do atendimento em tela própria','“Puxar do catálogo” agora abre uma tela cheia por cima do atendimento: busque, filtre por grupo, toque em ➕ Usar quantas vezes quiser (o botão confirma “✓ Adicionado”) e finalize em “Concluir”. Sem subir e descer a tela. O botão muda de cor quando há itens do catálogo no atendimento.'],
+    ['💚','Lucro mais claro e sempre à vista','No atendimento, os custos e o “Lucro total” aparecem em linhas separadas (lucro em verde) e um resumo com total e lucro fica fixo acima do botão Salvar. Itens por peso mostram faixa e custo na mesma linha.'],
+    ['📚','Catálogo de serviços','Nova aba <b>Catálogo</b> no menu: cadastre o que você faz com preço de venda e custos (centro cirúrgico, materiais…). Itens com preço <b>por peso</b> (como anestesia, de 5 em 5 kg) e <b>pacotes</b> (ex.: castração completa). No Novo Atendimento, toque em “📚 Puxar do catálogo” e a linha já vem com valor e custo. Reajustou? Altere no catálogo e os próximos atendimentos já saem certos.'],
+    ['🧾','Orçamentos guardados na ficha do paciente','Cada orçamento em PDF fica salvo na nova aba <b>Orçam.</b> da ficha, com os preços da data. Dentro da validade nada muda. Vencido e com o catálogo diferente, o app avisa se houve <b>aumento</b> ou <b>redução</b> de preço e oferece “Atualizar para preços atuais”. Ao reimprimir um orçamento vencido, o PDF sai com a faixa de aviso.'],
+    ['⏸️','Pausar e retomar vacina','Na ficha do paciente, em cada vacina, um único botão alterna entre "⏸ Pausar vacina" e "▶ Retomar vacina". Enquanto estiver pausada, o app não mostra atraso, não conta nos Alertas nem na Agenda e não derruba a saúde do paciente. Ao retomar uma vacina cuja data já passou, o app pergunta a nova data.'],
+    ['🧾','Custo de cada item no atendimento','No Novo Atendimento, cada serviço ganhou o campo "🧾 Custo": o que VOCÊ gastou naquele item. Ao salvar, o custo entra sozinho em Financeiro → Despesas. Ele nunca aparece no orçamento em PDF. Enquanto o pagamento não for recebido, você pode editar o atendimento (mudar o custo, tirar o item) e a despesa acompanha; depois da baixa, os custos ficam travados.'],
+    ['🧾','Receita em PDF: página 1 aproveitada até o fim','Corrigimos a quebra de página das receitas em PDF com texto longo: antes, a primeira folha podia sair quase vazia (ou cortar uma linha ao meio) e o texto pular cedo para a página 2. Agora a primeira folha é preenchida até onde cabe, a quebra acontece entre linhas, e as demais folhas repetem o timbre.'],
+    ['🧾','Receita de Controle Especial sem folha extra','A Receita de Controle Especial às vezes saía com uma terceira folha contendo apenas o rodapé "VetFlowCare". Isso foi corrigido: agora são só as duas vias.'],
+    ['🏷️','Timbre em todas as folhas, em todos os documentos','Quando uma receita (simples, assinada ou de controle especial), termo, orçamento, prontuário, ficha, relatório ou arquivo clínico tem mais de uma página, o seu timbre — logo, nome, CRMV, SIPEAGRO e e-mail — aparece no topo de TODAS as folhas, tanto no PDF quanto na impressão. O QR Code da assinatura continua só no final da última página.'],
+    ['🧾','Receita em PDF sem corte no meio','Quando a receita passava um pouco do tamanho de uma folha, o quadro da assinatura digital (com o QR Code) ficava partido entre duas páginas. Agora a receita é ajustada para caber numa página só e, quando realmente precisa de mais de uma, a quebra acontece entre os blocos — nunca no meio do quadro da assinatura.'],
+    ['📲','Atalhos no ícone do app','Ao segurar o ícone do VetFlowCare no celular, aparecem atalhos diretos para Pacientes, Agenda e Alertas. Também melhoramos a tela de quando o app abre sem internet.'],
     ['🔎','Arquivos perdidos: o app agora procura e para de incomodar','O aviso "arquivos não estão neste aparelho" não aparece mais toda vez. Agora o app procura os anexos em todas as áreas do aparelho (inclusive cópias antigas) e recupera sozinho o que existir. O que realmente não existe mais é marcado uma única vez, e você pode removê-lo da lista (um por um, ou todos em Ajustes → Proteção de Dados → Limpar registros sem arquivo). Também dá para tocar em "Procurar arquivos perdidos" quando quiser.'],
     ['🛠️','Botão de novo tutor de volta e telas mais estáveis','Na lista de Tutores, o botão "Cadastrar novo tutor" voltou ao topo. Também corrigimos o formulário que às vezes abria cortado ou bugado (principalmente depois de usar o teclado): agora a altura é recalculada toda vez que um formulário abre.'],
     ['📎','Backup com anexos mais seguro','O backup agora mostra quantos anexos (PDFs e fotos) foram colocados dentro do arquivo. Se algum arquivo não estiver mais no aparelho, o app avisa antes em vez de travar o backup. Ao restaurar, ele avisa quais anexos não vieram, e na ficha do paciente aparece ⚠ nos arquivos ausentes. Também corrigimos um risco de perder o PDF ao abri-lo.'],
@@ -3399,7 +3441,7 @@ function showWhatsNew(){
     👋 Olá! Aqui é o <b>Claudinho</b>, da equipe VetFlowCare.<br><br>
     Cada sugestão de vocês vira melhoria. A <b>versão ${NOVIDADES.ver}</b> trouxe
     <b>${esc(NOVIDADES.titulo)}</b>:</div>
-    ${NOVIDADES.itens.map(([e,t,d]) => `
+    ${NOVIDADES.itens.filter(([e,t,d]) => !(isPlayStore() && /plano|assinar|site/i.test(t+' '+d))).map(([e,t,d]) => `
       <div class="card" style="margin-top:10px;display:flex;gap:11px;align-items:flex-start">
         <span style="font-size:22px;flex-shrink:0">${e}</span>
         <div><b style="font-size:14px">${t}</b>
@@ -3533,6 +3575,7 @@ function defaultDB(){
     license: { pro:false, code:'', activatedAt:null },
     charges: [],
     expenses: [],
+    catalogo: [],
     settings: { dark:false, alert7:true, alert3:true, alert1:true, nVac:true, nMed:true, nVet:true,
       taxas: { pix:0, dinheiro:0, debito:1.99, credito:3.49, creditoParc:4.5 } }
   };
@@ -3576,6 +3619,7 @@ function migrate(d){
   d.license = Object.assign(defaultDB().license, d.license||{});
   d.charges = d.charges || [];
   d.expenses = d.expenses || [];
+  d.catalogo = d.catalogo || [];
   // ID do Aparelho (licença Pro vinculada): 4 caracteres, criado uma única vez.
   // Vive dentro do DB — sobrevive a backup/restauração junto com os dados da clínica.
   // v9.9.2: geração blindada — no iPhone/Safari o crypto.getRandomValues pode falhar
@@ -3712,10 +3756,36 @@ let _saveTimer = null;
 function save(){ clearTimeout(_saveTimer); _saveTimer = setTimeout(persistDB, 80); }
 let _storageQueue=Promise.resolve();
 function queueStorage(fn){const job=_storageQueue.then(fn,fn);_storageQueue=job.catch(()=>{});return job;}
+// v10.15: textos enormes (fotos, logo, assinatura, certificado) saem da "gaveta" pequena (localStorage, ~2,5 MB no celular)
+// e vão para o IndexedDB. No lugar fica um marcador '@big:ID'. Em memória o app continua com o conteúdo completo.
+const BIG_MIN = 12000, BIG_PFX = '@big:';
+const _bigOk = new Set();
+function h53(s){ let h1=0xdeadbeef,h2=0x41c6ce57; for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677);} h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909); h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909); return (4294967296*(2097151&h2)+(h1>>>0)).toString(36); }
+async function serializarLeve(source){
+  const found=new Map();
+  const txt=JSON.stringify(source,(k,v)=>{ if(typeof v==='string' && v.length>=BIG_MIN && v.indexOf(BIG_PFX)!==0){ const id='big-'+h53(v)+'-'+v.length; found.set(id,v); return BIG_PFX+id; } return v; });
+  if(!found.size) return txt;
+  try{ for(const [id,v] of found){ if(!_bigOk.has(id)){ await idbPut(id,v); _bigOk.add(id); } } return txt; }
+  catch(e){ console.warn('big->idb falhou, grava inline', e); return JSON.stringify(source); }
+}
+let _hidrP = null;
+function hidratarGrandes(){
+  if(_hidrP) return _hidrP;
+  _hidrP = (async()=>{
+    let n=0; const falt=[];
+    const walk=async(o)=>{ if(!o||typeof o!=='object') return;
+      for(const k of Object.keys(o)){ const v=o[k];
+        if(typeof v==='string'){ if(v.indexOf(BIG_PFX)===0){ const id=v.slice(BIG_PFX.length); let d=null; try{ d=await idbGet(id); }catch(e){} if(typeof d==='string'){ o[k]=d; _bigOk.add(id); n++; } else falt.push(id); } }
+        else if(v&&typeof v==='object') await walk(v); } };
+    await walk(DB); window._bigFalt=falt; return n;
+  })();
+  _hidrP.then(()=>{_hidrP=null;},()=>{_hidrP=null;});
+  return _hidrP;
+}
 async function encodeDatabase(key,auth,source=DB){
-  if(!key)return JSON.stringify({...source,__auth:null});
+  if(!key)return (await serializarLeve({...source,__auth:null}));
   const iv=crypto.getRandomValues(new Uint8Array(12));
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(source)));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(await serializarLeve(source)));
   return JSON.stringify({__enc:1,__auth:auth,iv:b64e(iv),ct:b64e(new Uint8Array(ct))});
 }
 async function commitProtection(key,auth){
@@ -3888,7 +3958,7 @@ async function localizarArquivos(){
     // (3) arquivos soltos: existem no aparelho mas nenhuma ficha aponta para eles
     try{
       const chaves = await idbStore('docs','readonly',s=>s.getAllKeys()) || [];
-      for(const k of chaves){ if(!idsRef.has(k)) info.soltos.push(k); }
+      for(const k of chaves){ if(String(k).indexOf('big-')===0) continue; if(!idsRef.has(k)) info.soltos.push(k); }
     }catch(e){}
   }catch(e){ console.warn('localizarArquivos', e); }
   window._locInfo = info;
@@ -4010,7 +4080,7 @@ function crmvFull(){
 // ── Health score (vacinas + consultas) ─────────
 function healthScore(pet){
   let s = 100;
-  pet.vaccines.filter(v => v.status !== 'aplicada').forEach(v => { const d = daysUntil(v.due); if(d<0) s-=12; else if(d<=7) s-=4; });
+  pet.vaccines.filter(v => v.status !== 'aplicada' && !v.pausada).forEach(v => { const d = daysUntil(v.due); if(d<0) s-=12; else if(d<=7) s-=4; });
   pet.appointments.forEach(a => { if(daysUntil(a.date)<0 && !a.done) s-=3; });
   return Math.max(0, Math.min(100, s));
 }
@@ -5731,13 +5801,12 @@ const TRIAL_AVISO_DIAS = 5; // avisa quando faltar 5 dias ou menos
 // Detecta se o app está rodando instalado pela Play Store (TWA/app) ou pelo navegador/site.
 // Na Play Store, escondemos venda direta (regra do Google); no site, mostramos tudo.
 function isPlayStore(){
+  // v10.04: detecção ESTRITA. Só vale quando o app foi aberto pela Play Store (TWA, referrer android-app://)
+  // — a marca fica gravada. Quem usa pelo navegador ou pelo ícone instalado do Chrome NÃO é afetado.
   try{
-    // TWA roda em modo standalone E com referrer android-app://
-    const standalone = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-    const twaReferrer = document.referrer && document.referrer.startsWith('android-app://');
-    // marca manual pra testes/força (se algum dia precisar)
-    const forced = testStorage.getItem('vfc_is_playstore') === '1';
-    return !!(twaReferrer || forced || (standalone && /Android/i.test(navigator.userAgent)));
+    if(typeof isNativeApp==='function' && isNativeApp()) return true;
+    if(document.referrer && document.referrer.startsWith('android-app://')){ try{ testStorage.setItem('vfc_is_playstore','1'); }catch(e){} return true; }
+    return testStorage.getItem('vfc_is_playstore') === '1';
   }catch(e){ return false; }
 }
 
@@ -5899,7 +5968,7 @@ function openProModal(reason){
       ✅ <b>Logo e assinatura eletrônica</b> nos documentos<br>
       ✅ <b>Cobrança pelo WhatsApp</b> e resumo financeiro mensal<br>
       ✅ Todas as futuras atualizações Pro</div>
-    <label>Escolha seu plano</label>
+    ${isPlayStore()?'':`    <label>Escolha seu plano</label>
     <div class="chips" id="proPlan">
       <button class="chip on" data-m="1">1 mês</button>
       <button class="chip" style="opacity:.45" onclick="toast('✨ Novos planos em breve!')">6 meses · em breve</button>
@@ -5922,7 +5991,8 @@ function openProModal(reason){
            💬 Assinar pelo WhatsApp da VetFlowCare</button>
          <div style="background:var(--bg);border-radius:12px;padding:12px;margin-top:10px;font-size:12px;color:var(--muted)">
            Fale com a nossa equipe pelo botão acima — você recebe o código de ativação na hora e digita abaixo. O tempo do plano começa a contar na ativação, com os dias restantes visíveis em Ajustes.</div>`}
-    <label>Já tem um código? Digite aqui</label>
+`}
+    <label>${isPlayStore()?'Código de ativação':'Já tem um código? Digite aqui'}</label>
     <input id="proCode" placeholder="VFC-XXXX-0000" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700" oninput="maskCode(this)">`,
     `<button class="btn gray" onclick="closeSheet()">Agora não</button>
      <button class="btn" style="background:var(--rx)" onclick="activatePro()">✨ Ativar Pro</button>`);
@@ -5985,9 +6055,9 @@ function openTrialExpirado(recurso){
         ✅ Cobrança pelo WhatsApp</div>
     </div>
     <div style="font-size:11.5px;color:var(--muted);text-align:center;margin-top:12px">
-      Conheça os planos no nosso site. Já recebeu seu código? Toque em "Já tenho código".
+      ${isPlayStore()?'Os recursos Pro estão bloqueados neste aparelho. Seus dados continuam salvos. Tem um código de ativação? Toque em "Já tenho código".':'Conheça os planos no nosso site. Já recebeu seu código? Toque em "Já tenho código".'}
     </div>`,
-    `<button class="btn" style="background:var(--primary)" onclick="window.open('https://vetflowcare.com.br/#planos','_blank')">🌐 Conheça os planos</button>
+    `${isPlayStore()?'':`<button class="btn" style="background:var(--primary)" onclick="window.open('https://vetflowcare.com.br/#planos','_blank')">🌐 Conheça os planos</button>`}
      <button class="btn" style="background:var(--rx)" onclick="closeSheet();openProModal()">🔑 Já tenho código</button>`);
 }
 function activatePro(){
@@ -6023,7 +6093,7 @@ function allEvents(){
   for(const pet of DB.pets){
     if(pet.deceased) continue;
     const base = {petId:pet.id, pet:pet.name, emo:petEmoji(pet)};
-    pet.vaccines.filter(v => v.status !== 'aplicada').forEach(v => {
+    pet.vaccines.filter(v => v.status !== 'aplicada' && !v.pausada).forEach(v => {
       const d = daysUntil(v.due);
       evts.push({...base, id:'v-'+v.id, type:'vaccine', title:v.name, due:v.due, daysLeft:d, priority:priorityOf(d)});
     });
@@ -6829,6 +6899,13 @@ function executarBusca(q){
 
   el.innerHTML = html;
 }
+// v10.04 — atalhos do ícone (manifest shortcuts): ?atalho=pets|calendar|alerts
+function aplicarAtalhoURL(){
+  try{
+    const a = new URLSearchParams(location.search).get('atalho');
+    if(a && ['pets','calendar','alerts','home','settings'].includes(a) && testStorage.getItem('vfc_entered')){ goTab(a); history.replaceState(null,'',location.pathname); }
+  }catch(e){}
+}
 function goTab(tab){
   currentTab = tab; currentPetId = null; currentTutorId = null; showFinance = false;
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
@@ -6867,6 +6944,7 @@ function render(){
   if(currentTab==='pets')     main.innerHTML = renderPetsList();
   if(currentTab==='calendar') main.innerHTML = renderCalendar();
   if(currentTab==='alerts')   main.innerHTML = renderAlerts('all');
+  if(currentTab==='catalog'){ main.innerHTML = renderCatalog(); catRedesenhar(); }
   if(currentTab==='settings') main.innerHTML = renderSettings();
 }
 function updateBadge(){
@@ -7023,14 +7101,14 @@ function renderHome(){
           </div>
           <button style="background:none;color:var(--muted);font-size:15px;padding:2px" onclick="testStorage.setItem('vfc_pro_snooze','${todayISO()}');render()">✕</button>
         </div>
-        <button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
+        ${isPlayStore()?'':`<button class="btn sm" style="background:#25D366;margin-top:10px;width:100%"
           onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Meu plano Pro do VetFlowCare está vencendo e quero renovar. Pode me ajudar?'))">
-          💬 Renovar pelo WhatsApp da VetFlowCare</button>
+          💬 Renovar pelo WhatsApp da VetFlowCare</button>`}
       </div>`;
     }
   }
   const _risco = DB.pets.length ? nivelRisco() : 0;
-  if(_risco >= 2 && testStorage.getItem('vfc_bk_snooze') !== todayISO()){
+  if(_risco >= 2 && (_risco >= 3 || testStorage.getItem('vfc_bk_snooze') !== todayISO())){
     const _cor = _risco === 3 ? 'var(--danger)' : 'var(--warning)';
     const _alt = altsSemBackup(), _d = daysSinceBackup();
     h += `<div class="card" style="border-color:${_cor};margin-bottom:12px;padding:13px 14px">
@@ -7043,7 +7121,7 @@ function renderHome(){
             : _d>999 ? `Você ainda não fez nenhum backup e já tem <b>${_alt}</b> alterações registradas.`
             : `Último backup há <b>${_d} dias</b>${_alt?` · <b>${_alt}</b> alterações desde então`:''}. Se perder o celular, isso não volta.`}</span>
         </div>
-        <button style="background:none;color:var(--muted);font-size:15px;padding:2px" onclick="testStorage.setItem('vfc_bk_snooze','${todayISO()}');render()">✕</button>
+        ${_risco>=3?'':`<button style="background:none;color:var(--muted);font-size:15px;padding:2px" onclick="testStorage.setItem('vfc_bk_snooze','${todayISO()}');render()">✕</button>`}
       </div>
       <div style="display:flex;gap:8px;margin-top:10px">
         <button class="btn sm" style="flex:1;background:${_cor}" onclick="exportJSON()">💾 Fazer backup</button>
@@ -7213,7 +7291,7 @@ function renderPetsList(q=''){
   } else {
     list = pets.map(p => {
       const s = healthScore(p), c = petColor(p);
-      const issue = p.vaccines.some(v=>v.status!=='aplicada' && daysUntil(v.due)<0);
+      const issue = p.vaccines.some(v=>v.status!=='aplicada' && !v.pausada && daysUntil(v.due)<0);
       const tn = tutorName(p);
       // Pedido do Bruno: paciente com óbito registrado (p.deceased) some com o status "Em dia"/
       // "Vacina vencida" e mostra "Falecido" + a data (se preenchida) no lugar; o card inteiro fica
@@ -7254,7 +7332,7 @@ function renderTutorProfile(){
   <div class="subtabs">
     <button class="chip ${tutorTab==='resp'?'on':''}" onclick="tutorTab='resp';render()">Responsável</button>
     <button class="chip ${tutorTab==='animais'?'on':''}" onclick="tutorTab='animais';render()">Animais (${animals.length})</button>
-  </div>`;
+  </div>${omSecaoHTML(t)}`;
 
   if(tutorTab === 'resp'){
     h += `<div class="sec"><div class="sec-h"><span>Dados do responsável</span></div>
@@ -7448,6 +7526,7 @@ function renderPetHero(pet){
       <button class="${currentPetTab==='health'?'on':''}" onclick="currentPetTab='health';render()">Saúde</button>
       <button class="${currentPetTab==='rx'?'on':''}" onclick="currentPetTab='rx';render()">Receita</button>
       <button class="${currentPetTab==='termos'?'on':''}" onclick="currentPetTab='termos';render()">Termos${(pet.termos||[]).length?' ('+pet.termos.length+')':''}</button>
+      <button class="${currentPetTab==='orc'?'on':''}" onclick="currentPetTab='orc';render()">Orçam.${(pet.orcamentos||[]).length?' ('+pet.orcamentos.length+')':''}</button>
       <button class="${currentPetTab==='docs'?'on':''}" onclick="currentPetTab='docs';render()">Arquivos</button>
     </div>
   </div>`;
@@ -7458,6 +7537,7 @@ function renderPetTab(pet){
   if(currentPetTab==='health') return renderPetHealth(pet);
   if(currentPetTab==='rx')     return renderPetRx(pet);
   if(currentPetTab==='termos') return renderPetTerms(pet);
+  if(currentPetTab==='orc')    return renderPetOrcamentos(pet);
   return renderPetDocs(pet);
 }
 
@@ -7553,13 +7633,14 @@ function renderPetHealth(pet){
 
   h += secBlock('💉 Vacinas e Protocolos', `openVaccineForm('${pet.id}')`,
     gArr.map(g=>{
-      const late = g.next && daysUntil(g.next.due) < 0;
+      const pausada = !!(g.next && g.next.pausada);
+      const late = g.next && !pausada && daysUntil(g.next.due) < 0;
       return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start">
         <div><b style="font-size:14px">${esc(g.name)}</b>
         <div style="color:var(--muted);font-size:11px;margin-top:1px">${protocolLabelFor(g)}</div></div>
         <span style="display:flex;gap:6px;align-items:center">
-        ${g.next ? (late?'<span class="st bad">⚠ Atrasada</span>':'<span class="st prog">📅 Programada</span>') : '<span class="st ok">✓ Em dia</span>'}
+        ${g.next ? (g.next.pausada ? '<span class="st" style="background:#E8EDF3;color:#55667A">⏸ Pausada</span>' : late?'<span class="st bad">⚠ Atrasada</span>':'<span class="st prog">📅 Programada</span>') : '<span class="st ok">✓ Em dia</span>'}
         <button style="background:none;color:var(--muted)" onclick="delVaccineGroup('${pet.id}','${escJS(g.name)}')" aria-label="Excluir vacina">🗑</button></span></div>
 
       ${g.applied.length ? `<div style="margin-top:9px;border-top:1px solid var(--border)">
@@ -7584,15 +7665,16 @@ function renderPetHealth(pet){
           </div>
         </div>`).join('')}</div>` : ''}
 
-      ${g.next ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;background:${late?'rgba(224,82,82,.07)':'var(--vacbg)'};border-radius:10px;padding:9px 12px">
-        <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Próxima dose</div>
-        <b style="font-size:13px;color:${late?'var(--danger)':'var(--vac)'}">${fmtDate(g.next.due)}</b></div>
+      ${g.next ? `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:9px;background:${pausada?'#EEF1F5':late?'rgba(224,82,82,.07)':'var(--vacbg)'};border-radius:10px;padding:9px 12px">
+        <div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${pausada?'Próxima dose · pausada'+(g.next.pausadaEm?' desde '+fmtDate(g.next.pausadaEm):''):'Próxima dose'}</div>
+        <b style="font-size:13px;color:${pausada?'var(--muted)':late?'var(--danger)':'var(--vac)'}">${fmtDate(g.next.due)}</b></div>
         <span style="display:flex;gap:6px">
           <button style="background:none;font-size:14px" onclick="openVacDoseEdit('${pet.id}','${g.next.id}')">✏️</button>
-          <button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','vacina','${g.next.id}')">💬 Avisar</button>
+          ${pausada?'':`<button class="btn sm" style="background:#25D366" onclick="openAvisarTutor('${pet.id}','vacina','${g.next.id}')">💬 Avisar</button>`}
           <button class="btn sm success" onclick="openApplyVaccineForm('${pet.id}','${g.next.id}')">✓ Aplicar</button>
         </span>
-      </div>` : ''}
+      </div>
+      <button class="btn sm gray" style="width:100%;margin-top:6px" data-vacpausa="1" onclick="toggleVacPausa('${pet.id}','${escJS(g.name)}')">${pausada?'▶ Retomar vacina':'⏸ Pausar vacina'}</button>` : ''}
       </div>`;}),
     'Nenhuma vacina registrada');
 
@@ -7861,7 +7943,7 @@ function gerarCarteirinha(petId){
 
   const aplicadas = pet.vaccines.filter(x=>x.status==='aplicada' && x.applied)
     .sort((a,b)=>(b.applied||'').localeCompare(a.applied||''));
-  const proximas = pet.vaccines.filter(x=>x.status==='programada' && x.due)
+  const proximas = pet.vaccines.filter(x=>x.status==='programada' && x.due && !x.pausada)
     .sort((a,b)=>(a.due||'').localeCompare(b.due||''));
 
   // cabeçalho do topo (colorido) — só na 1ª página
@@ -8808,6 +8890,7 @@ function delRecord(petId, coll, id){
 }
 function doDelRecord(petId, coll, id){
   const pet = DB.pets.find(p=>p.id===petId);
+  if(coll === 'appointments'){ const _a = pet.appointments.find(x=>x.id===id); if(_a && !apptRecebido(_a)) DB.expenses = DB.expenses.filter(e=>e.apptId !== id); } // v10.09: custo do atendimento não recebido some junto
   if(coll === 'documents') idbDel(id);
   pet[coll] = pet[coll].filter(x=>x.id!==id);
   save(); render(); toast('🗑️ Excluído!');
@@ -9213,8 +9296,8 @@ function renderSettings(){
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Aprenda fazendo: o app guia você, campo por campo, nos seus primeiros cadastros.</div>
       <button class="btn outline" onclick="tourOpenChooser('tour')">🧭 Tour guiado por botões</button>
       <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">O app escurece a tela, destaca cada botão e explica para que serve.</div>
-      <button class="btn outline" onclick="window.open('https://vetflowcare.com.br/tutorial/','_blank')">📚 Tutorial Completo (manual detalhado)</button>
-      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Manual completo com todos os recursos, dicas e perguntas frequentes.</div>
+      ${isPlayStore()?'':`<button class="btn outline" onclick="window.open('https://vetflowcare.com.br/tutorial/','_blank')">📚 Tutorial Completo (manual detalhado)</button>
+      <div style="font-size:11px;color:var(--muted);margin:4px 0 12px">Manual completo com todos os recursos, dicas e perguntas frequentes.</div>`}
       <button class="btn sm outline" style="width:100%;display:block;text-align:center" onclick="window.open('https://wa.me/5511912659906?text=' + encodeURIComponent('Oi! Preciso de ajuda com o VetFlowCare.'))">💬 Suporte e Dúvidas (WhatsApp)</button></div></div>
 
   <div class="sec"><div class="sec-h"><span>🛡️ Proteção de Dados</span></div>
@@ -9264,7 +9347,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.03 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.25 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -9659,16 +9742,99 @@ async function doImport(){
   window._imp = null;
 }
 
+// ═══ v10.17 — APP NATIVO (Capacitor): arquivos em Documentos/VetFlowCare, backup automático, compartilhar ═══
+function isNativeApp(){ try{ return !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform()); }catch(e){ return false; } }
+function nPlug(n){ try{ return window.Capacitor.Plugins[n] || null; }catch(e){ return null; } }
+async function nativeGravar(path, blob){
+  const FS = nPlug('Filesystem'); if(!FS) throw new Error('Gravação de arquivos indisponível neste aparelho.');
+  try{ await FS.requestPermissions(); }catch(e){}
+  try{ await FS.deleteFile({path, directory:'DOCUMENTS'}); }catch(e){}
+  const CH = 3*1024*1024; let primeiro = true;
+  for(let o=0; o<Math.max(blob.size,1); o+=CH){
+    const u8 = new Uint8Array(await blob.slice(o, o+CH).arrayBuffer()); let t = '';
+    for(let i=0;i<u8.length;i+=8192) t += String.fromCharCode.apply(null, u8.subarray(i, i+8192));
+    const data = btoa(t);
+    if(primeiro){ await FS.writeFile({path, data, directory:'DOCUMENTS', recursive:true}); primeiro = false; }
+    else await FS.appendFile({path, data, directory:'DOCUMENTS'});
+  }
+  const r = await FS.getUri({path, directory:'DOCUMENTS'}); return r.uri;
+}
+async function nativeCompartilhar(){
+  try{ const S = nPlug('Share'); if(S && window._nativeUri) await S.share({title:'Backup VetFlowCare', url:window._nativeUri, dialogTitle:'Enviar cópia do backup'}); }catch(e){ console.warn('share', e); }
+}
+async function nativeBackupAuto(){
+  try{
+    if(!isNativeApp() || window._wiping || window._LOCKED || !DB.pets || !DB.pets.length) return;
+    const last = testStorage.getItem('vfc_native_auto') || '';
+    const dias = last ? Math.floor((new Date(todayISO()) - new Date(last))/86400000) : 999;
+    if(dias < 3 && !window._nativeAutoForce) return;
+    const snap = await completeBackupSnapshot({lazy:true});
+    const blob = bkMontarBlob(snap);
+    const n = (parseInt(testStorage.getItem('vfc_native_n')||'0')+1) % 2;
+    await nativeGravar('VetFlowCare/backup_automatico_'+n+'.json', blob);
+    testStorage.setItem('vfc_native_n', String(n)); testStorage.setItem('vfc_native_auto', todayISO());
+    zerarAlteracoes();
+    toast('💾 Backup automático salvo em Documentos/VetFlowCare');
+    return true;
+  }catch(e){ console.warn('backup automático', e); return false; }
+}
+// Procura backup automático guardado em Documentos (sobrevive a limpar dados do app) e oferece restaurar
+async function nativeOferecerRestauracao(){
+  try{
+    if(!isNativeApp()) return false;
+    const FS = nPlug('Filesystem'); if(!FS) return false;
+    try{ await FS.requestPermissions(); }catch(e){}
+    let melhor = null;
+    for(const n of [0,1]){
+      try{ const st = await FS.stat({path:'VetFlowCare/backup_automatico_'+n+'.json', directory:'DOCUMENTS'}); if(st && st.size > 100 && (!melhor || (st.mtime||0) > (melhor.mtime||0))) melhor = {n, mtime:st.mtime||0, size:st.size}; }catch(e){}
+    }
+    if(!melhor) return false;
+    window._nativeBk = melhor;
+    const q = melhor.mtime ? new Date(melhor.mtime) : null;
+    vfcConfirm({icon:'🛟', title:'Encontramos um backup automático!',
+      msg:'Há um backup guardado em <b>Documentos/VetFlowCare</b>'+(q?' de <b>'+fmtDate(q.toISOString().slice(0,10))+'</b>':'')+' ('+(melhor.size/1048576).toFixed(1)+' MB).<br>Quer restaurar seus pacientes e dados agora?',
+      note:'Seus dados atuais (se houver) serão substituídos.', noteColor:'var(--success)',
+      noLabel:'Agora não', yesLabel:'🛟 Restaurar', yesBg:'var(--success)', yes:'nativeRestaurarAuto()'});
+    return true;
+  }catch(e){ console.warn('oferta restauração', e); return false; }
+}
+async function nativeRestaurarAuto(){
+  try{
+    const FS = nPlug('Filesystem'), m = window._nativeBk; if(!FS || !m) return;
+    const r = await FS.getUri({path:'VetFlowCare/backup_automatico_'+m.n+'.json', directory:'DOCUMENTS'});
+    const resp = await fetch(window.Capacitor.convertFileSrc(r.uri));
+    const blob = await resp.blob();
+    const arq = new File([blob], 'backup_automatico_'+m.n+'.json', {type:'application/json'});
+    window._posRestoreReload = true;
+    importJSON({files:[arq], value:''});
+  }catch(e){ bkErroDialog('Não foi possível ler o backup automático', e, ''); }
+}
+function restaurarPreCadastro(){
+  fecharLgvOverlay();
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,.vfcbak'; inp.style.display = 'none';
+  inp.onchange = () => { window._posRestoreReload = true; importJSON(inp); };
+  document.body.appendChild(inp); inp.click();
+}
 async function saveFileSAF(name, blob){
+  if(isNativeApp()){
+    try{
+      window._nativeUri = await nativeGravar('VetFlowCare/'+name, blob);
+      backupConcluido();
+      vfcConfirm({icon:'✅', title:'Backup salvo!', msg:'Arquivo <b style="word-break:break-all">'+esc(name)+'</b><br>salvo na pasta <b>Documentos/VetFlowCare</b> do celular.',
+        note:'Quer mandar uma cópia para o Drive ou WhatsApp?', noteColor:'var(--vac)', noLabel:'Fechar', yesLabel:'📤 Enviar cópia', yesBg:'var(--primary)', yes:'nativeCompartilhar()'});
+      return true;
+    }catch(e){ console.warn('gravar nativo', e); toast('⚠ Não consegui salvar em Documentos: '+(e.message||e)); }
+  }
   // 1) Desktop/Chrome com seletor de arquivo nativo
   if(window.showSaveFilePicker){
     try{
       const h = await showSaveFilePicker({suggestedName:name});
       const w = await h.createWritable();
       await w.write(blob); await w.close();
+      backupConcluido();
       toast('💾 Backup salvo!');
       return true;
-    }catch(e){ if(e.name === 'AbortError') return true; }
+    }catch(e){ if(e.name === 'AbortError') return false; }
   }
   // 2) Android/celular: oferece escolher o destino (Arquivos/Drive/WhatsApp) ou baixar direto
   window._pendFile = {name, blob};
@@ -9690,23 +9856,28 @@ function dlPendFile(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(p.blob);
   a.download = p.name; a.click();
+  backupConcluido();
   toast('📥 Backup salvo em Downloads');
 }
 async function sharePendFile(){
   const p = window._pendFile; if(!p) return;
   try{
     await navigator.share({files:[new File([p.blob], p.name, {type:'application/json'})], title:p.name});
+    backupConcluido();
     toast('💾 Backup enviado ao destino escolhido!');
   }catch(e){ if(e.name !== 'AbortError') dlPendFile(); }
 }
-async function completeBackupSnapshot(){
+async function completeBackupSnapshot(opt){
+  opt = opt || {}; const blobs = [];
   // v10.03: antes de dar o arquivo como perdido, procura em todas as áreas do aparelho
   try{ if(todosDocsRegistro().some(d=>d&&!d.data)) await localizarArquivos(); }catch(e){}
+  try{ await hidratarGrandes(); }catch(e){}
   const snapshot=JSON.parse(JSON.stringify(DB));
   const documents=[...snapshot.pets.flatMap(p=>[...(p.documents||[]),...(p.termos||[]).map(t=>t.foto).filter(Boolean)]),...(snapshot.tutors||[]).filter(t=>t.ficha).map(t=>t.ficha)];
   const faltando=[]; let incluidos=0, conhecidos=0;
   for(const doc of documents){
     if(!doc.data)doc.data=await idbGet(doc.id);
+    if(opt.lazy && doc.data){ blobs.push(new Blob([JSON.stringify(doc.data)])); doc.data='@@VFCDATA'+(blobs.length-1)+'@@'; }
     if(!doc.data){
       delete doc.data;
       if(doc.semArquivo) conhecidos++;          // já avisado antes: não interrompe de novo
@@ -9714,6 +9885,7 @@ async function completeBackupSnapshot(){
       doc.semArquivo=true;
     } else { incluidos++; delete doc.semArquivo; }
   }
+  window._bkBlobs = blobs;
   window._bkInfo={incluidos, faltando, conhecidos};
   try{ await marcarSemArquivo(); }catch(e){}     // grava a marca: o aviso aparece no máximo uma vez por arquivo
   return snapshot;
@@ -9777,64 +9949,223 @@ function exportJSON(){
   }
   doExportJSON();
 }
+// v10.13: monta o arquivo em partes (texto pequeno + um Blob por anexo) — nunca existe um texto gigante único
+function bkMontarBlob(snapshot){
+  const txt = JSON.stringify(snapshot, null, 2), blobs = window._bkBlobs || [], parts = [];
+  const re = /"@@VFCDATA(\d+)@@"/g; let last = 0, m;
+  while((m = re.exec(txt))){ parts.push(txt.slice(last, m.index)); parts.push(blobs[+m[1]]); last = m.index + m[0].length; }
+  parts.push(txt.slice(last)); window._bkBlobs = null;
+  return new Blob(parts, {type:'application/json'});
+}
 async function doExportJSON(){
   gcEvent('backup-feito');
   let snapshot;
-  try{snapshot=await completeBackupSnapshot();}catch(e){toast('⚠ Backup não concluído. '+e.message);return;}
+  try{snapshot=await completeBackupSnapshot({lazy:true});}catch(e){toast('⚠ Backup não concluído. '+e.message);return;}
   if(!(await bkConfirmarFaltando())) return;
-  const blob = new Blob([JSON.stringify(snapshot,null,2)], {type:'application/json'});
+  let blob;
+  try{ blob = bkMontarBlob(snapshot); }catch(e){ toast('⚠ Backup não concluído. '+e.message); return; }
   try{
-    if(window.showSaveFilePicker){ await saveFileSAF('vetflowcare_backup_'+todayISO()+'.json', blob); bkAvisoFinal(); return; }
+    if(window.showSaveFilePicker || isNativeApp()){ await saveFileSAF('vetflowcare_backup_'+todayISO()+'.json', blob); bkAvisoFinal(); return; }
     throw new Error('unsupported');
   }catch(e){ if(e?.name==='AbortError') return; }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `vetflowcare_backup_${todayISO()}.json`;
-  a.click(); toast('📥 Backup exportado!'); bkAvisoFinal();
+  a.click(); backupConcluido(); toast('📥 Backup exportado!'); bkAvisoFinal();
 }
-async function restoreJSONSnapshot(data){
-  if(!data || !Array.isArray(data.pets))throw new Error('Backup inválido');
-  const candidate=data.version>=4?migrate(data):migrateV3(data);
-  const added=[];
+// v10.12 — restauração blindada: erro completo na tela, anexo com problema não derruba tudo, memória cheia tratada
+// ═══ v10.13 — BACKUP GRANDE: leitura em pedaços (streaming) sem carregar o arquivo inteiro na memória ═══
+// Parser de JSON incremental. Texto longo em chave "data" (anexo em base64) é entregue a onBig() e NÃO fica na árvore.
+function vfcJsonStream(onBig){
+  const st = {stack:[], cur:null, key:null, root:undefined, mode:'v', inStr:false, isKey:false, parts:[], carry:'', done:false};
+  const reStr = /[^"\\]+/y, reLit = /[^\s,\]\}\[\{:"]+/y;
+  const ESC = {n:'\n', t:'\t', r:'\r', b:'\b', f:'\f', '/':'/', '\\':'\\', '"':'"'};
+  function emit(v){
+    if(!st.cur){ st.root = v; return; }
+    if(Array.isArray(st.cur)) st.cur.push(v);
+    else if(st.key === 'data' && typeof v === 'string' && v.length > 200) onBig(st.cur, v);
+    else st.cur[st.key] = v;
+    st.mode = 'n';
+  }
+  function feed(chunk, final){
+    const text = st.carry + chunk; st.carry = ''; const n = text.length; let i = 0;
+    while(i < n){
+      if(st.inStr){
+        reStr.lastIndex = i; const m = reStr.exec(text);
+        if(m){ st.parts.push(m[0]); i += m[0].length; continue; }
+        const c = text[i];
+        if(c === '"'){
+          i++; st.inStr = false;
+          const s = st.parts.length === 1 ? st.parts[0] : st.parts.join(''); st.parts = [];
+          if(st.isKey){ st.key = s; st.mode = 'c'; } else emit(s);
+          continue;
+        }
+        if(i + 1 >= n){ st.carry = text.slice(i); break; }
+        const e = text[i+1];
+        if(e === 'u'){ if(i + 6 > n){ st.carry = text.slice(i); break; } st.parts.push(String.fromCharCode(parseInt(text.substr(i+2,4),16))); i += 6; continue; }
+        st.parts.push(ESC[e] !== undefined ? ESC[e] : e); i += 2; continue;
+      }
+      const c = text[i];
+      if(c === ' ' || c === '\n' || c === '\r' || c === '\t' || c === '\uFEFF'){ i++; continue; }
+      if(c === '"'){ st.inStr = true; st.isKey = (st.mode === 'k'); i++; continue; }
+      if(c === ':'){ st.mode = 'v'; i++; continue; }
+      if(c === ','){ st.mode = Array.isArray(st.cur) ? 'v' : 'k'; i++; continue; }
+      if(c === '{' || c === '['){
+        const o = c === '{' ? {} : [];
+        emit(o); st.stack.push([st.cur, st.key]); st.cur = o; st.key = null; st.mode = c === '{' ? 'k' : 'v'; i++; continue;
+      }
+      if(c === '}' || c === ']'){
+        if(!st.stack.length) throw new Error('JSON inválido: fechamento inesperado');
+        const p = st.stack.pop(); st.cur = p[0]; st.key = p[1]; st.mode = 'n'; i++; continue;
+      }
+      reLit.lastIndex = i; const m = reLit.exec(text);
+      if(!m) throw new Error('JSON inválido perto do caractere '+i);
+      if(i + m[0].length >= n && !final){ st.carry = text.slice(i); break; }
+      const w = m[0]; let v;
+      if(w === 'true') v = true; else if(w === 'false') v = false; else if(w === 'null') v = null;
+      else { v = Number(w); if(Number.isNaN(v)) throw new Error('JSON inválido: "'+w.slice(0,20)+'"'); }
+      emit(v); i += w.length;
+    }
+  }
+  function finish(){ feed('', true); if(st.inStr || st.stack.length) throw new Error('arquivo cortado antes do fim (JSON incompleto)'); return st.root; }
+  return {feed, finish};
+}
+// Lê o arquivo em fatias de 4 MB; anexos grandes vão direto para o IndexedDB, um de cada vez.
+async function vfcLerBackupEmPedacos(file, added, progresso){
+  const pend = [];
+  const parser = vfcJsonStream((obj, s) => pend.push([obj, s]));
+  const dec = new TextDecoder('utf-8'); const FAT = 4*1048576; let falhas = 0;
+  for(let off = 0; off < file.size; off += FAT){
+    const buf = await file.slice(off, Math.min(off+FAT, file.size)).arrayBuffer();
+    parser.feed(dec.decode(buf, {stream: off + FAT < file.size}), false);
+    while(pend.length){
+      const [obj, s] = pend.shift(); const id = 'restore-'+uid();
+      try{ await idbPut(id, s); added.push(id); obj.__rid = id; } catch(e){ obj.__falhou = 1; falhas++; }
+    }
+    if(progresso) progresso(Math.min(100, Math.round((off+FAT)*100/file.size)));
+  }
+  const data = parser.finish();
+  return {data, falhas};
+}
+
+function bkErroDialog(titulo, err, extra){
+  const nome = (err && err.name && err.name!=='Error') ? err.name+': ' : '';
+  const det = `VetFlowCare ${APP_VER} · etapa: ${window._restStep||'leitura'} · ${nome}${(err && err.message) || err}${extra?' · '+extra:''}`;
+  window._bkErrDet = det;
+  try{ console.warn('restauração', det); }catch(e){}
+  vfcConfirm({icon:'⚠️', title:titulo,
+    msg:`Seus dados atuais foram <b>mantidos</b>.<br><span style="font-size:12px;word-break:break-word;user-select:text;display:block;margin-top:8px;text-align:left">${esc(det)}</span>`,
+    note:'Toque em “Copiar detalhes” e envie ao suporte.', noteColor:'var(--warning)',
+    noLabel:'Fechar', yesLabel:'📋 Copiar detalhes', yesBg:'var(--primary)', yes:'bkCopiarErro()'});
+}
+function bkCopiarErro(){ try{ navigator.clipboard.writeText(window._bkErrDet||'').then(()=>toast('📋 Detalhes copiados'),()=>toast('Não foi possível copiar')); }catch(e){ toast('Não foi possível copiar'); } }
+function bkLiberarEspaco(){
+  // chaves auxiliares que podem ser refeitas; os dados e a senha NUNCA são tocados
+  ['vfc_sig','vfc_last_sig','vetflowcare_rescue'].forEach(k=>{ try{ testStorage.removeItem(k); }catch(e){} });
+}
+function perfilDeRestauracao(d){
+  const v = (d && d.vet) || {};
+  return { nome: v.name || 'Veterinário(a)', email: v.email || '', user: '', restaurado: true, createdAt: todayISO() };
+}
+async function restoreJSONSnapshot(data, opt){
+  opt = opt || {};
+  window._restStep = 'validar arquivo';
+  if(!data || typeof data !== 'object' || !Array.isArray(data.pets)) throw new Error('O arquivo não parece ser um backup do VetFlowCare (sem a lista de pacientes).');
+  window._restStep = 'organizar dados';
+  data.pets = data.pets.filter(x=>x && typeof x === 'object');
+  if(Array.isArray(data.tutors)) data.tutors = data.tutors.filter(x=>x && typeof x === 'object'); else delete data.tutors;
+  ['charges','expenses','catalogo'].forEach(k=>{ if(!Array.isArray(data[k])) delete data[k]; else data[k] = data[k].filter(Boolean); });
+  data.pets.forEach(p=>{ ['vaccines','medications','appointments','prescriptions','documents','termos','weightHistory','orcamentos'].forEach(k=>{ if(p[k] == null) return; if(!Array.isArray(p[k])) delete p[k]; else p[k] = p[k].filter(Boolean); }); });
+  const candidate = data.version>=4 ? migrate(data) : migrateV3(data);
+  // v10.19: backups antigos não trazem o perfil de cadastro -> sem ele o app pedia cadastro de novo ao reabrir
+  if(!candidate.userProfile){ candidate.userProfile = (DB && DB.userProfile) || perfilDeRestauracao(candidate); }
+  const added = opt.added || [];
   try{
-    const docs=[...candidate.pets.flatMap(p=>[...(p.documents||[]),...(p.termos||[]).map(t=>t.foto).filter(Boolean)]),...(candidate.tutors||[]).filter(t=>t.ficha).map(t=>t.ficha)];
-    let semArq=0;
-    for(const doc of docs){if(doc.data){const id='restore-'+uid();await idbPut(id,doc.data);added.push(id);doc.id=id;delete doc.data;} else {doc.semArquivo=true;semArq++;}}
-    window._restInfo={total:docs.length, semArquivo:semArq};
+    window._restStep = 'anexos';
+    const docs=[...candidate.pets.flatMap(p=>[...(p.documents||[]),...(p.termos||[]).map(t=>t&&t.foto).filter(Boolean)]),...(candidate.tutors||[]).filter(t=>t.ficha).map(t=>t.ficha)];
+    let semArq=0, falhou=0;
+    for(const doc of docs){
+      if(doc.__rid){ doc.id = doc.__rid; delete doc.__rid; delete doc.semArquivo; continue; }
+      if(doc.__falhou){ delete doc.__falhou; falhou++; semArq++; doc.semArquivo=true; continue; }
+      if(doc.data && !opt.semAnexos){
+        try{ const id='restore-'+uid(); await idbPut(id,doc.data); added.push(id); doc.id=id; delete doc.data; }
+        catch(e){ falhou++; semArq++; delete doc.data; doc.semArquivo=true; }
+      } else { delete doc.data; doc.semArquivo=true; semArq++; }
+    }
+    window._restInfo={total:docs.length, semArquivo:semArq, falhou};
+    window._restStep = 'gravar dados';
     clearTimeout(_saveTimer);
     await queueStorage(async()=>{
       const raw=await encodeDatabase(window._cryptoKey,getAuth(),candidate);
-      testStorage.setItem(LS_KEY,raw);
+      try{ testStorage.setItem(LS_KEY,raw); }
+      catch(e){
+        bkLiberarEspaco();
+        try{ testStorage.setItem(LS_KEY,raw); }
+        catch(e2){ throw new Error('Memória do navegador cheia para guardar estes dados ('+(raw.length/1048576).toFixed(1)+' MB). Libere espaço no aparelho ou use o backup criptografado (.vfcbak). Detalhe: '+(e2&&e2.message||e2)); }
+      }
       DB=candidate;agendarEspelho(raw);
+      try{ testStorage.setItem('vfc_entered','1'); }catch(e){}
     });
     return true;
-  }catch(e){await Promise.all(added.map(id=>idbDel(id)));throw e;}
+  }catch(e){await Promise.all(added.map(id=>idbDel(id).catch(()=>{})));throw e;}
+}
+function bkVfcbakConfirmar(data, mb){
+  if(!data.auth || !data.blob){ bkErroDialog('Backup incompleto', new Error('Arquivo .vfcbak sem credenciais ou sem dados.'), mb); return; }
+  window._pendBak = data;
+  vfcConfirm({icon:'🔐', title:'Restaurar backup criptografado?',
+    msg:'Os dados atuais deste aparelho serão <b>substituídos</b> pelos do backup.<br>Ao reabrir, será pedida a <b>senha da época do backup</b>.',
+    note:'✅ Pacientes, financeiro, receitas e licença Pro do backup voltam junto.', noteColor:'var(--success)',
+    noLabel:'Cancelar', yesLabel:'🔐 Sim, restaurar', yesBg:'var(--primary)', yes:'doRestoreVfcbak()'});
+}
+function bkAvisoRestauracao(){
+  const ri=window._restInfo;
+  if(ri && ri.semArquivo){ setTimeout(()=>vfcConfirm({icon:'📎', title:ri.semArquivo+' de '+ri.total+' arquivo(s) sem conteúdo',
+    msg: ri.falhou ? 'Os dados voltaram, mas '+ri.falhou+' anexo(s) não puderam ser gravados neste aparelho (falta de espaço?). Os demais itens aparecem na ficha com o aviso <b>⚠ arquivo não está neste aparelho</b>.' : 'Os dados voltaram, mas este backup não trazia o conteúdo desses anexos (provavelmente foi feito numa versão antiga do app). Os itens aparecem na ficha com o aviso <b>⚠ arquivo não está neste aparelho</b>.',
+    note:'Reenvie esses arquivos nas fichas dos pacientes.', noteColor:'var(--warning)', single:true, yesLabel:'Entendi', yesBg:'var(--primary)'}), 1800); }
 }
 function importJSON(input){
   const f = input.files[0]; if(!f) return;
-  const r = new FileReader();
-  r.onload = async e => {
+  const mb = (f.size/1048576).toFixed(1)+' MB';
+  window._restStep = 'ler o arquivo';
+  (async()=>{
     try{
-      const data = JSON.parse(e.target.result);
-      // Backup criptografado (.vfcbak): restaura credenciais + dados cifrados
-      if(data.__vfcbak){
-        if(!data.auth || !data.blob){ toast('⚠ Arquivo de backup incompleto'); return; }
-        window._pendBak = data;
-        vfcConfirm({icon:'🔐', title:'Restaurar backup criptografado?',
-          msg:'Os dados atuais deste aparelho serão <b>substituídos</b> pelos do backup.<br>Ao reabrir, será pedida a <b>senha da época do backup</b>.',
-          note:'✅ Pacientes, financeiro, receitas e licença Pro do backup voltam junto.', noteColor:'var(--success)',
-          noLabel:'Cancelar', yesLabel:'🔐 Sim, restaurar', yesBg:'var(--primary)', yes:'doRestoreVfcbak()'});
-        return;
+      let txt, data;
+      const GRANDE = f.size > 8*1048576;
+      if(GRANDE){
+        // v10.13: arquivo grande -> lê em pedaços (sem texto gigante na memória)
+        window._restStep = 'ler o arquivo em pedaços';
+        window._restAdded = [];
+        const barra = p => { try{ toast('📥 Lendo backup… '+p+'%'); }catch(e){} };
+        let r;
+        try{ r = await vfcLerBackupEmPedacos(f, window._restAdded, barra); }
+        catch(e){ await Promise.all(window._restAdded.map(id=>idbDel(id).catch(()=>{}))); throw new Error((/cortado|inválido/i.test(e.message)?'O arquivo está incompleto ou corrompido (cópia interrompida) — '+mb+'. ':'')+e.message); }
+        data = r.data;
+        if(data && data.__vfcbak){ bkVfcbakConfirmar(data, mb); return; }
+        window._restStep = 'gravar dados';
+        await restoreJSONSnapshot(data, {added: window._restAdded});
+        window._restAdded = null;
+        window._restStep = 'atualizar a tela';
+        try{ applyDark(); render(); }catch(e){ console.warn('render pós-restauração', e); }
+        toast('✅ Dados importados com sucesso!'); bkAvisoRestauracao(); if(window._posRestoreReload){ window._posRestoreReload = false; setTimeout(()=>location.reload(), 2500); } return;
       }
+      try{ txt = await f.text(); }
+      catch(e1){ txt = await new Promise((ok,no)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=()=>no(r.error||new Error('leitura falhou')); r.readAsText(f); }); }
+      if(typeof txt !== 'string' || !txt.trim()) throw new Error('O arquivo está vazio ou não pôde ser lido ('+mb+'). Se ele está no Google Drive/WhatsApp, baixe para o aparelho e tente de novo.');
+      window._restStep = 'interpretar o arquivo';
+      try{ data = JSON.parse(txt.charCodeAt(0)===0xFEFF ? txt.slice(1) : txt); }
+      catch(e){ throw new Error('O arquivo está incompleto ou corrompido (provável cópia interrompida) — '+mb+'. '+e.message); }
+      txt = null;
+      // Backup criptografado (.vfcbak): restaura credenciais + dados cifrados
+      if(data && data.__vfcbak){ bkVfcbakConfirmar(data, mb); return; }
       await restoreJSONSnapshot(data);
-      applyDark(); render(); toast('✅ Dados importados com sucesso!');
-      const ri=window._restInfo;
-      if(ri && ri.semArquivo){ setTimeout(()=>vfcConfirm({icon:'📎', title:ri.semArquivo+' de '+ri.total+' arquivo(s) sem conteúdo',
-        msg:'Os dados voltaram, mas este backup não trazia o conteúdo desses anexos (provavelmente foi feito numa versão antiga do app). Os itens aparecem na ficha com o aviso <b>⚠ arquivo não está neste aparelho</b>.',
-        note:'Reenvie esses arquivos nas fichas dos pacientes.', noteColor:'var(--warning)', single:true, yesLabel:'Entendi', yesBg:'var(--primary)'}), 1800); }
-    }catch(err){ toast('⚠ Importação não concluída. Os dados anteriores foram mantidos. '+err.message); }
-  };
-  r.readAsText(f);
+      window._restStep = 'atualizar a tela';
+      try{ applyDark(); render(); }catch(e){ console.warn('render pós-restauração', e); }
+      toast('✅ Dados importados com sucesso!'); bkAvisoRestauracao(); if(window._posRestoreReload){ window._posRestoreReload = false; setTimeout(()=>location.reload(), 2500); }
+    }catch(err){
+      try{ if(window._restAdded) await Promise.all(window._restAdded.map(id=>idbDel(id).catch(()=>{}))); window._restAdded = null; }catch(e){}
+      bkErroDialog('Importação não concluída', err, mb);
+    }
+  })();
   input.value = '';
 }
 function doRestoreVfcbak(){
@@ -10043,6 +10374,11 @@ function marcarAlteracao(){
   }catch(e){}
 }
 function altsSemBackup(){ return parseInt(testStorage.getItem('vfc_alt') || '0') || 0; }
+// v10.20: chamado SÓ quando o arquivo de backup foi realmente salvo/enviado (nunca em cancelamento)
+function backupConcluido(){
+  try{ zerarAlteracoes(); }catch(e){}
+  try{ render(); }catch(e){}
+}
 function zerarAlteracoes(){
   testStorage.setItem('vfc_alt', '0');
   testStorage.setItem('vfc_last_backup', todayISO());
@@ -10058,9 +10394,9 @@ function iosSemInstalar(){
 function nivelRisco(){
   const alt = altsSemBackup(), dias = daysSinceBackup();
   if(iosSemInstalar()) return 3;
-  if(dias > 14 || alt >= 40) return 3;
-  if(dias > 7  || alt >= 15) return 2;
-  if(dias > 3  || alt >= 5)  return 1;
+  if(dias > 7 || alt >= 25) return 3;
+  if(dias > 3 || alt >= 8)  return 2;
+  if(dias > 1 || alt >= 3)  return 1;
   return 0;
 }
 
@@ -10092,9 +10428,15 @@ function openCentralProtecao(){
     <div class="card">
       <div class="irow"><span class="k">📱 Neste aparelho</span><span class="v" style="color:var(--success)">✓ Ativo</span></div>
       <div class="irow"><span class="k">🔄 Cópia de segurança interna</span><span class="v" id="stEspelho">verificando…</span></div>
-      <div class="irow"><span class="k">🔒 Armazenamento protegido</span><span class="v" style="color:${window._persistOK?'var(--success)':'var(--warning)'}">${window._persistOK?'✓ Sim':'⚠ Não confirmado'}</span></div>
+      <div class="irow" id="stPersistLinha"><span class="k">🔒 Armazenamento protegido</span><span class="v" style="color:${window._persistOK?'var(--success)':'var(--warning)'}">${window._persistOK?'✓ Sim':'⚠ Não confirmado'}</span></div>
       <div class="irow"><span class="k">💾 Backup externo</span><span class="v" style="color:${dias<=7?'var(--success)':'var(--danger)'}">${dias>999?'Nunca':fmtDate(testStorage.getItem('vfc_last_backup'))}</span></div>
       <div class="irow"><span class="k">📸 Pontos de restauração</span><span class="v">${snaps.length}</span></div>
+    </div>
+
+    <div class="card" style="margin-top:10px;border-color:var(--warning)">
+      <b style="font-size:13px">🧹 Vai limpar o histórico do Chrome?</b>
+      <div style="font-size:12px;margin-top:6px;line-height:1.65">Ao limpar, <b>desmarque "Cookies e dados de sites"</b> (deixe só "Histórico de navegação" e "Imagens e arquivos em cache" se quiser). Marcar "dados de sites" apaga os dados do VetFlowCare deste aparelho.<br>Se já limpou: abra o app, toque em <b>Já tenho cadastro</b> e restaure seu último backup.</div>
+      ${window._persistOK?'':`<button class="btn sm outline" style="margin-top:9px" onclick="reforcarPersistencia().then(ok=>{toast(ok?'✅ Armazenamento protegido':'⚠ O Android não concedeu — instale o app na Tela de Início');closeSheet();openCentralProtecao()})">🔒 Tentar proteger o armazenamento</button>`}
     </div>
 
     <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;margin:16px 0 7px">Restaurar um ponto anterior</div>
@@ -10736,7 +11078,7 @@ function saveApplyVaccine(petId, vid){
   const v = pet.vaccines.find(x=>x.id===vid);
   if(!v) return;
   const dt = val('fAVDate') || todayISO();
-  v.status = 'aplicada'; v.applied = dt; v.due = dt; v.lot = val('fAVLot');
+  v.status = 'aplicada'; v.applied = dt; v.due = dt; v.lot = val('fAVLot'); delete v.pausada; delete v.pausadaEm;
   // Primovacinação (21 ou 30 dias): após a 2ª dose, o reforço passa a ser anual
   const nextProt = (v.protocol === 'primo' || v.protocol === 'primo30') ? 'anual' : v.protocol;
   const days = protocolDaysFor(nextProt, v.customDays);
@@ -10779,6 +11121,42 @@ function saveVacDose(petId, vid, aplicada){
   else { v.due = d; }
   save(); closeSheet(); render(); toast('✏️ Vacina corrigida!');
 }
+// v10.09 — pausar/retomar vacina (um único botão alterna). Pausada = sem atraso, sem alertas, sem agenda.
+function toggleVacPausa(petId, name){
+  const pet = DB.pets.find(p=>p.id===petId); if(!pet) return;
+  const doses = pet.vaccines.filter(v=>v.name===name && v.status==='programada');
+  if(!doses.length) return;
+  const pausada = doses.some(v=>v.pausada);
+  if(!pausada){
+    doses.forEach(v=>{ v.pausada = true; v.pausadaEm = todayISO(); });
+    save(); render(); toast('⏸ Vacina pausada — sem avisos de atraso. Toque em "Retomar vacina" quando quiser.');
+    return;
+  }
+  const prox = doses.slice().sort((a,b)=>(a.due||'').localeCompare(b.due||''))[0];
+  if(daysUntil(prox.due) < 0){
+    showSheet('▶ Retomar vacina', `
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">💉 <b>${esc(name)}</b></div>
+      <div style="background:var(--vacbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vac)">
+        A data da próxima dose (<b>${fmtDate(prox.due)}</b>) já passou. Informe a nova data para a vacina voltar sem aparecer como atrasada.</div>
+      <label>Nova data da próxima dose *</label>
+      <input id="vrDate" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" value="${fmtDate(todayISO())}" oninput="maskDate(this)">`,
+      `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
+       <button class="btn" onclick="confirmarRetomadaVacina('${petId}','${escJS(name)}')">▶ Retomar</button>`);
+    return;
+  }
+  doses.forEach(v=>{ delete v.pausada; delete v.pausadaEm; });
+  save(); render(); toast('▶ Vacina retomada!');
+}
+function confirmarRetomadaVacina(petId, name){
+  const d = parseBRDate(val('vrDate'));
+  if(!d){ toast('⚠ Data inválida — use DD/MM/AAAA'); return; }
+  const pet = DB.pets.find(p=>p.id===petId); if(!pet) return;
+  const doses = pet.vaccines.filter(v=>v.name===name && v.status==='programada').sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  if(!doses.length) return;
+  const delta = Math.round((new Date(d+'T12:00:00') - new Date(doses[0].due+'T12:00:00')) / 86400000);
+  doses.forEach((v,i)=>{ if(i===0) v.due = d; else v.due = addDays(v.due, delta); delete v.pausada; delete v.pausadaEm; });
+  save(); closeSheet(); render(); toast('▶ Vacina retomada! Próxima dose: '+fmtDate(d));
+}
 function delVaccineGroup(petId, name){
   askDel('💉 Excluir vacina', `Remover a vacina <b>"${esc(name)}"</b> e todo o histórico de doses?`, `doDelVaccineGroup('${petId}','${escJS(name)}')`);
 }
@@ -10817,8 +11195,9 @@ function saveMed(petId, medId){
 
 // ── Atendimento: Tipo, Resumo, Prontuário e Retorno ──
 function openApptForm(petId, editId){
-  window._apptEdit = editId || null;
+  window._apptEdit = editId || null; window._apptPetId = petId;
   const eA = editId ? DB.pets.find(p=>p.id===petId).appointments.find(x=>x.id===editId) : null;
+  window._custoLock = !!(eA && apptRecebido(eA));
   const types = ['Consulta','Retorno','Vacinação','Exame','Cirurgia','Emergência'];
   if(!editId) types.push('Orientações via Telefone');
   showSheet(eA ? '✏️ Editar Atendimento' : 'Novo Atendimento', `
@@ -10833,18 +11212,24 @@ function openApptForm(petId, editId){
     <label>Local / Clínica</label><input id="fPClinic" value="${esc(eA?.clinic||'')}" placeholder="Opcional">
     <label>💰 Serviços do atendimento</label>
     <div style="font-size:11px;color:var(--muted);margin:2px 0 6px">Descreva cada item (consulta, vacina, exame…) com seu valor — o total soma sozinho.</div>
-    <div id="fPItens">${eA?.itens?.length ? eA.itens.map((it,i)=>servItemRow(i, esc(it.desc), it.valor)).join('') : servItemRow(0)}</div>
+    <div style="font-size:11px;color:var(--muted);margin:0 0 4px;line-height:1.5">🧾 <b>Custo</b> (opcional): o que VOCÊ gastou em cada item. Entra sozinho em <b>Financeiro → Despesas</b> ao salvar e <b>não aparece</b> no orçamento em PDF.${window._custoLock?'<br>🔒 <b>Pagamento já recebido:</b> os custos estão travados. Para ajustar, use Financeiro → Despesas.':''}</div>
+    <button type="button" class="btn outline" id="fPCatBtn" style="width:100%;margin:2px 0 6px" onclick="catPainelToggle()">📚 Puxar do catálogo</button>
+    <div id="fPItens">${eA?.itens?.length ? eA.itens.map((it,i)=>servItemRow(i, esc(it.desc), it.valor, it.custo||'', it.id||'', it.despId||'', it)).join('') : servItemRow(0)}</div>
     <button type="button" class="btn sm outline" style="margin-top:8px" onclick="addServItem()">➕ Adicionar item</button>
     <div id="fPTotalBox" style="background:var(--medbg);border-radius:10px;padding:9px 12px;font-size:14px;margin-top:10px;display:none">
       <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted)"><span>Subtotal dos serviços:</span><b id="fPSubTxt">R$ 0,00</b></div>
       <div id="fPDescBox" style="display:none;justify-content:space-between;font-size:12px;color:var(--danger);margin-top:2px"><span>Desconto aplicado:</span><b id="fPDescTxt">− R$ 0,00</b></div>
-      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">💰 Total: <b id="fPTotalTxt">R$ 0,00</b></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;padding-top:4px;border-top:1px solid var(--border)">💰 Total: <b id="fPTotalTxt">R$ 0,00</b></div>
+      <div id="fPCustoLine" style="display:none;justify-content:space-between;font-size:12px;color:var(--danger);margin-top:6px"><span>🧾 Custos (não vão no PDF):</span><b id="fPCustoTxt">R$ 0,00</b></div>
+      <div id="fPLucroLine" style="display:none;justify-content:space-between;font-size:15px;font-weight:800;color:var(--success);margin-top:4px"><span id="fPLucroLbl">Lucro total</span><b id="fPLucroTxt">R$ 0,00</b></div></div>
     <div id="fPOrcValWrap" style="margin-top:10px;display:flex;align-items:center;gap:8px;background:var(--vetbg);border-radius:10px;padding:8px 12px">
       <label for="fPOrcDias" style="margin:0;font-size:12px;font-weight:800;flex:1;line-height:1.3">⏳ Dias de validade da proposta</label>
       <input id="fPOrcDias" type="number" inputmode="numeric" min="1" max="365" step="1" value="${orcDiasPadrao()}" style="width:76px;text-align:center;font-weight:800;margin:0">
       <span style="font-size:12px;color:var(--muted)">dias</span></div>
-    <button type="button" id="fPOrcBtn" class="btn sm" style="display:block;margin-top:8px;width:100%;background:linear-gradient(135deg,#1E3A6E,#2D5FA8)" onclick="printOrcamento('${petId}')">📄 Orçamento em PDF</button>
-    <div id="fPOrcHint" style="display:block;font-size:11px;color:var(--muted);margin:4px 2px 0;line-height:1.5">Gera um orçamento para o tutor com os itens, o desconto e o total acima. Não lança cobrança nem salva o atendimento.</div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="button" id="fPOrcBtn" class="btn sm" style="display:block;flex:1;min-width:0;margin:0;width:auto;font-size:13px;background:linear-gradient(135deg,#1E3A6E,#2D5FA8)" onclick="printOrcamento('${petId}')">📄 Orçamento em PDF</button>
+      <button type="button" id="fPOrcMultiBtn" class="btn sm" style="display:block;flex:1;min-width:0;margin:0;width:auto;font-size:13px;background:#fff;color:#1E3A6E;border:2px solid #1E3A6E" onclick="omAbrirDoAtendimento('${petId}')">🧾 Vários animais</button></div>
+    <div id="fPOrcHint" style="display:block;font-size:11px;color:var(--muted);margin:4px 2px 0;line-height:1.5"><b>PDF</b>: só deste animal, com os itens, o desconto e o total acima. <b>Vários animais</b>: um orçamento único para o tutor. <a href="#" onclick="omComoFunciona();return false" style="color:#2D5FA8;font-weight:700;text-decoration:underline">ⓘ Como funciona</a> Não lança cobrança nem salva o atendimento.</div>
     <input type="hidden" id="fPValor" value="0">
     ${eA?.parcelas?.length ? `
     <label>Pagamento</label>
@@ -10869,8 +11254,8 @@ function openApptForm(petId, editId){
 
     <label>Pagamento</label>
     <div class="chips" id="fPPay">
-      <button class="chip ${(!eA || eA.payStatus!=='pendente')?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
-      <button class="chip" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
+      <button class="chip ${(!eA || eA.payStatus!=='pendente' || eA.parcelas?.length)?'on':''}" data-v="pago" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='none'">✓ Pago na hora</button>
+      <button class="chip ${(eA && eA.payStatus==='pendente' && !eA.parcelas?.length)?'on':''}" data-v="pendente" onclick="this.parentElement.querySelectorAll('.chip[data-v]').forEach(c=>c.classList.remove('on'));this.classList.add('on');document.getElementById('fPPayDueWrap').style.display='block'">📅 A receber</button>
       ${eA?'':`<button class="chip" type="button" style="border-style:dashed" onclick="toggleApptDesp(this)">🧾 Despesas</button>`}
     </div>
     ${eA?'':`<div id="fPDespWrap" style="display:none;background:var(--vetbg);border:1.5px dashed var(--vet);border-radius:12px;padding:10px 12px;margin-top:8px">
@@ -10882,7 +11267,7 @@ function openApptForm(petId, editId){
       <button type="button" class="btn sm outline" style="margin-top:8px" onclick="addApptDesp('')">➕ Despesa manual</button>
       <div id="fPDespTot" style="font-size:12px;font-weight:800;margin-top:8px;display:none">Total de despesas: <span id="fPDespTotTxt"></span></div>
     </div>`}
-    <div id="fPPayDueWrap" style="display:none">
+    <div id="fPPayDueWrap" style="display:${(eA && eA.payStatus==='pendente' && !eA.parcelas?.length)?'block':'none'}">
       <label>Parcelamento</label>
       <select id="fPParc" onchange="buildParcelas()">
         <option value="1">À vista (1x)</option>
@@ -10891,7 +11276,7 @@ function openApptForm(petId, editId){
       </select>
       <div id="fPParc1" style="display:block">
         <label>Vencimento do pagamento *</label>
-        <input id="fPPayDue" type="date">
+        <input id="fPPayDue" type="date" value="${(eA && !eA.parcelas?.length && eA.payDue)||''}">
         <input id="fPPayDueTxt" placeholder="ou digite: DD/MM/AAAA" inputmode="numeric" maxlength="10"
           style="margin-top:6px" oninput="maskDate(this)">
       </div>
@@ -10907,19 +11292,70 @@ function openApptForm(petId, editId){
     <input id="fPRetorno" type="date">`}
     <div style="background:var(--vetbg);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--vet);margin-top:12px">
       Se informar a data, um atendimento "Retorno" será criado automaticamente na linha do tempo e na agenda.</div>`,
-    `<button class="btn gray" onclick="closeSheet()">Cancelar</button>
-     <button class="btn" onclick="saveAppt('${petId}')">💾 Salvar</button>`);
+    `<div style="flex:1;min-width:0"><div id="fPFootSum" style="display:none;justify-content:space-between;gap:8px;font-size:12px;margin:0 2px 8px"></div>
+     <div style="display:flex;gap:10px"><button class="btn gray" onclick="closeSheet()">Cancelar</button>
+     <button class="btn" onclick="saveAppt('${petId}')">💾 Salvar</button></div></div>`);
+  setTimeout(catAtualizaBotao, 60);
   voiceBind('fPRecord',eA?.recordReview,{patient:DB.pets.find(p=>p.id===petId)?.name,tutor:tutorName(DB.pets.find(p=>p.id===petId)),date:eA?.date});
   setTimeout(recalcServTotal, 50); // calcula o total já ao abrir (útil na edição)
 }
-function servItemRow(i, desc='', valor=''){
-  return `<div class="srow" style="display:flex;gap:8px;align-items:center;margin-top:6px">
-    <input class="sDesc" placeholder="Ex: Consulta · Vacina V10 · Hemograma" value="${desc}" style="flex:2">
-    <input class="sVal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(valor)}" data-valor="${parseFloat(valor)||0}" style="flex:1" oninput="maskMoeda(this);recalcServTotal()">
-    <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.remove();recalcServTotal()">✕</button></div>`;
+// v10.09: cada item pode ter um CUSTO (despesa do veterinário). Não vai no orçamento em PDF.
+// Entra em Financeiro → Despesas ao salvar e acompanha as edições até o pagamento ser recebido.
+function apptRecebido(a){
+  if(!a || !(a.valor > 0)) return false;
+  if(a.parcelas && a.parcelas.some(p=>p.status==='pago')) return true;
+  return a.payStatus === 'pago';
+}
+function servItemRow(i, desc='', valor='', custo='', iid='', despId='', cat=null){
+  const trava = !!window._custoLock;
+  cat = cat || {};
+  const _ci = cat.catId ? catItem(cat.catId) : null;
+  const catAttr = cat.catId ? `data-catid="${cat.catId}" ${cat.faixaI!=null?`data-faixa="${cat.faixaI}"`:''} ${cat.qtd&&cat.qtd!==1?`data-qtd="${cat.qtd}"`:''} ${cat.custoDet?`data-custodet="${esc(cat.custoDet)}"`:''} ${cat.pac?`data-pac="${cat.pac}"`:''}` : '';
+  const faixaSel = (_ci && _ci.tipo==='peso' && cat.faixaI!=null) ? `<select class="sFaixa" style="margin:0;font-size:13px;flex:1.3;min-width:0" onchange="catTrocaFaixa(this)">${_ci.faixas.map((f,k)=>`<option value="${k}" ${k===cat.faixaI?'selected':''}>🐾 ${catFaixaLabel(_ci,k)}</option>`).join('')}</select>` : '';
+  return `<div class="srow${cat.catId?' catlinha':''}" ${iid?`data-iid="${iid}"`:''} ${despId?`data-desp="${despId}"`:''} ${catAttr} style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px">
+    <input class="sDesc" placeholder="Ex: Consulta · Vacina V10 · Hemograma" value="${desc}" style="flex:2;min-width:0">
+    <input class="sVal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(valor)}" data-valor="${parseFloat(valor)||0}" style="flex:1;min-width:0" oninput="maskMoeda(this);recalcServTotal()">
+    <button type="button" style="background:none;color:var(--muted);font-size:15px;flex-shrink:0" onclick="this.parentElement.remove();recalcServTotal();catAtualizaBotao()">✕</button>
+    <div style="flex-basis:100%;display:flex;align-items:center;gap:8px">
+      ${faixaSel}
+      <span style="font-size:11px;font-weight:800;color:var(--danger);flex-shrink:0">🧾${faixaSel?'':' Custo'}</span>
+      <input class="sCusto" inputmode="numeric" placeholder="${faixaSel?'Custo':'R$ 0,00 · sua despesa neste item'}" value="${moedaInit(custo)}" data-valor="${parseFloat(custo)||0}" style="flex:1;min-width:0;font-size:14px" ${trava?'disabled':''}
+        onfocus="if(!isPro()){this.blur();openProModal('O custo dos itens alimenta a aba Despesas do Financeiro — recurso Pro.')}" oninput="maskMoeda(this);recalcServTotal()">
+    </div></div>`;
 }
 function addServItem(){
   document.getElementById('fPItens').insertAdjacentHTML('beforeend', servItemRow(1));
+}
+// ── v10.09: custo por item → Financeiro → Despesas ──
+function catDespesaItem(desc){
+  const t = (desc||'').toLowerCase();
+  if(/vacin|v10|v8|v4|raiva|vermif|medic|soro|antibi|inje|dipirona|vitamina/.test(t)) return 'Medicamentos';
+  if(/exame|hemograma|laborat|ultra|raio|cultura|bioqu|sorolog|cito|histop/.test(t)) return 'Laboratório';
+  if(/material|fio|sutura|gaze|cateter|seringa|agulha/.test(t)) return 'Materiais';
+  return 'Serviços/Procedimentos';
+}
+function sincronizarCustosAtendimento(pet, a, antigos){
+  const r = {criadas:0, atualizadas:0, removidas:0};
+  const manter = new Set();
+  (a.itens||[]).forEach(it => {
+    if(!(it.custo > 0) || !it.id) return;
+    manter.add(it.id);
+    const desc = `${it.desc} — ${pet.name}`;
+    const e = it.despId ? DB.expenses.find(x=>x.id===it.despId) : null;
+    const old = (antigos||[]).find(o=>o.id===it.id);
+    if(e){ e.valor = it.custo; e.desc = desc; e.date = a.date; e.cat = e.cat || catDespesaItem(it.desc); r.atualizadas++; }
+    else if(it.despId && old && old.custo === it.custo){ /* excluída de propósito na aba Despesas: não recria */ }
+    else {
+      const ex = {id:uid(), desc, cat:catDespesaItem(it.desc), valor:it.custo, date:a.date,
+        obs:`Custo lançado no atendimento de ${fmtDate(a.date)}.${it.custoDet?' Composição: '+it.custoDet+'.':''} Edite o atendimento enquanto o pagamento não for recebido.`,
+        apptId:a.id, petId:pet.id, itemId:it.id};
+      DB.expenses.push(ex); it.despId = ex.id; r.criadas++;
+    }
+  });
+  const antes = DB.expenses.length;
+  DB.expenses = DB.expenses.filter(e => !(e.apptId === a.id && !manter.has(e.itemId)));
+  r.removidas = antes - DB.expenses.length;
+  return r;
 }
 // ── Despesas do atendimento (alimentam o Financeiro → Despesas) ──
 const DESP_CAT_MAP = {'Sala de cirurgia':'Serviços/Procedimentos','Anestesista':'Serviços/Procedimentos',
@@ -10990,6 +11426,18 @@ function recalcServTotal(){ if(!document.getElementById('fPValor'))return;
   const subEl = document.getElementById('fPSubTxt');
   if(subEl) subEl.textContent = fmtBRL(subtotal);
   document.getElementById('fPTotalTxt').textContent = fmtBRL(total);
+  let custos = 0; document.querySelectorAll('#fPItens .sCusto').forEach(el => { custos += moedaVal(el); });
+  const cl = document.getElementById('fPCustoLine');
+  if(cl){ cl.style.display = custos > 0 ? 'flex' : 'none'; const ct = document.getElementById('fPCustoTxt'); if(ct) ct.textContent = fmtBRL(custos); }
+  const lucro = total - custos;
+  const ll = document.getElementById('fPLucroLine');
+  if(ll){ ll.style.display = custos > 0 ? 'flex' : 'none'; ll.style.color = lucro >= 0 ? 'var(--success)' : 'var(--danger)';
+    const lt = document.getElementById('fPLucroLbl'); if(lt) lt.textContent = lucro >= 0 ? 'Lucro total' : '⚠ Prejuízo';
+    const lv = document.getElementById('fPLucroTxt'); if(lv) lv.textContent = fmtBRL(Math.abs(lucro)); }
+  const fs = document.getElementById('fPFootSum');
+  if(fs){ const n = document.querySelectorAll('#fPItens .sVal').length && [...document.querySelectorAll('#fPItens .srow')].filter(r=>moedaVal(r.querySelector('.sVal'))>0||r.querySelector('.sDesc').value.trim()).length;
+    fs.style.display = subtotal > 0 ? 'flex' : 'none';
+    fs.innerHTML = `<span>📋 ${n} ${n===1?'item':'itens'}</span><span>💰 <b>${fmtBRL(total)}</b></span>` + (custos>0 ? `<span style="color:${lucro>=0?'var(--success)':'var(--danger)'}">${lucro>=0?'Lucro':'⚠ Prejuízo'} <b>${fmtBRL(Math.abs(lucro))}</b></span>` : ''); }
   recalcParcelas();
 }
 function parseBRDate(txt){
@@ -11122,10 +11570,18 @@ function saveAppt(petId, force){
   document.querySelectorAll('#fPItens .srow').forEach(row => {
     const d = row.querySelector('.sDesc').value.trim();
     const v = moedaVal(row.querySelector('.sVal'));
-    if(v < 0){ window._negServ = 1; }
-    if(d || v > 0) itens.push({desc: d||'Serviço', valor: v});
+    const c = row.querySelector('.sCusto') ? moedaVal(row.querySelector('.sCusto')) : 0;
+    if(v < 0 || c < 0){ window._negServ = 1; }
+    if(d || v > 0){
+      const it = {desc: d||'Serviço', valor: v};
+      if(c > 0) it.custo = c;
+      if(c > 0 || row.dataset.iid) it.id = row.dataset.iid || uid();
+      if(row.dataset.desp) it.despId = row.dataset.desp;
+      if(row.dataset.catid){ it.catId = row.dataset.catid; if(row.dataset.faixa!==undefined && row.dataset.faixa!=='') it.faixaI = parseInt(row.dataset.faixa); if(row.dataset.qtd && row.dataset.qtd!=='1') it.qtd = parseInt(row.dataset.qtd)||1; if(row.dataset.custodet) it.custoDet = row.dataset.custodet; if(row.dataset.pac) it.pac = row.dataset.pac; }
+      itens.push(it);
+    }
   });
-  if(window._negServ){ window._negServ = 0; toast('⚠ Valor negativo em um serviço — corrija'); return; }
+  if(window._negServ){ window._negServ = 0; toast('⚠ Valor negativo em um serviço ou custo — corrija'); return; }
   const subtotal = itens.reduce((s,i)=>s+i.valor, 0);
   // Desconto em %
   let desconto = parseFloat((val('fPDesc')||'').replace(',','.')) || 0;
@@ -11165,6 +11621,7 @@ function saveAppt(petId, force){
     // Edição: atualiza no lugar, preservando parcelas e prontuário
     const a = pet.appointments.find(x=>x.id===window._apptEdit);
     if(a){
+      const antigosItens = (a.itens||[]).map(o=>({...o})); const travado = apptRecebido(a);
       const rec = val('fPRecord');
       Object.assign(a, {title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
         clinic:val('fPClinic'), valor, record: rec, recordReview:voiceMetadata('fPRecord'), desconto: desconto||null,
@@ -11177,8 +11634,10 @@ function saveAppt(petId, force){
         if(payStatus === 'pago' && !a.paidAt) a.paidAt = todayISO();
         if(payStatus === 'pendente') a.paidAt = null;
       }
+      // v10.09: despesas ligadas aos itens acompanham a edição — só até o pagamento ser recebido
+      if(!travado && isPro()) sincronizarCustosAtendimento(pet, a, antigosItens);
     }
-    window._apptEdit = null; window._parcelas = null;
+    window._apptEdit = null; window._parcelas = null; window._custoLock = false;
     save(); closeSheet(); render(); toast('✏️ Atendimento atualizado!');
     return;
   }
@@ -11186,16 +11645,19 @@ function saveAppt(petId, force){
   const dc = isPro() ? collectApptDesp(date, pet.name) : {list:[], bad:0};
   if(dc.bad){ toast(`⚠ Data inválida na despesa ${dc.bad} — use DD/MM/AAAA ou deixe em branco`); return; }
   const despesas = dc.list;
-  pet.appointments.push({
+  const novoAppt = {
     id:uid(), title, resumo:val('fPResumo'), date, time:val('fPTime')||'10:00',
     clinic:val('fPClinic'), record:val('fPRecord'), recordReview:voiceMetadata('fPRecord'),
     valor, payStatus, payDue, paidAt, meioPag: valor > 0 ? (meioPag||'pix') : null,
     desconto: desconto||null,
     done: date < todayISO() ? 1 : 0,
     itens: itens.length ? itens : null,
-    parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null});
+    parcelas: (payStatus==='pendente' && window._parcelas?.length) ? window._parcelas : null};
+  pet.appointments.push(novoAppt);
   window._parcelas = null;
   if(despesas.length) DB.expenses.push(...despesas);
+  // v10.09: custo por item → Financeiro → Despesas (só Pro, como as demais despesas)
+  let custoR = null; if(isPro()) custoR = sincronizarCustosAtendimento(pet, novoAppt, []);
   const retorno = val('fPRetorno');
   if(retorno){
     pet.appointments.push({
@@ -11205,7 +11667,8 @@ function saveAppt(petId, force){
   // Navega o calendário para o mês/dia do atendimento (retroativo ou futuro)
   if(date){ const _nav=new Date(date+'T12:00:00'); if(!isNaN(_nav)){ calMonth=new Date(_nav.getFullYear(),_nav.getMonth(),1); calSelDay=_nav.getDate(); } }
   save(); closeSheet(); render();
-  const dTxt = despesas.length ? ` · ${despesas.length} despesa${despesas.length>1?'s':''} → Financeiro` : '';
+  const nDesp = despesas.length + (custoR ? custoR.criadas : 0);
+  const dTxt = nDesp ? ` · ${nDesp} despesa${nDesp>1?'s':''} → Financeiro` : '';
   if(!window._apptEdit) gcEvent('atendimento-criado');
   const _passado = date && date < todayISO();
   toast(retorno ? `🩺 Salvo! Retorno agendado para ${fmtDate(retorno)}${dTxt}` : _passado ? `📋 Atendimento retroativo registrado!${dTxt}` : `🩺 Atendimento salvo!${dTxt}`);
@@ -11345,7 +11808,7 @@ function vfcQrImgTag(cell, margin){
 }
 function letterheadHTML(){
   const v = DB.vet;
-  return `<div style="display:flex;align-items:center;gap:16px;background:linear-gradient(90deg,#EAF8F6,#F7FCFB);border-radius:12px;border-bottom:4px solid #2DC0AE;padding:14px 16px;margin-bottom:22px">
+  return `<div data-timbre="1" style="display:flex;align-items:center;gap:16px;background:linear-gradient(90deg,#EAF8F6,#F7FCFB);border-radius:12px;border-bottom:4px solid #2DC0AE;padding:14px 16px;margin-bottom:22px">
     ${v.logo?`<img src="${v.logo}" style="height:68px;max-width:120px;object-fit:contain">`:`<div style="width:60px;height:60px;border-radius:12px;background:linear-gradient(135deg,#1E3A6E,#2DC0AE);display:flex;align-items:center;justify-content:center;font-size:32px;flex-shrink:0">🐾</div>`}
     <div>
       <div style="font-size:20px;font-weight:900;color:#1E3A6E">${esc(v.name||'Profissional')}</div>
@@ -11381,9 +11844,653 @@ function orcDiasLer(){ // devolve inteiro 1–365 ou 0 se inválido/vazio
   const n = parseInt(raw,10); return (n>=1 && n<=365) ? n : 0;
 }
 function orcSlug(t){ return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+// ═══════════ v10.10 — CATÁLOGO DE SERVIÇOS + ORÇAMENTOS NA FICHA ═══════════
+const CAT_GRUPOS = ['Consulta','Vacina','Cirurgia','Exame','Anestesia','Procedimento','Medicamento','Outros'];
+let catBusca = '', catGrupoSel = 'Todos', _catTipo = 'simples';
+const rnd2 = n => Math.round((Number(n)||0)*100)/100;
+function catLista(){ return (DB.catalogo = DB.catalogo || []); }
+function catItem(id){ return catLista().find(x=>x.id===id); }
+function catFaixaLabel(it, i){
+  const f = it.faixas[i]; if(!f) return '';
+  if(f.ate == null){ const prev = i>0 ? it.faixas[i-1].ate : 0; return 'Acima de '+prev+' kg'; }
+  return 'Até '+f.ate+' kg';
+}
+function catFaixaPorPeso(it, kg){
+  const fx = it.faixas || []; if(!fx.length) return -1;
+  kg = parseFloat(kg)||0; if(kg <= 0) return -1;
+  for(let i=0;i<fx.length;i++){ if(fx[i].ate != null && kg <= fx[i].ate) return i; }
+  return fx.length-1; // acima da última faixa
+}
+function catCustoTotal(it){ return rnd2((it.custos||[]).reduce((s,c)=>s+(Number(c.valor)||0),0)); }
+// Linhas que o item gera no atendimento (pacote gera várias). pesoKg decide a faixa; faixaI força uma faixa.
+function catResolver(it, pesoKg, faixaI, qtd){
+  qtd = qtd || 1; const q = qtd>1 ? qtd+'× ' : '';
+  if(it.tipo === 'pacote'){
+    let out = [];
+    (it.comps||[]).forEach(c => {
+      const sub = catItem(c.itemId); if(!sub || sub.tipo === 'pacote') return;
+      const q = c.qtd||1; const ls = catResolver(sub, pesoKg, null, q);
+      ls.forEach(l => { l.pac = it.id; });
+      // v10.21: valor do item DENTRO do pacote (ex.: exame de 50 sai por 45)
+      if(c.venda != null && isFinite(c.venda) && ls.length === 1){
+        const l = ls[0]; l.venda = rnd2(c.venda*q); l.fixoPac = true;
+        if(sub.tipo === 'peso'){ delete l.faixaI; l.semFaixa = false; l.desc = (q>1?q+'× ':'')+sub.nome; }
+      }
+      out = out.concat(ls);
+    });
+    return out;
+  }
+  if(it.tipo === 'peso'){
+    let i = (faixaI != null && faixaI >= 0) ? faixaI : catFaixaPorPeso(it, pesoKg);
+    const semFaixa = i < 0; if(semFaixa) i = 0;
+    const f = (it.faixas||[])[i] || {venda:0, custo:0};
+    return [{desc: q+it.nome+' ('+catFaixaLabel(it,i)+')', venda: rnd2((f.venda||0)*qtd), custo: rnd2((f.custo||0)*qtd), custoDet: '',
+      catId: it.id, faixaI: i, qtd, semFaixa}];
+  }
+  const det = (it.custos||[]).filter(c=>c.valor>0).map(c=>(c.desc||'Custo')+' '+fmtBRL(c.valor)).join(' + ');
+  return [{desc: q+it.nome, venda: rnd2((it.venda||0)*qtd), custo: rnd2(catCustoTotal(it)*qtd), custoDet: det, catId: it.id, qtd}];
+}
+function catPrecoTxt(it, pesoKg){
+  if(it.tipo === 'peso'){ const v = (it.faixas||[]).map(f=>f.venda).filter(x=>x>0); return v.length ? 'de '+fmtBRL(Math.min(...v))+' a '+fmtBRL(Math.max(...v))+' (por peso)' : 'preencha as faixas de peso'; }
+  if(it.tipo === 'pacote'){ const t = catPacTotais(it, pesoKg); return fmtBRL(t.pacote)+(t.tabela>t.pacote+0.004?' <s style="font-weight:400;color:var(--muted)">'+fmtBRL(t.tabela)+'</s>':'')+' (pacote de '+(it.comps||[]).length+')'; }
+  return it.venda > 0 ? fmtBRL(it.venda) : 'sem preço';
+}
+// v10.21 — totais do pacote: valor de tabela (soma dos itens) x valor do pacote (com os valores alterados)
+function catPacTotais(it, pesoKg){
+  const ls = catResolver(it, pesoKg||0); let tabela = 0;
+  (it.comps||[]).forEach(c => { const sub = catItem(c.itemId); if(!sub || sub.tipo==='pacote') return; tabela += catResolver(sub, pesoKg||0, null, c.qtd||1).reduce((a,x)=>a+x.venda,0); });
+  const pacote = rnd2(ls.reduce((a,x)=>a+x.venda,0)); tabela = rnd2(tabela);
+  return {tabela, pacote, desc: rnd2(tabela-pacote), pct: tabela>0 ? Math.round((tabela-pacote)/tabela*1000)/10 : 0, n: ls.length};
+}
+// v10.22 — filtros do catálogo: Todos · 📦 Pacotes · 🐾 Por peso · grupos
+function catChipsDef(lista){
+  const out = [{v:'Todos', l:'Todos'}];
+  const np = lista.filter(x=>x.tipo==='pacote').length, nw = lista.filter(x=>x.tipo==='peso').length;
+  if(np) out.push({v:'__pac', l:'📦 Pacotes ('+np+')'});
+  if(nw) out.push({v:'__peso', l:'🐾 Por peso'});
+  CAT_GRUPOS.filter(g=>lista.some(x=>x.grupo===g)).forEach(g=>out.push({v:g, l:g}));
+  return out;
+}
+function catNoFiltro(x, g){ return g==='Todos' || (g==='__pac' ? x.tipo==='pacote' : g==='__peso' ? x.tipo==='peso' : x.grupo===g); }
+function catTipoPill(it){
+  return it.tipo==='pacote' ? '<span style="display:inline-block;white-space:nowrap;background:#E6F4F1;color:#1B7F72;border-radius:10px;padding:1px 8px;font-weight:700">📦 Pacote</span>'
+    : it.tipo==='peso' ? '<span style="display:inline-block;white-space:nowrap;background:#EAF0FB;color:#2C5AA0;border-radius:10px;padding:1px 8px;font-weight:700">🐾 Por peso</span>' : '';
+}
+function catPrecoBloco(it, pesoKg){
+  if(it.tipo==='pacote'){
+    const t = catPacTotais(it, pesoKg);
+    return `<span style="font-size:19px;font-weight:800;color:var(--vet)">${fmtBRL(t.pacote)}</span>`
+      + (t.desc>0.004 ? ` <s style="font-size:12px;color:var(--muted)">${fmtBRL(t.tabela)}</s> <span style="background:#E8F7EE;color:#1E8E4E;border-radius:10px;padding:1px 8px;font-size:11px;font-weight:800">−${String(t.pct).replace('.',',')}%</span>` : '')
+      + ` <span style="font-size:11px;color:var(--muted)">· ${t.n} ${t.n===1?'item':'itens'}</span>`;
+  }
+  if(it.tipo==='peso'){ const v = (it.faixas||[]).map(f=>f.venda).filter(x=>x>0);
+    return v.length ? `<span style="font-size:12px;color:var(--muted)">de</span> <span style="font-size:17px;font-weight:800;color:var(--vet)">${fmtBRL(Math.min(...v))}</span> <span style="font-size:12px;color:var(--muted)">a ${fmtBRL(Math.max(...v))}</span>` : '<span style="font-size:12px;color:var(--muted)">preencha as faixas de peso</span>'; }
+  return it.venda>0 ? `<span style="font-size:19px;font-weight:800;color:var(--vet)">${fmtBRL(it.venda)}</span>` : '<span style="font-size:12px;color:var(--muted)">sem preço</span>';
+}
+function catPacDetalhe(it, pesoKg){
+  const ls = catResolver(it, pesoKg||0); if(!ls.length) return '';
+  const t = catPacTotais(it, pesoKg);
+  return `<div style="background:var(--bg2,#F1F7F5);border-radius:10px;padding:8px 10px"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:2px">O pacote inclui</div>`
+    + ls.map(l=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid rgba(0,0,0,.07);font-size:12px;color:var(--text,#1A2F5A)"><span style="min-width:0">${esc(l.desc)}</span><b style="flex-shrink:0">${l.venda>0?fmtBRL(l.venda):'sem preço'}</b></div>`).join('')
+    + (t.desc>0.004 ? `<div style="margin-top:4px;padding-top:5px;border-top:1px solid rgba(0,0,0,.07);color:var(--success);font-weight:700;font-size:12px">Desconto do pacote: ${fmtBRL(t.desc)} (${String(t.pct).replace('.',',')}%) <span style="white-space:nowrap">· tabela ${fmtBRL(t.tabela)}</span></div>` : '')
+    + '</div>';
+}
+// Preço ATUAL no catálogo para um item já gravado num atendimento/orçamento (null = item do catálogo não existe mais)
+function catPrecoAtual(i){
+  const it = i.catId ? catItem(i.catId) : null; if(!it) return null;
+  if(i.pac){   // linha que veio de um pacote: vale o valor do item DENTRO do pacote
+    const pk = catItem(i.pac); const c = pk && pk.tipo==='pacote' && (pk.comps||[]).find(x=>x.itemId===i.catId);
+    if(!c) return null;
+    if(c.venda != null && isFinite(c.venda)) return {venda: rnd2(c.venda*(i.qtd||1))};
+  }
+  if(it.tipo === 'peso'){
+    let fi = i.faixaI; if(fi == null || !it.faixas[fi]) return null;
+    return {venda: rnd2((it.faixas[fi].venda||0)*(i.qtd||1))};
+  }
+  if(it.tipo === 'pacote') return null;
+  return {venda: rnd2((it.venda||0)*(i.qtd||1))};
+}
+
+// ── Tela do catálogo ──
+function renderCatalog(){
+  const lista = catLista();
+  const grupos = catChipsDef(lista);
+  return `<div class="sec"><div class="sec-h"><span>📚 Catálogo de serviços</span>
+      <button class="btn sm" onclick="catForm()">➕ Novo item</button></div>
+    <div class="card" style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      Cadastre uma vez o que você faz: preço de venda e quanto custa. No <b>Novo Atendimento</b> é só tocar em <b>📚 Puxar do catálogo</b>. Reajustou o preço? Altere aqui — os novos atendimentos já saem com o valor certo.</div>
+    ${lista.length ? `<input id="catBusca" placeholder="🔎 Buscar no catálogo" value="${esc(catBusca)}" oninput="catBusca=this.value;catRedesenhar()" style="margin-bottom:8px">
+    <div class="chips" id="catChips" style="flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px">${grupos.map(g=>`<button class="chip ${catGrupoSel===g.v?'on':''}" style="flex-shrink:0;white-space:nowrap" onclick="catGrupoSel='${g.v}';render()">${g.l}</button>`).join('')}</div>
+    <div id="catLista"></div>` : `<div class="card" style="text-align:center;padding:22px 14px;font-size:13px;color:var(--muted)">
+      Seu catálogo está vazio.<br><br>
+      <button class="btn" onclick="catForm()">➕ Cadastrar o primeiro item</button><br><br>
+      <button class="btn sm outline" onclick="catModelos()">📋 Começar com modelos prontos</button></div>`}
+  </div>${lista.length ? `<div style="text-align:center;margin:8px 0 90px"><button class="btn sm outline" onclick="catModelos()">📋 Adicionar modelos prontos</button></div>` : ''}`;
+}
+function catRedesenhar(){
+  const box = document.getElementById('catLista'); if(!box) return;
+  const q = (catBusca||'').toLowerCase().trim();
+  const itens = catLista().filter(x => catNoFiltro(x, catGrupoSel) && (!q || x.nome.toLowerCase().includes(q)))
+    .sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  box.innerHTML = itens.length ? itens.map(it => {
+    const venda = it.tipo==='simples' ? it.venda : null;
+    const custo = it.tipo==='simples' ? catCustoTotal(it) : null;
+    const lucro = (venda>0 && custo!=null) ? ` · lucro ${fmtBRL(venda-custo)}` : '';
+    const inativo = it.ativo === false;
+    return `<div class="card catrec" data-catid="${it.id}" style="${inativo?'opacity:.55':''}">
+      <div style="min-width:0"><b style="font-size:15px;line-height:1.25;display:block;overflow-wrap:anywhere">${esc(it.nome)}</b>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"><span>${esc(it.grupo||'Outros')}</span>${catTipoPill(it)}${inativo?'<span>· desativado</span>':''}</div>
+        <div style="font-weight:800;color:var(--vet);font-size:14px;margin-top:6px;line-height:1.35;overflow-wrap:anywhere">${catPrecoTxt(it)}</div></div>
+      ${it.tipo==='simples' && custo>0 ? `<div style="font-size:11px;color:var(--muted);margin-top:4px">🧾 custo ${fmtBRL(custo)}${lucro}</div>`:''}
+      ${it.tipo==='pacote' ? `<div class="pacdet" style="font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px dashed var(--border,#DDE7E4)">${catPacDetalhe(it, 0)}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:8px"><button class="btn sm outline" onclick="catForm('${it.id}')">✏️ Editar</button>
+        <button class="btn sm gray" onclick="catDuplicar('${it.id}')">⧉ Duplicar</button>
+        <button class="btn sm gray" style="margin-left:auto" onclick="catExcluir('${it.id}')">🗑</button></div></div>`;
+  }).join('') : '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Nada encontrado.</div>';
+}
+function catModelos(){
+  const mk = (nome,grupo,extra) => Object.assign({id:uid(), nome, grupo, tipo:'simples', venda:0, custos:[], ativo:true, obs:''}, extra||{});
+  const fx = () => { const a=[]; for(let k=5;k<=30;k+=5) a.push({ate:k,venda:0,custo:0}); a.push({ate:null,venda:0,custo:0}); return a; };
+  const base = [mk('Consulta','Consulta'), mk('Retorno','Consulta'), mk('Atendimento de emergência','Consulta'),
+    mk('Vacina V10','Vacina'), mk('Vacina antirrábica','Vacina'), mk('Vermífugo','Medicamento'), mk('Hemograma','Exame'),
+    mk('Centro cirúrgico','Cirurgia'), mk('Castração','Cirurgia'),
+    mk('Anestesia','Anestesia',{tipo:'peso', faixas:fx()})];
+  let n = 0; base.forEach(b => { if(!catLista().some(x=>x.nome.toLowerCase()===b.nome.toLowerCase())){ DB.catalogo.push(b); n++; } });
+  save(); render(); toast(n ? '📋 '+n+' modelos adicionados — abra cada um e preencha os preços' : 'Os modelos já estão no catálogo');
+}
+function catDuplicar(id){
+  const it = catItem(id); if(!it) return;
+  const c = JSON.parse(JSON.stringify(it)); c.id = uid(); c.nome = it.nome+' (cópia)';
+  (c.custos||[]).forEach(x=>x.id=uid()); DB.catalogo.push(c); save(); render(); toast('⧉ Item duplicado');
+}
+function catExcluir(id){
+  const it = catItem(id); if(!it) return;
+  askDel('📚 Excluir do catálogo', `Remover <b>${esc(it.nome)}</b> do catálogo? Atendimentos e orçamentos já feitos não mudam.`, `catDoExcluir('${id}')`);
+}
+function catDoExcluir(id){
+  DB.catalogo = catLista().filter(x=>x.id!==id);
+  DB.catalogo.forEach(x=>{ if(x.comps) x.comps = x.comps.filter(c=>c.itemId!==id); });
+  save(); render(); toast('🗑️ Removido do catálogo');
+}
+// ── Formulário do item ──
+function catCustoRow(c){ c = c||{};
+  return `<div class="crow" style="display:flex;gap:6px;margin-top:6px"><input class="cfCDesc" placeholder="Ex: Centro cirúrgico" value="${esc(c.desc||'')}" style="flex:2;min-width:0">
+    <input class="cfCVal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(c.valor)}" data-valor="${c.valor||0}" style="flex:1;min-width:0" oninput="maskMoeda(this);catRecalc()">
+    <button type="button" style="background:none;color:var(--muted);font-size:15px" onclick="this.parentElement.remove();catRecalc()">✕</button></div>`;
+}
+function catFaixaRow(f){
+  const acima = f.ate==null;
+  const input = acima
+    ? `<span style="flex:1.1;font-size:12px;font-weight:700">Acima do último</span>`
+    : `<span style="flex:1.1;display:flex;align-items:center;gap:4px;font-size:12px;font-weight:700">Até <input class="cfFAte" type="text" inputmode="decimal" placeholder="kg" value="${f.ate==null?'':String(f.ate).replace('.',',')}" style="margin:0;width:100%;min-width:0;padding:8px 6px;text-align:center"> kg</span>`;
+  return `<div class="frow" data-ate="${acima?'':f.ate}" data-acima="${acima?'1':''}" style="display:flex;gap:6px;align-items:center;margin-top:6px">
+    ${input}
+    <input class="cfFVenda" inputmode="numeric" placeholder="Venda" value="${moedaInit(f.venda)}" data-valor="${f.venda||0}" style="flex:1;min-width:0" oninput="maskMoeda(this)">
+    <input class="cfFCusto" inputmode="numeric" placeholder="Custo" value="${moedaInit(f.custo)}" data-valor="${f.custo||0}" style="flex:1;min-width:0" oninput="maskMoeda(this)">
+    <button type="button" aria-label="Remover faixa" style="background:none;color:var(--muted);font-size:15px" onclick="this.parentElement.remove();catFaixaVazio()">✕</button></div>`;
+}
+function catFaixasHTML(arr){
+  const a = (arr||[]).slice().sort((x,y)=> (x.ate==null?1e9:x.ate) - (y.ate==null?1e9:y.ate));
+  return a.map(catFaixaRow).join('');
+}
+function catPesoNum(v){ const n = parseFloat(String(v==null?'':v).replace(',','.')); return isFinite(n) ? n : NaN; }
+function catFaixasLer(){
+  return [...document.querySelectorAll('#cfFaixas .frow')].map(r => ({
+    acima: r.dataset.acima==='1',
+    ate: r.dataset.acima==='1' ? null : catPesoNum(r.querySelector('.cfFAte').value),
+    venda: moedaVal(r.querySelector('.cfFVenda')), custo: moedaVal(r.querySelector('.cfFCusto'))}));
+}
+function catFaixaVazio(){
+  const box = document.getElementById('cfFaixas'); if(!box) return;
+  const dica = document.getElementById('cfFaixasVazia'); if(dica) dica.style.display = box.querySelector('.frow') ? 'none' : 'block';
+}
+function catFaixasRedesenhar(arr){
+  document.getElementById('cfFaixas').innerHTML = catFaixasHTML(arr); catFaixaVazio();
+}
+function catAddFaixa(){
+  const cur = catFaixasLer(); const nums = cur.filter(f=>!f.acima && isFinite(f.ate)).map(f=>f.ate);
+  const passo = parseFloat(document.getElementById('cfPasso').value)||1;
+  const prox = nums.length ? Math.max(...nums)+passo : passo;
+  const novoArr = cur.filter(f=>!f.acima && isFinite(f.ate)).concat([{ate:prox,venda:0,custo:0}]);
+  // linhas ainda em branco continuam na tela; só acrescenta a nova antes do "acima"
+  const box = document.getElementById('cfFaixas');
+  const acimaRow = box.querySelector('.frow[data-acima="1"]');
+  const tmp = document.createElement('div'); tmp.innerHTML = catFaixaRow({ate:prox,venda:0,custo:0});
+  if(acimaRow) box.insertBefore(tmp.firstElementChild, acimaRow); else box.appendChild(tmp.firstElementChild);
+  catFaixaVazio();
+  const ins = box.querySelectorAll('.cfFAte'); const last = [...ins].find(e=>catPesoNum(e.value)===prox); if(last) last.focus();
+}
+function catAddAcima(){
+  const box = document.getElementById('cfFaixas');
+  if(box.querySelector('.frow[data-acima="1"]')){ toast('Já existe a linha “Acima do último”'); return; }
+  box.insertAdjacentHTML('beforeend', catFaixaRow({ate:null,venda:0,custo:0})); catFaixaVazio();
+}
+function catGerarFaixas(){
+  const max = catPesoNum(document.getElementById('cfMax').value);
+  const passo = catPesoNum(document.getElementById('cfPasso').value);
+  if(!(passo>0) || !(max>0) || max>200){ toast('⚠ Informe o peso máximo (até 200 kg) e de quanto em quanto kg'); return; }
+  if(max/passo > 120){ toast('⚠ Muitas faixas — aumente o intervalo'); return; }
+  const antes = {}; let temAcima = null;
+  catFaixasLer().forEach(f => { if(f.acima) temAcima = f; else if(isFinite(f.ate)) antes[f.ate] = f; });
+  const arr = [];
+  for(let k=passo; k<=max+1e-9; k=Math.round((k+passo)*1000)/1000){ const kk = Math.round(k*1000)/1000; arr.push(Object.assign({ate:kk,venda:0,custo:0}, antes[kk]?{venda:antes[kk].venda,custo:antes[kk].custo}:{})); }
+  arr.push(temAcima ? {ate:null,venda:temAcima.venda,custo:temAcima.custo} : {ate:null,venda:0,custo:0});
+  catFaixasRedesenhar(arr);
+}
+function catRecalc(){
+  let c = 0; document.querySelectorAll('#cfCustos .cfCVal').forEach(e=>c+=moedaVal(e));
+  const v = moedaVal(document.getElementById('cfVenda'));
+  const box = document.getElementById('cfResumo'); if(!box) return;
+  box.innerHTML = c>0 || v>0 ? `Custo total <b>${fmtBRL(c)}</b> · Lucro <b style="color:${v-c>=0?'var(--success)':'var(--danger)'}">${fmtBRL(v-c)}</b>` : '';
+}
+function catTipoSel(t){
+  _catTipo = t;
+  document.querySelectorAll('#cfTipo .chip').forEach(c=>c.classList.toggle('on', c.dataset.t===t));
+  ['simples','peso','pacote'].forEach(k => { const e = document.getElementById('cfB_'+k); if(e) e.style.display = k===t?'block':'none'; });
+  if(t==='pacote') catPacRecalc();
+  if(t==='peso' && !document.querySelector('#cfFaixas .frow')){ const m=document.getElementById('cfMax'); if(m && !m.value) m.value=30; catGerarFaixas(); }
+}
+function catCompRow(itemId, qtd, venda){
+  const sub = catItem(itemId); if(!sub) return '';
+  const peso = sub.tipo === 'peso';
+  const tab = peso ? '' : (sub.venda>0 ? sub.venda : '');
+  const ini = (venda != null && isFinite(venda)) ? venda : tab;
+  const temIni = ini !== '' && ini != null;
+  return `<div class="comp" data-item="${sub.id}" data-tab="${tab}" data-peso="${peso?'1':''}" style="margin-top:8px;padding:8px 10px;border:1px solid var(--border,#DDE7E4);border-radius:12px">
+    <div style="display:flex;gap:6px;align-items:center">
+      <span style="flex:1;font-size:13px;font-weight:700;min-width:0">${esc(sub.nome)}<div style="font-size:10px;color:var(--muted);font-weight:400">Tabela: ${catPrecoTxt(sub)}</div></span>
+      <span style="font-size:10px;color:var(--muted)">Qtd</span>
+      <input class="cfQtd" type="number" min="1" max="99" value="${qtd||1}" style="width:54px;text-align:center;margin:0" oninput="catPacRecalc()">
+      <button type="button" aria-label="Remover do pacote" style="background:none;color:var(--muted);font-size:15px" onclick="this.closest('.comp').remove();catPacRecalc()">✕</button></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:6px"><span style="font-size:11px;font-weight:700;flex-shrink:0">Valor no pacote</span>
+      <input class="cfCVenda" inputmode="numeric" placeholder="${peso?'por peso':'R$ 0,00'}" value="${temIni?moedaInit(ini):''}" data-valor="${temIni?ini:0}" style="flex:1;min-width:0;margin:0" oninput="maskMoeda(this);catPacRecalc()"></div>
+    <div class="cfCSub" style="font-size:11px;color:var(--muted);margin-top:4px"></div></div>`;
+}
+function catPacLer(){
+  return [...document.querySelectorAll('#cfComps .comp')].map(r => {
+    const inp = r.querySelector('.cfCVenda'); const vazio = (inp.value||'').trim() === '';
+    return {r, sub: catItem(r.dataset.item), q: Math.max(1, parseInt(r.querySelector('.cfQtd').value)||1),
+      u: vazio ? null : moedaVal(inp), tab: r.dataset.tab === '' ? null : parseFloat(r.dataset.tab), peso: r.dataset.peso === '1', inp};
+  });
+}
+function catPacSet(x, v){ v = rnd2(v); x.inp.dataset.valor = String(v); x.inp.value = v>0 ? moedaInit(v) : 'R$ 0,00'; x.u = v; }
+function catPacRecalc(){
+  const box = document.getElementById('cfPacResumo'); if(!box) return;
+  const L = catPacLer(); let tabela = 0, pac = 0, custo = 0, nAuto = 0, temPeso = false;
+  L.forEach(x => {
+    const sb = x.r.querySelector('.cfCSub');
+    if(x.u != null){
+      pac += x.u*x.q; tabela += (x.tab != null ? x.tab : x.u)*x.q;
+      const d = (x.tab != null && x.tab > 0 && x.u < x.tab - 0.004) ? ` · <span style="color:var(--success);font-weight:700">−${String(Math.round((x.tab-x.u)/x.tab*1000)/10).replace('.',',')}% (${fmtBRL(x.tab-x.u)} a menos)</span>` : (x.tab != null && x.u > x.tab + 0.004 ? ` · <span style="color:var(--danger);font-weight:700">+${fmtBRL(x.u-x.tab)} acima da tabela</span>` : '');
+      if(sb) sb.innerHTML = `${x.q}× ${fmtBRL(x.u)} = <b style="color:var(--text,#1A2F5A)">${fmtBRL(x.u*x.q)}</b>${d}`;
+    } else { nAuto++; if(sb) sb.textContent = 'Sem valor fixo: no atendimento entra o valor da faixa de peso do paciente.'; }
+    if(x.sub){ if(x.peso) temPeso = true; else custo += catCustoTotal(x.sub)*x.q; }
+  });
+  pac = rnd2(pac); tabela = rnd2(tabela); const desc = rnd2(tabela-pac);
+  box.dataset.tabela = String(tabela);
+  if(!L.length){ box.innerHTML = '<span style="color:var(--muted)">Inclua itens para ver o total do pacote.</span>'; return; }
+  const lucro = (!temPeso && custo > 0) ? ` · Custo <b>${fmtBRL(custo)}</b> · Lucro <b style="color:${pac-custo>=0?'var(--success)':'var(--danger)'}">${fmtBRL(pac-custo)}</b>` : '';
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;gap:8px"><span>Valor de tabela dos itens</span><b>${fmtBRL(tabela)}</b></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:15px;margin-top:2px"><span><b>Total do pacote</b></span><b style="color:var(--vet)">${fmtBRL(pac)}</b></div>
+    ${desc > 0.004 ? `<div style="color:var(--success);font-weight:700;margin-top:2px">Desconto de ${fmtBRL(desc)} (${String(Math.round(desc/tabela*1000)/10).replace('.',',')}%) para o cliente</div>` : ''}
+    ${nAuto ? `<div style="color:var(--muted);margin-top:2px">+ ${nAuto} ${nAuto===1?'item':'itens'} por peso (valor definido no atendimento)</div>` : ''}
+    ${lucro ? `<div style="margin-top:2px">${lucro.replace(/^ · /,'')}</div>` : ''}`;
+  const t = document.getElementById('cfPacTotal');
+  if(t && document.activeElement !== t){ t.dataset.valor = String(pac); t.value = pac>0 ? moedaInit(pac) : ''; }
+}
+// digita o TOTAL do pacote (ou % de desconto) e o app divide proporcionalmente entre os itens
+function catPacAplicarTotal(alvo){
+  const L = catPacLer().filter(x => x.u != null);
+  if(!L.length){ toast('⚠ Inclua itens com valor no pacote'); return; }
+  const base = L.map(x => (x.tab != null ? x.tab : x.u)*x.q); const soma = base.reduce((a,b)=>a+b,0);
+  if(alvo == null) alvo = moedaVal(document.getElementById('cfPacTotal'));
+  if(!(alvo >= 0) || !(soma > 0)){ toast('⚠ Informe o total do pacote'); return; }
+  L.forEach((x,i) => catPacSet(x, alvo*base[i]/soma/x.q));
+  const atual = rnd2(L.reduce((a,x)=>a+x.u*x.q,0)); const dif = rnd2(alvo-atual);
+  if(Math.abs(dif) >= 0.01){ const a = L.find(x=>x.q===1); if(a) catPacSet(a, a.u+dif); }
+  const t = document.getElementById('cfPacTotal'); if(t) t.blur();
+  catPacRecalc();
+}
+function catPacAplicarPct(){
+  const el = document.getElementById('cfPacPct'); const p = parseFloat(String(el.value||'').replace(',','.'));
+  const tab = parseFloat(document.getElementById('cfPacResumo').dataset.tabela)||0;
+  if(!(p >= 0 && p <= 100)){ toast('⚠ Desconto entre 0 e 100%'); return; }
+  catPacAplicarTotal(rnd2(tab*(1-p/100)));
+}
+function catPacRestaurar(){
+  document.querySelectorAll('#cfComps .comp').forEach(r => { const x = catPacLer().find(y=>y.r===r); if(!x) return;
+    if(x.tab != null) catPacSet(x, x.tab); else { x.inp.value = ''; x.inp.dataset.valor = '0'; } });
+  catPacRecalc();
+}
+function catAddComp(id){
+  if(!id){ const sel = document.getElementById('cfCompSel'); id = sel && sel.value; }
+  if(!id) return false;
+  if(document.querySelector('#cfComps .comp[data-item="'+id+'"]')){ toast('Este item já está no pacote'); return false; }
+  document.getElementById('cfComps').insertAdjacentHTML('beforeend', catCompRow(id,1)); catPacRecalc();
+  return true;
+}
+// v10.22 — escolher itens do pacote numa tela própria (busca + filtros + cartões com preço) no lugar da lista comprida
+function catCompElegiveis(){ const self = window._catEditId; return catLista().filter(x=>x.tipo!=='pacote' && x.id!==self && x.ativo!==false); }
+function catCompPickerAbrir(){
+  window._cpPG = 'Todos';
+  document.getElementById('modals2').innerHTML = `
+  <div class="modal" style="z-index:160" onclick="if(event.target===this)catCompPickerFechar()">
+    <div class="sheet" style="height:90%;max-height:90%" role="dialog" aria-modal="true" aria-label="Adicionar itens ao pacote">
+      <div class="mh"><h2>📦 Adicionar ao pacote</h2><button class="x" onclick="catCompPickerFechar()" aria-label="Fechar">✕</button></div>
+      <div style="padding:10px 18px 0;flex-shrink:0"><input id="cpBusca" placeholder="🔎 Buscar item" oninput="catCompPickerLista()" style="margin:0">
+        <div class="chips" id="cpChips"></div></div>
+      <div class="mb" id="cpLista"></div>
+      <div class="mf"><div id="cpResumo" style="flex:1;font-size:12px;color:var(--muted);align-self:center"></div><button class="btn" style="width:auto;flex:1" onclick="catCompPickerFechar()">✓ Concluir</button></div>
+    </div></div>`;
+  try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){}
+  catCompPickerLista();
+}
+function catCompPickerFechar(){ document.getElementById('modals2').innerHTML = ''; try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){} catPacRecalc(); }
+function catCompPickerLista(){
+  const box = document.getElementById('cpLista'); if(!box) return;
+  const q = (document.getElementById('cpBusca')?.value||'').toLowerCase().trim();
+  const todos = catCompElegiveis();
+  const chips = document.getElementById('cpChips');
+  if(chips){ const gs = catChipsDef(todos).filter(g=>g.v!=='__pac');
+    chips.style.cssText = 'margin-top:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px';
+    chips.innerHTML = gs.length>2 ? gs.map(g=>`<button type="button" class="chip ${window._cpPG===g.v?'on':''}" style="flex-shrink:0;white-space:nowrap" onclick="window._cpPG='${g.v}';catCompPickerLista()">${g.l}</button>`).join('') : ''; }
+  const itens = todos.filter(x=>catNoFiltro(x, window._cpPG) && (!q || x.nome.toLowerCase().includes(q))).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const jaTem = id => !!document.querySelector('#cfComps .comp[data-item="'+id+'"]');
+  box.innerHTML = itens.map(it => `<div class="card cpitem" data-catid="${it.id}" style="padding:12px 14px;margin:0 0 10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
+        <div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;color:var(--text,#1A2F5A)">${esc(it.nome)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"><span>${esc(it.grupo||'')}</span>${catTipoPill(it)}</div>
+          <div style="margin-top:6px">${catPrecoBloco(it, 0)}</div></div>
+        <button type="button" class="btn sm ${jaTem(it.id)?'feito':''}" style="flex-shrink:0" onclick="catCompPickerUsar('${it.id}')">${jaTem(it.id)?'✓ No pacote':'➕ Incluir'}</button></div></div>`).join('')
+    || '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center">'+(todos.length?'Nada encontrado.':'Cadastre antes os itens simples ou por peso que fazem parte do pacote.')+'</div>';
+  const n = document.querySelectorAll('#cfComps .comp').length;
+  const r = document.getElementById('cpResumo'); if(r) r.innerHTML = n ? `No pacote: <b>${n} ${n===1?'item':'itens'}</b>` : 'Nenhum item ainda';
+}
+function catCompPickerUsar(id){
+  if(document.querySelector('#cfComps .comp[data-item="'+id+'"]')){ toast('Este item já está no pacote'); return; }
+  catAddComp(id); catCompPickerLista();
+}
+function catForm(id){
+  const it = id ? catItem(id) : null;
+  _catTipo = it ? it.tipo : 'simples'; window._catEditId = id || null;
+  const outros = catLista().filter(x=>x.tipo!=='pacote' && x.id!==id);
+  const faixas = it && it.tipo==='peso' ? it.faixas : null;
+  const maxKg = faixas ? String(Math.max(...faixas.filter(f=>f.ate!=null).map(f=>f.ate), 1)).replace('.',',') : 30;
+  const passoIni = (()=>{ if(!faixas) return 5; const n=faixas.filter(f=>f.ate!=null).map(f=>f.ate).sort((x,y)=>x-y); if(n.length<2) return 5; const d=Math.round((n[1]-n[0])*1000)/1000; return [1,2,3,5,10].includes(d)?d:5; })();
+  showSheet(it ? '✏️ Editar item' : '📚 Novo item do catálogo', `
+    <label>Nome do serviço *</label><input id="cfNome" value="${esc(it?.nome||'')}" placeholder="Ex: Castração de cadela">
+    <label>Grupo</label><select id="cfGrupo">${CAT_GRUPOS.map(g=>`<option ${(it?.grupo||'Consulta')===g?'selected':''}>${g}</option>`).join('')}</select>
+    <label>Como é o preço?</label>
+    <div class="chips" id="cfTipo">
+      <button type="button" class="chip ${_catTipo==='simples'?'on':''}" data-t="simples" onclick="catTipoSel('simples')">💲 Preço fixo</button>
+      <button type="button" class="chip ${_catTipo==='peso'?'on':''}" data-t="peso" onclick="catTipoSel('peso')">🐾 Varia por peso</button>
+      <button type="button" class="chip ${_catTipo==='pacote'?'on':''}" data-t="pacote" onclick="catTipoSel('pacote')">📦 Pacote</button></div>
+    <div id="cfB_simples" style="display:${_catTipo==='simples'?'block':'none'}">
+      <label>Preço de venda (o que o tutor paga)</label><input id="cfVenda" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(it?.venda)}" data-valor="${it?.venda||0}" oninput="maskMoeda(this);catRecalc()">
+      <label>🧾 Custos (o que VOCÊ gasta — não aparece para o tutor)</label>
+      <div id="cfCustos">${(it?.custos||[]).map(catCustoRow).join('')}</div>
+      <button type="button" class="btn sm outline" style="margin-top:8px" onclick="document.getElementById('cfCustos').insertAdjacentHTML('beforeend',catCustoRow());">➕ Adicionar custo</button>
+      <div id="cfResumo" style="font-size:12px;margin-top:8px"></div></div>
+    <div id="cfB_peso" style="display:${_catTipo==='peso'?'block':'none'}">
+      <div style="font-size:11px;color:var(--muted);margin:4px 0">Monte a tabela do seu jeito: digite cada peso (ex.: 1, 2, 3, 4… ou 2,5) e o preço/custo dele. O paciente cai na primeira linha cujo peso seja maior ou igual ao dele.</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span style="font-size:12px">Gerar até</span><input id="cfMax" type="text" inputmode="decimal" value="${maxKg}" style="width:64px;margin:0;text-align:center"><span style="font-size:12px">kg, de</span>
+        <select id="cfPasso" style="width:auto;margin:0">${[1,2,3,5,10].map(p=>`<option value="${p}" ${p===passoIni?'selected':''}>${p} em ${p} kg</option>`).join('')}</select>
+        <button type="button" class="btn sm outline" onclick="catGerarFaixas()">Gerar tabela</button></div>
+      <div style="display:flex;gap:6px;margin-top:8px;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase"><span style="flex:1.1">Peso</span><span style="flex:1">Venda</span><span style="flex:1">Custo</span><span style="width:18px"></span></div>
+      <div id="cfFaixas">${faixas ? catFaixasHTML(faixas) : ''}</div>
+      <div id="cfFaixasVazia" style="display:${faixas&&faixas.length?'none':'block'};font-size:12px;color:var(--muted);margin-top:6px">Nenhuma linha ainda. Toque em “Gerar tabela” ou em “➕ Adicionar peso”.</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn sm outline" onclick="catAddFaixa()">➕ Adicionar peso</button>
+        <button type="button" class="btn sm outline" onclick="catAddAcima()">➕ Linha “Acima do último”</button></div></div>
+    <div id="cfB_pacote" style="display:${_catTipo==='pacote'?'block':'none'}">
+      <div style="font-size:11px;color:var(--muted);margin:4px 0">Ao escolher o pacote no atendimento, todos os itens entram de uma vez. Cada item mostra o valor de tabela: <b>altere o “Valor no pacote”</b> para montar um preço melhor (ex.: exame de 50 por 45). Item por peso entra na faixa do paciente, ou digite um valor fixo.</div>
+      <div id="cfComps">${(it?.comps||[]).map(c=>catCompRow(c.itemId,c.qtd,c.venda)).join('')}</div>
+      ${outros.length ? `<button type="button" class="btn outline" style="margin-top:10px" onclick="catCompPickerAbrir()">➕ Adicionar item ao pacote</button>` : '<div style="font-size:12px;color:var(--danger);margin-top:8px">Cadastre antes os itens simples ou por peso que fazem parte do pacote.</div>'}
+      <div id="cfPacResumo" style="font-size:12px;margin-top:12px;padding:10px 12px;border-radius:12px;background:var(--bg2,#F1F7F5);line-height:1.5"></div>
+      <label style="margin-top:10px">Fechar por um total (o app divide entre os itens)</label>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <input id="cfPacTotal" inputmode="numeric" placeholder="Total do pacote R$" style="flex:1.4;min-width:120px;margin:0" oninput="maskMoeda(this)" onchange="catPacAplicarTotal()">
+        <input id="cfPacPct" inputmode="decimal" placeholder="% desc." style="flex:.8;min-width:70px;margin:0;text-align:center" onchange="catPacAplicarPct()">
+        <button type="button" class="btn sm outline" onclick="catPacRestaurar()">↺ Valores de tabela</button></div></div>
+    <label>Observação (opcional)</label><input id="cfObs" value="${esc(it?.obs||'')}" placeholder="Só você vê">
+    <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="cfAtivo" style="width:auto;margin:0" ${it?.ativo===false?'':'checked'}> Item ativo (aparece ao puxar no atendimento)</label>`,
+    `<button class="btn gray" onclick="closeSheet()">Cancelar</button><button class="btn" onclick="catSalvar()">💾 Salvar</button>`);
+  catRecalc(); catPacRecalc();
+}
+function catSalvar(){
+  const nome = val('cfNome').trim(); if(!nome){ toast('⚠ Informe o nome do serviço'); return; }
+  const base = {id: window._catEditId || uid(), nome, grupo: val('cfGrupo'), tipo: _catTipo, obs: val('cfObs').trim(), ativo: document.getElementById('cfAtivo').checked};
+  if(_catTipo === 'simples'){
+    base.venda = moedaVal(document.getElementById('cfVenda')); base.custos = [];
+    document.querySelectorAll('#cfCustos .crow').forEach(r => { const v = moedaVal(r.querySelector('.cfCVal')); const d = r.querySelector('.cfCDesc').value.trim(); if(v < 0){ base._neg = 1; } if(v > 0) base.custos.push({id:uid(), desc:d||'Custo', valor:v}); });
+    if(base.venda < 0 || base._neg){ toast('⚠ Valor negativo — corrija'); return; }
+  } else if(_catTipo === 'peso'){
+    const lidas = catFaixasLer(); base.faixas = [];
+    if(!lidas.length){ toast('⚠ Toque em “Gerar tabela” ou “Adicionar peso” e preencha os preços'); return; }
+    const vistos = new Set(); let acima = null;
+    for(const f of lidas){
+      if(f.acima){ if(acima){ toast('⚠ Só pode haver uma linha “Acima do último”'); return; } acima = {ate:null,venda:f.venda,custo:f.custo}; continue; }
+      if(!isFinite(f.ate) || f.ate<=0){ toast('⚠ Digite o peso (maior que zero) em todas as linhas'); return; }
+      if(f.ate>500){ toast('⚠ Peso muito alto: '+f.ate+' kg'); return; }
+      if(f.venda<0 || f.custo<0){ toast('⚠ Valor negativo — corrija'); return; }
+      if(vistos.has(f.ate)){ toast('⚠ O peso '+String(f.ate).replace('.',',')+' kg aparece duas vezes'); return; }
+      vistos.add(f.ate); base.faixas.push({ate:f.ate, venda:f.venda, custo:f.custo});
+    }
+    base.faixas.sort((x,y)=>x.ate-y.ate);
+    if(acima){ if(acima.venda<0||acima.custo<0){ toast('⚠ Valor negativo — corrija'); return; } base.faixas.push(acima); }
+    if(!base.faixas.length){ toast('⚠ Adicione pelo menos um peso'); return; }
+    if(!base.faixas.some(f=>f.venda>0)){ toast('⚠ Preencha o preço de venda de pelo menos uma faixa'); return; }
+  } else {
+    base.comps = [];
+    for(const x of catPacLer()){
+      const c = {itemId: x.r.dataset.item, qtd: x.q};
+      if(x.u != null){
+        if(x.u < 0){ toast('⚠ Valor negativo — corrija'); return; }
+        if(!(x.tab != null && Math.abs(x.u-x.tab) < 0.005)) c.venda = x.u;   // igual à tabela = acompanha o catálogo
+      }
+      base.comps.push(c);
+    }
+    if(!base.comps.length){ toast('⚠ Inclua pelo menos um item no pacote'); return; }
+  }
+  delete base._neg;
+  const lista = catLista(); const i = lista.findIndex(x=>x.id===base.id);
+  if(i >= 0) lista[i] = base; else lista.push(base);
+  window._catEditId = null; save(); closeSheet(); render(); toast('📚 Catálogo atualizado!');
+}
+// ── Painel "Puxar do catálogo" dentro do Novo Atendimento ──
+// v10.11: o catálogo abre em tela própria POR CIMA do atendimento (sem subir/descer a tela do formulário)
+window._catPG = 'Todos'; window._catUsados = {};
+function catPainelToggle(){
+  if(!document.getElementById('fPItens')) return;
+  window._catUsados = {}; window._catPG = 'Todos';
+  document.getElementById('modals2').innerHTML = `
+  <div class="modal" style="z-index:150" onclick="if(event.target===this)catPickerFechar()">
+    <div class="sheet" style="height:92%;max-height:92%" role="dialog" aria-modal="true" aria-label="Catálogo de serviços">
+      <div class="mh"><h2>📚 Catálogo de serviços</h2><button class="x" onclick="catPickerFechar()" aria-label="Fechar">✕</button></div>
+      <div style="padding:10px 18px 0;flex-shrink:0">
+        <input id="fPCatBusca" placeholder="🔎 Buscar no catálogo" oninput="catPainelLista()" style="margin:0">
+        <div class="chips" id="fPCatChips" style="margin-top:8px"></div></div>
+      <div class="mb" id="fPCatLista"></div>
+      <div class="mf"><div id="fPCatResumo" style="flex:1;font-size:12px;color:var(--muted);align-self:center;line-height:1.4"></div>
+        <button class="btn" style="width:auto;flex:1" onclick="catPickerFechar()">✓ Concluir</button></div>
+    </div></div>`;
+  try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){}
+  catPainelLista();
+}
+function catPickerResumo(){
+  const el = document.getElementById('fPCatResumo'); if(!el) return;
+  const rows = [...document.querySelectorAll('#fPItens .srow')].filter(r=>moedaVal(r.querySelector('.sVal'))>0||r.querySelector('.sDesc').value.trim());
+  const tot = rows.reduce((t,r)=>t+moedaVal(r.querySelector('.sVal')),0);
+  el.innerHTML = rows.length ? `No atendimento: <b>${rows.length} ${rows.length===1?'item':'itens'}</b><br>Total <b style="color:var(--text,#1A2F5A)">${fmtBRL(tot)}</b>` : 'Nenhum item ainda';
+}
+function catPickerFechar(){
+  const novo = document.querySelector('#fPItens .srow.novo');
+  document.getElementById('modals2').innerHTML = ''; try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){}
+  catAtualizaBotao();
+  const alvo = novo || document.getElementById('fPItens');
+  if(alvo) setTimeout(()=>{ try{ alvo.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){} }, 80);
+}
+function catAtualizaBotao(){
+  const b = document.getElementById('fPCatBtn'); if(!b) return;
+  const n = document.querySelectorAll('#fPItens .srow[data-catid]').length;
+  b.classList.toggle('on', n > 0);
+  b.innerHTML = n ? `✓ Catálogo · ${n} ${n===1?'item':'itens'} — toque para puxar mais` : '📚 Puxar do catálogo';
+}
+function catPainelLista(){
+  const q = (document.getElementById('fPCatBusca')?.value||'').toLowerCase().trim();
+  const pet = DB.pets.find(p=>p.id===window._apptPetId);
+  const todos = catLista().filter(x=>x.ativo!==false);
+  const box = document.getElementById('fPCatLista'); if(!box) return;
+  const chips = document.getElementById('fPCatChips');
+  if(chips){ const gs = catChipsDef(todos);
+    chips.style.cssText = 'margin-top:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px';
+    chips.innerHTML = gs.length>2 ? gs.map(g=>`<button type="button" class="chip ${window._catPG===g.v?'on':''}" style="flex-shrink:0;white-space:nowrap" onclick="window._catPG='${g.v}';catPainelLista()">${g.l}</button>`).join('') : ''; }
+  if(!catLista().length){ box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center">Seu catálogo está vazio.<br>Cadastre os serviços na aba <b>📚 Catálogo</b> do menu.</div>'; catPickerResumo(); return; }
+  const itens = todos.filter(x=>catNoFiltro(x, window._catPG) && (!q || x.nome.toLowerCase().includes(q))).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  box.innerHTML = itens.map(it => {
+    let sel = '';
+    if(it.tipo === 'peso'){
+      const pre = catFaixaPorPeso(it, pet?.weight);
+      sel = `<select id="catF_${it.id}" style="margin:8px 0 0;font-size:14px">${pre<0?'<option value="">Escolha a faixa de peso…</option>':''}${it.faixas.map((f,i)=>`<option value="${i}" ${i===pre?'selected':''}>${catFaixaLabel(it,i)} — ${f.venda>0?fmtBRL(f.venda):'sem preço'}</option>`).join('')}</select>`
+        + (pre>=0 ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">Faixa sugerida pelo peso do paciente (${pet.weight} kg) — confira.</div>` : `<div style="font-size:10px;color:var(--danger);margin-top:2px">Paciente sem peso cadastrado — escolha a faixa.</div>`);
+    }
+    const n = window._catUsados[it.id] || 0;
+    return `<div class="card catpk" data-catid="${it.id}" style="padding:12px 14px;margin:0 0 10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;color:var(--text,#1A2F5A)">${esc(it.nome)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"><span>${esc(it.grupo||'')}</span>${catTipoPill(it)}</div></div>
+        <button type="button" id="catU_${it.id}" class="btn sm ${n?'feito':''}" style="flex-shrink:0" onclick="catAdicionar('${it.id}')">${n?'✓ Adicionado'+(n>1?' ×'+n:''):'➕ Usar'}</button></div>
+      <div style="margin-top:8px">${catPrecoBloco(it, pet?.weight)}</div>${sel}
+      ${it.tipo==='pacote' ? `<div class="pacdet" style="margin-top:10px">${catPacDetalhe(it, pet?.weight)}<div style="margin-top:5px;font-size:10px;color:var(--muted)">Depois de adicionar, você ainda pode alterar o valor de cada linha no atendimento.</div></div>` : ''}</div>`;
+  }).join('') || '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center">Nada encontrado.</div>';
+  catPickerResumo();
+}
+function catAdicionar(id){
+  const it = catItem(id); if(!it) return;
+  const pet = DB.pets.find(p=>p.id===window._apptPetId);
+  let faixaI = null;
+  if(it.tipo === 'peso'){
+    const s = document.getElementById('catF_'+id); if(!s || s.value === ''){ toast('⚠ Escolha a faixa de peso'); return; }
+    faixaI = parseInt(s.value);
+  }
+  const linhas = catResolver(it, pet?.weight, faixaI);
+  if(!linhas.length){ toast('⚠ Este item não tem linhas para lançar'); return; }
+  const box = document.getElementById('fPItens');
+  const rows = [...box.querySelectorAll('.srow')];
+  if(rows.length === 1 && !rows[0].querySelector('.sDesc').value.trim() && !moedaVal(rows[0].querySelector('.sVal'))) rows[0].remove();
+  const pode = isPro() && !window._custoLock;
+  linhas.forEach(l => {
+    box.insertAdjacentHTML('beforeend', servItemRow(0, esc(l.desc), l.venda, pode ? l.custo : '', '', '', {catId:l.catId, faixaI:l.faixaI, qtd:l.qtd, custoDet: pode ? l.custoDet : '', pac:l.pac}));
+    const nr = box.lastElementChild; if(nr) nr.classList.add('novo');
+  });
+  recalcServTotal();
+  window._catUsados[id] = (window._catUsados[id]||0) + 1;
+  const btn = document.getElementById('catU_'+id);
+  if(btn){ const n = window._catUsados[id]; btn.classList.add('feito','pulou'); btn.textContent = '✓ Adicionado'+(n>1?' ×'+n:''); setTimeout(()=>btn.classList.remove('pulou'), 400); }
+  catPickerResumo(); catAtualizaBotao();
+  const semPreco = linhas.some(l=>!(l.venda>0));
+  const semPeso = it.tipo==='pacote' && linhas.some(l=>l.semFaixa);
+  if(semPreco) toast('⚠ Adicionado, mas há item sem preço no catálogo'); else if(semPeso) toast('📦 Pacote adicionado — confira a faixa de peso');
+}
+function catTrocaFaixa(sel){
+  const row = sel.closest('.srow'); const it = catItem(row.dataset.catid); if(!it) return;
+  const fi = parseInt(sel.value); const f = it.faixas[fi]; if(!f) return;
+  const qtd = parseInt(row.dataset.qtd)||1;
+  row.dataset.faixa = fi;
+  row.querySelector('.sDesc').value = (qtd>1?qtd+'× ':'') + it.nome + ' (' + catFaixaLabel(it,fi) + ')';
+  const v = row.querySelector('.sVal'); v.value = ''; v.dataset.valor = String(rnd2((f.venda||0)*qtd)); v.value = moedaInit(rnd2((f.venda||0)*qtd));
+  const c = row.querySelector('.sCusto');
+  if(c && !c.disabled && isPro()){ c.dataset.valor = String(rnd2((f.custo||0)*qtd)); c.value = moedaInit(rnd2((f.custo||0)*qtd)); }
+  recalcServTotal();
+}
+
+// ── Orçamentos guardados na ficha do paciente ──
+function orcMeioLabelObj(k){ return (typeof MEIOS_PAG !== 'undefined' && MEIOS_PAG[k]) ? MEIOS_PAG[k] : null; }
+function orcSalvarNaFicha(pet, o, dias, hoje){
+  pet.orcamentos = pet.orcamentos || [];
+  const sig = JSON.stringify(o.itens.map(i=>[i.desc,i.valor])) + '|' + o.pct;
+  const ja = pet.orcamentos.find(r => r.emitido === hoje && r.dias === dias && JSON.stringify(r.itens.map(i=>[i.desc,i.valor])) + '|' + r.pct === sig);
+  if(ja) return ja;
+  const v = new Date(hoje+'T12:00:00'); v.setDate(v.getDate()+dias);
+  const meioKey = document.querySelector('#fPMeio .chip.on')?.dataset.meio || '';
+  const rec = {id:uid(), emitido:hoje, dias, validoAte:v.toISOString().slice(0,10), tipo:o.tipo, resumo:o.resumo,
+    itens:o.itens.map(i=>{ const x={desc:i.desc, valor:i.valor}; if(i.catId){ x.catId=i.catId; if(i.faixaI!=null) x.faixaI=i.faixaI; if(i.qtd&&i.qtd!==1) x.qtd=i.qtd; if(i.pac) x.pac=i.pac; } return x; }),
+    subtotal:o.subtotal, pct:o.pct, descV:o.descV, total:o.total, meioKey, dateISO:o.dateISO, time:o.time, clinic:o.clinic};
+  pet.orcamentos.push(rec); save(); return rec;
+}
+function orcStatus(rec){
+  const vencido = todayISO() > rec.validoAte;
+  const diffs = [];
+  let subAtual = 0;
+  rec.itens.forEach(i => {
+    const cur = i.catId ? catPrecoAtual(i) : null;
+    const atual = cur ? cur.venda : i.valor; subAtual += atual;
+    if(cur && Math.abs(atual - i.valor) >= 0.005) diffs.push({desc:i.desc, antigo:i.valor, atual, dif:rnd2(atual-i.valor)});
+  });
+  const totalAtual = rnd2(subAtual * (1 - (rec.pct||0)/100));
+  const difTotal = rnd2(totalAtual - rec.total);
+  return {vencido, diffs, totalAtual, difTotal, sentido: !diffs.length ? 'igual' : difTotal>0 ? 'aumento' : difTotal<0 ? 'reducao' : 'misto'};
+}
+function orcAvisoHTML(rec, st, pdf){
+  if(!st.vencido) return '';
+  const cor = st.sentido==='reducao' ? ['#E8F7EE','#1E8E4E'] : st.sentido==='igual' ? ['#F1F3F6','#4A5568'] : ['#FDECEC','#C0392B'];
+  const palavra = st.sentido==='aumento' ? 'AUMENTO' : st.sentido==='reducao' ? 'REDUÇÃO' : 'ALTERAÇÃO';
+  if(!st.diffs.length) return `<div data-orcaviso="1" style="border:1.5px solid ${cor[1]};background:${cor[0]};color:${cor[1]};border-radius:8px;padding:9px 12px;margin:6px 0 12px;font-size:12px;line-height:1.5"><b>ORÇAMENTO VENCIDO</b> em ${fmtDate(rec.validoAte)}. Confirme os valores antes de fechar o serviço.</div>`;
+  const sinal = st.difTotal>0 ? '+' : st.difTotal<0 ? '−' : '';
+  return `<div data-orcaviso="1" style="border:1.5px solid ${cor[1]};background:${cor[0]};color:${cor[1]};border-radius:8px;padding:9px 12px;margin:6px 0 12px;font-size:12px;line-height:1.5">
+    <b>⚠ ORÇAMENTO VENCIDO — PREÇO DESATUALIZADO (${palavra} DE PREÇO)</b><br>
+    Validade encerrada em ${fmtDate(rec.validoAte)}. Os valores abaixo eram da época da emissão; hoje o total seria <b>${fmtBRL(st.totalAtual)}</b> (${sinal}${fmtBRL(Math.abs(st.difTotal))}).
+    ${st.diffs.map(d=>`<div>${d.dif>0?'▲':'▼'} ${esc(d.desc)}: ${fmtBRL(d.antigo)} → <b>${fmtBRL(d.atual)}</b></div>`).join('')}
+    ${pdf ? '<div style="margin-top:4px">Solicite um novo orçamento para confirmar os valores.</div>' : ''}</div>`;
+}
+function renderPetOrcamentos(pet){
+  const lista = (pet.orcamentos||[]).slice().sort((a,b)=>(b.emitido+b.id).localeCompare(a.emitido+a.id));
+  const head = `<div class="sec"><div class="sec-h"><span>🧾 Orçamentos deste paciente (${lista.length})</span></div>
+    <div class="card" style="font-size:12px;color:var(--muted);margin-bottom:10px">Todo orçamento em PDF que você gera fica guardado aqui, com os preços da data. Dentro da validade o valor combinado não muda. Depois que vence, se o catálogo tiver mudado, o app avisa se houve <b>aumento</b> ou <b>redução</b> de preço.</div>`;
+  if(!lista.length) return head + `<div class="card" style="text-align:center;font-size:12px;color:var(--muted);padding:18px 14px">Nenhum orçamento gerado ainda.<br>No <b>Novo Atendimento</b>, toque em “📄 Orçamento em PDF”.</div></div>`;
+  return head + lista.map(r => {
+    const st = orcStatus(r);
+    const badge = st.vencido ? '<span style="color:var(--danger);font-weight:800">⛔ Vencido</span>' : '<span style="color:var(--success);font-weight:800">✅ Vigente até '+fmtDate(r.validoAte)+'</span>';
+    const nota = !st.vencido && st.diffs.length ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">ℹ O catálogo mudou depois da emissão, mas este orçamento mantém o preço combinado até ${fmtDate(r.validoAte)}.</div>` : '';
+    return `<div class="card orcrec" data-orcid="${r.id}">
+      <div style="display:flex;justify-content:space-between;gap:8px"><div style="min-width:0"><b style="font-size:13px">${esc(r.tipo||'Orçamento')}${r.resumo?' · '+esc(r.resumo):''}</b>
+        <div style="font-size:11px;color:var(--muted)">Emitido ${fmtDate(r.emitido)} · validade ${r.dias} dias</div></div><b style="color:var(--vet);flex-shrink:0">${fmtBRL(r.total)}</b></div>
+      <div style="font-size:11px;margin-top:4px">${badge}${r.substituidoPor?' · substituído por um orçamento novo':''}</div>
+      ${orcAvisoHTML(r, st, false).replace('margin:6px 0 12px','margin:8px 0 0')}${nota}
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">
+        <button class="btn sm rx" onclick="orcReimprimir('${pet.id}','${r.id}')">🖨️ Ver / Imprimir</button>
+        ${st.diffs.length && st.vencido ? `<button class="btn sm success" onclick="orcAtualizarPrecos('${pet.id}','${r.id}')">🔄 Atualizar para preços atuais</button>` : ''}
+        <button class="btn sm gray" style="margin-left:auto" onclick="orcExcluir('${pet.id}','${r.id}')">🗑</button></div></div>`;
+  }).join('') + '</div>';
+}
+function orcReimprimir(petId, id){
+  const pet = DB.pets.find(p=>p.id===petId); const rec = pet && (pet.orcamentos||[]).find(r=>r.id===id); if(!rec) return;
+  const st = orcStatus(rec);
+  const o = Object.assign({}, rec, {meio: orcMeioLabelObj(rec.meioKey)});
+  printShell('Orçamento — ' + pet.name, orcamentoHTML(pet, o, rec.emitido, rec.dias, orcAvisoHTML(rec, st, true)), `Orcamento_${orcSlug(pet.name)||'Paciente'}_${rec.emitido}`);
+}
+function orcAtualizarPrecos(petId, id){
+  const pet = DB.pets.find(p=>p.id===petId); const rec = pet && (pet.orcamentos||[]).find(r=>r.id===id); if(!rec) return;
+  const hoje = todayISO();
+  const itens = rec.itens.map(i => { const cur = i.catId ? catPrecoAtual(i) : null; return Object.assign({}, i, {valor: cur ? cur.venda : i.valor}); });
+  const subtotal = rnd2(itens.reduce((s,i)=>s+i.valor,0)); const descV = rnd2(subtotal*(rec.pct||0)/100);
+  const v = new Date(hoje+'T12:00:00'); v.setDate(v.getDate()+rec.dias);
+  const novo = Object.assign({}, rec, {id:uid(), emitido:hoje, validoAte:v.toISOString().slice(0,10), itens, subtotal, descV, total:rnd2(subtotal-descV), substituidoPor:undefined});
+  delete novo.substituidoPor; rec.substituidoPor = novo.id; pet.orcamentos.push(novo);
+  save(); render(); toast('🔄 Novo orçamento criado com os preços atuais — válido por '+rec.dias+' dias');
+}
+function orcExcluir(petId, id){
+  askDel('🧾 Excluir orçamento', 'Remover este orçamento da ficha do paciente?', `orcDoExcluir('${petId}','${id}')`);
+}
+function orcDoExcluir(petId, id){
+  const pet = DB.pets.find(p=>p.id===petId); if(!pet) return;
+  pet.orcamentos = (pet.orcamentos||[]).filter(r=>r.id!==id); save(); render(); toast('🗑️ Orçamento removido');
+}
+
 function orcamentoColetar(){
   const itens = [...document.querySelectorAll('#fPItens .srow')].map(r => ({
-    desc: (r.querySelector('.sDesc')?.value||'').trim(), valor: moedaVal(r.querySelector('.sVal')) || 0
+    desc: (r.querySelector('.sDesc')?.value||'').trim(), valor: moedaVal(r.querySelector('.sVal')) || 0,
+    catId: r.dataset.catid || undefined, faixaI: (r.dataset.faixa!==undefined && r.dataset.faixa!=='') ? parseInt(r.dataset.faixa) : undefined,
+    qtd: r.dataset.qtd ? (parseInt(r.dataset.qtd)||1) : undefined, pac: r.dataset.pac || undefined
   })).filter(i => i.desc || i.valor);
   const subtotal = itens.reduce((a,i)=>a+i.valor, 0);
   let pct = parseFloat(String(document.getElementById('fPDesc')?.value||'').replace(',','.')) || 0;
@@ -11396,7 +12503,7 @@ function orcamentoColetar(){
     tipo: document.getElementById('fPTitle')?.value || '', resumo: (document.getElementById('fPResumo')?.value||'').trim(),
     dateISO, time: document.getElementById('fPTime')?.value || '', clinic: (document.getElementById('fPClinic')?.value||'').trim() };
 }
-function orcamentoHTML(pet, o, hoje, dias){
+function orcamentoHTML(pet, o, hoje, dias, aviso){
   dias = dias || ORC_VALIDADE_DIAS;
   const v = DB.vet, t = tutorOf(pet);
   const tutor = t?.name || tutorName(pet) || '';
@@ -11408,7 +12515,7 @@ function orcamentoHTML(pet, o, hoje, dias){
       <td style="padding:10px 12px;font-size:13px;color:#6B7A8D;width:34px">${k+1}</td>
       <td style="padding:10px 12px;font-size:14px">${esc(i.desc||'Serviço')}</td>
       <td style="padding:10px 12px;font-size:14px;text-align:right;white-space:nowrap;font-weight:700">${fmtBRL(i.valor)}</td></tr>`).join('');
-  return `${letterheadHTML()}
+  return `${letterheadHTML()}${aviso||''}
   <div style="display:flex;justify-content:space-between;align-items:flex-end;margin:4px 0 14px">
     <div class="doctitle" style="margin:0;text-align:left;font-size:26px;letter-spacing:6px">ORÇAMENTO</div>
     <div style="text-align:right;font-size:11px;color:#6B7A8D;line-height:1.6"><b style="color:#1E3A6E">Nº ${num}</b><br>Emitido em ${fmtDate(hoje)}<br>Válido até ${fmtDate(validoAte)}</div></div>
@@ -11440,6 +12547,300 @@ function orcamentoHTML(pet, o, hoje, dias){
     <div style="font-size:13px;font-weight:700;color:#1A2F5A">${esc(v.name||'Médico(a) Veterinário(a)')}</div>
     <div style="font-size:12px;color:#6B7A8D">${crmvFull()||''}</div></div>`;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// v10.24 — ORÇAMENTO DO TUTOR (vários animais num só PDF)
+// ═══════════════════════════════════════════════════════════════════
+function omBRL(v){ v = Math.round((Number(v)||0)*100)/100; const neg = v<0; v = Math.abs(v); const [i,d] = v.toFixed(2).split('.'); return (neg?'− ':'')+'R$ '+i.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+d; }
+function omPag(){ const p = DB.vet && DB.vet.orcPag; return {avista: (p && p.avista!=null) ? p.avista : 5, parcelas: (p && Array.isArray(p.parcelas)) ? p.parcelas : [2,3]}; }
+function omSecaoHTML(t){
+  const lista = (t.orcamentos||[]).slice().sort((a,b)=>(b.emitido+b.id).localeCompare(a.emitido+a.id));
+  return `<div class="sec" id="omSecao"><button class="btn" style="width:100%" onclick="omAbrir('${t.id}')">🧾 Orçamento (vários animais)</button>
+    ${lista.map(r => { const venc = todayISO() > r.validoAte;
+      return `<div class="card omrec" data-omid="${r.id}" style="margin-top:8px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="min-width:0"><b style="font-size:14px">Orçamento · ${fmtDate(r.emitido)}</b>
+          <div style="font-size:11px;color:var(--muted);overflow-wrap:anywhere">${r.blocos.map(b=>esc(b.nome)).join(', ')}</div></div>
+          <b style="color:var(--vet);flex-shrink:0">${omBRL(r.total)}</b></div>
+        <div style="font-size:11px;margin-top:4px">${venc ? '<span style="color:var(--danger);font-weight:800">⛔ Vencido em '+fmtDate(r.validoAte)+'</span>' : '<span style="color:var(--success);font-weight:800">✅ Vigente até '+fmtDate(r.validoAte)+'</span>'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          <button class="btn sm rx" onclick="omImprimir('${t.id}','${r.id}')">🖨️ Ver / Imprimir</button>
+          <button class="btn sm outline" onclick="omAbrir('${t.id}','${r.id}')">✏️ Editar</button>
+          <button class="btn sm gray" style="margin-left:auto" onclick="omExcluir('${t.id}','${r.id}')">🗑</button></div></div>`; }).join('')}
+  </div>`;
+}
+function omRowHTML(desc, valor){
+  return `<div class="omrow" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px dashed var(--border,#DDE7E4)"><input class="omDesc" placeholder="Serviço (ex.: Proheart)" value="${esc(desc||'')}" style="flex:1 1 100%;min-width:0;margin:0">
+    <input class="omVal" inputmode="numeric" placeholder="R$ 0,00" value="${moedaInit(valor)}" data-valor="${parseFloat(valor)||0}" style="flex:1;min-width:0;margin:0" oninput="maskMoeda(this);omRecalc()">
+    <button type="button" aria-label="Remover serviço" style="background:none;color:var(--muted);font-size:15px" onclick="this.parentElement.remove();omRecalc()">✕</button></div>`;
+}
+function omBlocoHTML(id, b){
+  const animals = DB.pets.filter(p=>p.tutorId===window._om.tid);
+  const usados = new Set([...document.querySelectorAll('#omBlocos .omPet')].map(x=>x.value));
+  let alvo = b && b.petId ? b.petId : '';
+  if(!alvo && !(b && b.nome)){ const livre = animals.find(p=>!usados.has(p.id)); alvo = livre ? livre.id : '__novo'; }
+  if(alvo && alvo !== '__novo' && !animals.some(p=>p.id===alvo)) alvo = '__novo';
+  if(b && b.nome && !b.petId) alvo = '__novo';
+  const nomeNovo = (alvo==='__novo') ? ((b && b.nome) || '') : '';
+  return `<div class="card omb" id="${id}" style="padding:12px;margin-bottom:10px">
+    <div style="display:flex;gap:8px;align-items:center"><select class="omPet" style="flex:1;margin:0;min-width:0" onchange="omPetMudou('${id}')">
+      ${animals.map(p=>`<option value="${p.id}" ${alvo===p.id?'selected':''}>${petEmoji(p)} ${esc(p.name)}${p.weight?' · '+p.weight+' kg':''}</option>`).join('')}
+      <option value="__novo" ${alvo==='__novo'?'selected':''}>✏️ Outro animal (digitar o nome)</option></select>
+      <button type="button" aria-label="Remover animal" style="background:none;color:var(--muted);font-size:17px" onclick="omRemBloco('${id}')">🗑</button></div>
+    <input class="omNome" placeholder="Nome do animal" value="${esc(nomeNovo)}" style="display:${alvo==='__novo'?'block':'none'};margin-top:8px">
+    <div class="omItens">${((b && b.itens && b.itens.length) ? b.itens : [{desc:'',valor:0}]).map(i=>omRowHTML(i.desc,i.valor)).join('')}</div>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap"><button type="button" class="btn sm outline" onclick="omAddRow('${id}')">➕ Serviço</button>
+      <button type="button" class="btn sm outline" onclick="omCatAbrir('${id}')">📚 Do catálogo</button></div>
+    <div class="omSub" style="text-align:right;font-size:12px;margin-top:8px"></div></div>`;
+}
+function omAddBloco(b){
+  const id = 'omb_' + (++window._om.seq);
+  document.getElementById('omBlocos').insertAdjacentHTML('beforeend', omBlocoHTML(id, b));
+  omRecalc(); return id;
+}
+function omRemBloco(id){
+  const n = document.querySelectorAll('#omBlocos .omb').length;
+  if(n <= 1){ toast('⚠ O orçamento precisa de pelo menos um animal'); return; }
+  document.getElementById(id)?.remove(); omRecalc();
+}
+function omPetMudou(id){
+  const b = document.getElementById(id); if(!b) return;
+  b.querySelector('.omNome').style.display = b.querySelector('.omPet').value === '__novo' ? 'block' : 'none';
+}
+function omAddRow(id, desc, valor){
+  const box = document.querySelector('#'+id+' .omItens'); if(!box) return;
+  box.insertAdjacentHTML('beforeend', omRowHTML(desc, valor));
+  if(desc == null){ const i = box.lastElementChild.querySelector('.omDesc'); try{ i.focus(); }catch(e){} }
+  omRecalc();
+}
+function omPagLinhas(total, avPct, parcelas){
+  const out = [];
+  if(avPct > 0){ const v = rnd2(total*(1-avPct/100)); out.push({k:'À vista com '+String(avPct).replace('.',',')+'% de desconto', v:omBRL(v), extra:'economia de '+omBRL(rnd2(total-v)), val:v}); }
+  (parcelas||[]).slice().sort((a,b)=>a-b).forEach(n => {
+    const p = rnd2(total/n), ult = rnd2(total - p*(n-1));
+    out.push({k:n+'x sem juros', v: Math.abs(ult-p) < 0.005 ? n+'x de '+omBRL(p) : (n-1)+'x de '+omBRL(p)+' + 1x de '+omBRL(ult), extra:'', val:total});
+  });
+  return out;
+}
+function omPagLer(){
+  const on = document.getElementById('omAvOn')?.checked;
+  const raw = String(document.getElementById('omAvPct')?.value||'').replace(',','.').trim();
+  let pct = on ? (parseFloat(raw)||0) : 0; if(pct < 0) pct = 0; if(pct > 90) pct = 90;
+  const parcelas = [...document.querySelectorAll('#omParc .chip.on')].map(c=>parseInt(c.dataset.n,10));
+  return {avista: pct, avOn: !!on, parcelas};
+}
+function omParcToggle(btn){ btn.classList.toggle('on'); omRecalc(); }
+function omRecalc(){
+  let total = 0;
+  document.querySelectorAll('#omBlocos .omb').forEach(b => {
+    let sub = 0; b.querySelectorAll('.omVal').forEach(i => { sub += moedaVal(i); }); sub = rnd2(sub);
+    total += sub; const el = b.querySelector('.omSub'); if(el) el.innerHTML = `Subtotal do animal: <b>${omBRL(sub)}</b>`;
+  });
+  total = rnd2(total); window._omTotal = total;
+  const box = document.getElementById('omTotal'); if(!box) return;
+  const pg = omPagLer(); const lin = omPagLinhas(total, pg.avista, pg.parcelas);
+  box.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;font-size:15px"><b>Total do orçamento</b><b style="color:var(--vet);font-size:20px">${omBRL(total)}</b></div>`
+    + (total>0 && lin.length ? `<div style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;font-size:12px;line-height:1.7">${lin.map(l=>`<div style="display:flex;justify-content:space-between;gap:10px"><span>${l.k}</span><b style="text-align:right">${l.v}</b></div>${l.extra?`<div style="text-align:right;color:var(--success);font-size:11px">${l.extra}</div>`:''}`).join('')}</div>` : '');
+}
+// v10.25 — a partir do Novo Atendimento o orçamento abre POR CIMA (modals2) para não perder o que já foi preenchido
+function omSheet(title, body, foot, over){
+  if(!over){ showSheet(title, body, foot); return; }
+  document.getElementById('modals2').innerHTML = `
+  <div class="modal" style="z-index:150" onclick="if(event.target===this)omFechar()">
+    <div class="sheet" style="height:92%;max-height:92%" role="dialog" aria-modal="true" aria-label="${String(title).replace(/<[^>]*>/g,'')}">
+      <div class="mh"><h2>${title}</h2><button class="x" onclick="omFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mb">${body}</div>${foot?`<div class="mf">${foot}</div>`:''}
+    </div></div>`;
+  try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){}
+}
+function omFechar(){
+  if(window._om && window._om.over){ const c = document.getElementById('omModals3'); if(c) c.innerHTML = ''; document.getElementById('modals2').innerHTML = ''; try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){} }
+  else closeSheet();
+}
+function omComoFunciona(){
+  vfcConfirm({icon:'🧾', title:'Orçamento de vários animais',
+    msg:`<div style="text-align:left;font-size:13px;line-height:1.6">Use quando o <b>mesmo tutor</b> tem mais de um animal. Você monta <b>um orçamento só</b>:<br><br><b>1.</b> O app traz o tutor e os animais dele.<br><b>2.</b> Escolha um animal e lance os serviços dele (digitando ou do catálogo).<br><b>3.</b> Toque em <b>➕ Adicionar animal</b> e repita.<br><b>4.</b> O PDF sai com o <b>total</b>, <b>à vista com desconto</b> e <b>parcelamento</b>.</div>`,
+    note:'Não lança cobrança nem salva o atendimento. O orçamento fica guardado na ficha do tutor.', noteColor:'var(--muted)',
+    noLabel:'Fechar', yesLabel:'🧾 Abrir agora', yesBg:'var(--primary)', yes:'omAbrirDoAtendimento(window._apptPetId)'});
+}
+function omAbrirDoAtendimento(petId){
+  const pet = DB.pets.find(p=>p.id===petId); const t = pet && tutorOf(pet);
+  if(!pet || !t){ toast('⚠ Este paciente não tem tutor cadastrado. Cadastre o tutor para montar o orçamento de vários animais.'); return; }
+  const itens = [...document.querySelectorAll('#fPItens .srow')].map(r => ({desc:(r.querySelector('.sDesc')?.value||'').trim(), valor: moedaVal(r.querySelector('.sVal'))})).filter(i=>i.desc || i.valor);
+  omAbrir(t.id, null, {over:true, petId: pet.id, itens});
+}
+function omAbrir(tid, recId, opt){
+  opt = opt || {};
+  const t = DB.tutors.find(x=>x.id===tid); if(!t) return;
+  const rec = recId ? (t.orcamentos||[]).find(r=>r.id===recId) : null;
+  window._om = {tid, recId: rec ? rec.id : null, seq: 0, over: !!opt.over};
+  const pg = rec ? {avista: rec.avistaPct||0, parcelas: rec.parcelas||[]} : omPag();
+  const dias = rec ? rec.dias : orcDiasPadrao();
+  omSheet('🧾 Orçamento — '+esc(t.name), `
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Escolha o animal, lance os serviços dele e toque em <b>➕ Adicionar animal</b> para o próximo. Tudo sai somado em um só PDF.</div>
+    <div id="omBlocos"></div>
+    <button type="button" class="btn outline" style="margin-top:4px" onclick="omAddBloco()">➕ Adicionar animal</button>
+    <div id="omTotal" class="card" style="margin-top:12px"></div>
+    <label style="margin-top:12px">Condições de pagamento</label>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label style="display:flex;gap:6px;align-items:center;margin:0;font-size:13px"><input type="checkbox" id="omAvOn" style="width:auto;margin:0" ${pg.avista>0?'checked':''} onchange="omRecalc()"> À vista com</label>
+      <input id="omAvPct" inputmode="decimal" value="${String(pg.avista>0?pg.avista:5).replace('.',',')}" style="width:64px;margin:0;text-align:center" oninput="omRecalc()"><span style="font-size:13px">% de desconto</span></div>
+    <div style="font-size:12px;color:var(--muted);margin:10px 0 4px">Parcelado sem juros em:</div>
+    <div class="chips" id="omParc">${[2,3,4,5,6].map(n=>`<button type="button" class="chip ${pg.parcelas.includes(n)?'on':''}" data-n="${n}" onclick="omParcToggle(this)">${n}x</button>`).join('')}</div>
+    <div style="display:flex;gap:10px;margin-top:12px;align-items:center"><span style="font-size:13px">Validade</span><input id="omDias" inputmode="numeric" value="${dias}" style="width:70px;margin:0;text-align:center"><span style="font-size:13px">dias</span></div>
+    <label>Observação (opcional — sai no PDF)</label><input id="omObs" value="${esc(rec?.obs||'')}" placeholder="Ex.: valores para aplicação no mesmo dia">`,
+    `<button class="btn gray" onclick="omFechar()">Cancelar</button><button class="btn" onclick="omGerar()">📄 Gerar PDF</button>`, !!opt.over);
+  if(rec && rec.blocos.length) rec.blocos.forEach(b => omAddBloco({petId:b.petId, nome:b.nome, itens:b.itens})); else if(opt.petId) omAddBloco({petId:opt.petId, itens:opt.itens}); else omAddBloco();
+  omRecalc();
+}
+function omColetar(){
+  const blocos = [];
+  document.querySelectorAll('#omBlocos .omb').forEach(b => {
+    const sel = b.querySelector('.omPet').value; const pet = sel!=='__novo' ? DB.pets.find(p=>p.id===sel) : null;
+    const nome = pet ? pet.name : (b.querySelector('.omNome').value||'').trim();
+    const itens = [...b.querySelectorAll('.omrow')].map(r => ({desc:(r.querySelector('.omDesc').value||'').trim(), valor: moedaVal(r.querySelector('.omVal'))})).filter(i=>i.desc || i.valor);
+    blocos.push({petId: pet ? pet.id : '', nome, especie: pet?.species||'', raca: pet ? (pet.breed||'SRD') : '', peso: pet?.weight||'', itens, subtotal: rnd2(itens.reduce((a,i)=>a+i.valor,0))});
+  });
+  return blocos;
+}
+function omGerar(){
+  const t = DB.tutors.find(x=>x.id===window._om?.tid); if(!t) return;
+  const todos = omColetar();
+  if(todos.some(b=>!b.nome && b.itens.length)){ toast('⚠ Digite o nome do animal'); return; }
+  const blocos = todos.filter(b=>b.itens.length);
+  if(!blocos.length || blocos.every(b=>b.subtotal<=0)){ toast('⚠ Adicione ao menos um serviço com valor'); return; }
+  if(blocos.some(b=>b.itens.some(i=>i.valor<0))){ toast('⚠ Valor negativo — corrija'); return; }
+  const raw = String(document.getElementById('omDias')?.value||'').trim();
+  if(!/^\d+$/.test(raw) || +raw<1 || +raw>365){ toast('⚠ Informe os dias de validade (de 1 a 365)'); return; }
+  const dias = parseInt(raw,10); const pg = omPagLer();
+  const total = rnd2(blocos.reduce((a,b)=>a+b.subtotal,0));
+  const old = window._om.recId ? (t.orcamentos||[]).find(r=>r.id===window._om.recId) : null;
+  const hoje = old ? old.emitido : todayISO();
+  const v = new Date(hoje+'T12:00:00'); v.setDate(v.getDate()+dias);
+  const rec = {id: old ? old.id : uid(), num: old ? old.num : 'ORC-'+hoje.replace(/-/g,'')+'-'+new Date().toTimeString().slice(0,5).replace(':',''),
+    emitido: hoje, dias, validoAte: v.toISOString().slice(0,10), blocos, total, avistaPct: pg.avista, parcelas: pg.parcelas,
+    obs: (document.getElementById('omObs')?.value||'').trim()};
+  t.orcamentos = t.orcamentos || [];
+  const i = t.orcamentos.findIndex(r=>r.id===rec.id); if(i>=0) t.orcamentos[i] = rec; else t.orcamentos.push(rec);
+  DB.vet = DB.vet || {}; DB.vet.orcValidadeDias = dias; DB.vet.orcPag = {avista: pg.avOn ? pg.avista : 0, parcelas: pg.parcelas};
+  save(); omFechar(); render();
+  printShell('Orçamento — '+t.name, orcMultiHTML(t, rec), `Orcamento_${orcSlug(t.name)||'Tutor'}_${hoje}`);
+}
+function omImprimir(tid, id){
+  const t = DB.tutors.find(x=>x.id===tid); const rec = t && (t.orcamentos||[]).find(r=>r.id===id); if(!rec) return;
+  printShell('Orçamento — '+t.name, orcMultiHTML(t, rec), `Orcamento_${orcSlug(t.name)||'Tutor'}_${rec.emitido}`);
+}
+function omExcluir(tid, id){ askDel('🧾 Excluir orçamento', 'Remover este orçamento da ficha do tutor?', `omDoExcluir('${tid}','${id}')`); }
+function omDoExcluir(tid, id){
+  const t = DB.tutors.find(x=>x.id===tid); if(!t) return;
+  t.orcamentos = (t.orcamentos||[]).filter(r=>r.id!==id); save(); render(); toast('🗑️ Orçamento removido');
+}
+function orcMultiHTML(t, rec){
+  const v = DB.vet || {};
+  const th = 'padding:8px 12px;font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:#fff;background:#1E3A6E;text-align:left';
+  const multi = rec.blocos.length > 1;
+  const blocos = rec.blocos.map(b => {
+    const rows = b.itens.map((i,k)=>`<tr style="background:${k%2?'#F4FAF9':'#fff'}"><td style="padding:9px 12px;font-size:14px">${esc(i.desc||'Serviço')}</td>
+      <td style="padding:9px 12px;font-size:14px;text-align:right;white-space:nowrap;font-weight:700">${omBRL(i.valor)}</td></tr>`).join('');
+    const info = [b.especie, b.raca, b.peso?b.peso+' kg':''].filter(Boolean).map(esc).join(' · ');
+    return `<div style="margin-top:16px;break-inside:avoid;page-break-inside:avoid">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;background:#EDF8F7;border-radius:10px 10px 0 0;padding:9px 14px"><b style="font-size:15px;color:#1E3A6E">${esc(b.nome||'Animal')}</b><span style="font-size:12px;color:#6B7A8D">${info}</span></div>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #D5EBE9"><thead><tr><th style="${th}">Serviço</th><th style="${th};text-align:right">Valor</th></tr></thead><tbody>${rows}</tbody>
+      ${multi?`<tfoot><tr><td style="padding:8px 12px;font-size:12px;color:#6B7A8D;text-align:right">Subtotal ${esc(b.nome||'')}</td><td style="padding:8px 12px;text-align:right;font-weight:800;white-space:nowrap">${omBRL(b.subtotal)}</td></tr></tfoot>`:''}</table></div>`;
+  }).join('');
+  const lin = omPagLinhas(rec.total, rec.avistaPct, rec.parcelas);
+  const pag = (rec.total>0 && lin.length) ? `<div style="margin-top:16px;border:1.5px solid #9FD8D1;border-radius:10px;padding:12px 16px;font-size:13.5px;break-inside:avoid;page-break-inside:avoid">
+      <div style="font-size:10px;letter-spacing:1px;color:#6B7A8D;font-weight:800;margin-bottom:6px">FORMAS DE PAGAMENTO</div>
+      ${lin.map(l=>`<div style="display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-top:1px solid #E3F2F0"><span>${l.k}</span><span style="text-align:right"><b>${l.v}</b>${l.extra?`<br><span style="font-size:11px;color:#1E8E4E">${l.extra}</span>`:''}</span></div>`).join('')}</div>` : '';
+  const val = fmtDate(rec.validoAte);
+  return `${letterheadHTML()}
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin:4px 0 14px">
+    <div class="doctitle" style="margin:0;text-align:left;font-size:26px;letter-spacing:6px">ORÇAMENTO</div>
+    <div style="text-align:right;font-size:11px;color:#6B7A8D;line-height:1.6"><b style="color:#1E3A6E">Nº ${esc(rec.num)}</b><br>Emitido em ${fmtDate(rec.emitido)}<br>Válido até ${val}</div></div>
+  <div style="height:3px;background:linear-gradient(90deg,#2DC0AE,#1E3A6E);border-radius:3px;margin-bottom:16px"></div>
+  <div style="background:#EDF8F7;border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.7">
+    <div style="font-size:10px;letter-spacing:1px;color:#6B7A8D;font-weight:800">TUTOR / RESPONSÁVEL</div>
+    <b style="font-size:15px">${esc(t.name||'—')}</b>${t.phone?`<br>${esc(fmtPhone(t.phone))}`:''}</div>
+  ${blocos}
+  <div style="margin:16px 0 0 auto;width:300px;break-inside:avoid;page-break-inside:avoid">
+    <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#1E3A6E,#2D5FA8);color:#fff;border-radius:10px;padding:12px 14px">
+      <span style="letter-spacing:2px;font-size:12px;font-weight:800">TOTAL</span><b style="font-size:20px">${omBRL(rec.total)}</b></div></div>
+  ${pag}
+  ${rec.obs?`<div style="margin-top:12px;font-size:13px;line-height:1.6"><b>Observação:</b> ${esc(rec.obs)}</div>`:''}
+  <div style="margin-top:18px;border:1.5px dashed #9FD8D1;border-radius:10px;padding:10px 14px;font-size:11.5px;line-height:1.7;color:#4A5B73;background:#FAFEFD;break-inside:avoid;page-break-inside:avoid">
+    Este orçamento é uma <b>estimativa</b> dos serviços e valores, válida por ${rec.dias} ${rec.dias===1?'dia':'dias'} a partir da emissão (até ${val}).
+    Os valores podem ser ajustados conforme a evolução clínica dos pacientes, exames adicionais ou intercorrências, sempre com o seu conhecimento prévio.</div>
+  <div style="margin-top:34px;text-align:center;break-inside:avoid;page-break-inside:avoid">
+    ${v.signature?`<img src="${v.signature}" style="height:56px;object-fit:contain;margin-bottom:-6px">`:''}
+    <div style="border-top:1.5px solid #1A2F5A;width:280px;margin:8px auto 4px"></div>
+    <div style="font-size:13px;font-weight:700;color:#1A2F5A">${esc(v.name||'Médico(a) Veterinário(a)')}</div>
+    <div style="font-size:12px;color:#6B7A8D">${crmvFull()||''}</div></div>`;
+}
+// catálogo dentro do orçamento do tutor
+function omCatBox(){
+  if(!(window._om && window._om.over)) return document.getElementById('modals2');
+  let c = document.getElementById('omModals3'); if(!c){ c = document.createElement('div'); c.id = 'omModals3'; document.body.appendChild(c); } return c;
+}
+function omCatAbrir(bid){
+  window._omCatB = bid; window._omPG = 'Todos'; window._omUsados = {};
+  omCatBox().innerHTML = `
+  <div class="modal" style="z-index:${window._om && window._om.over ? 175 : 160}" onclick="if(event.target===this)omCatFechar()">
+    <div class="sheet" style="height:90%;max-height:90%" role="dialog" aria-modal="true" aria-label="Catálogo de serviços">
+      <div class="mh"><h2>📚 Catálogo de serviços</h2><button class="x" onclick="omCatFechar()" aria-label="Fechar">✕</button></div>
+      <div style="padding:10px 18px 0;flex-shrink:0"><div id="omcPet" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div><input id="omcBusca" placeholder="🔎 Buscar no catálogo" oninput="omCatLista()" style="margin:0"><div class="chips" id="omcChips"></div></div>
+      <div class="mb" id="omcLista"></div>
+      <div class="mf"><div id="omcResumo" style="flex:1;font-size:12px;color:var(--muted);align-self:center"></div><button class="btn" style="width:auto;flex:1" onclick="omCatFechar()">✓ Concluir</button></div>
+    </div></div>`;
+  try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){}
+  omCatLista();
+}
+function omCatFechar(){ omCatBox().innerHTML = ''; try{ window.vfcFitViewport && window.vfcFitViewport(); }catch(e){} omRecalc(); }
+function omCatPet(){ const b = document.getElementById(window._omCatB); const sel = b && b.querySelector('.omPet'); return sel && sel.value !== '__novo' ? DB.pets.find(p=>p.id===sel.value) : null; }
+function omCatLista(){
+  const box = document.getElementById('omcLista'); if(!box) return;
+  const pet = omCatPet(); const peso = pet && pet.weight;
+  const pl = document.getElementById('omcPet'); if(pl) pl.innerHTML = pet ? `🐾 Lançando para <b>${esc(pet.name)}</b>${peso?' · '+peso+' kg':''}` : '🐾 Animal sem cadastro (por peso: escolha a faixa)';
+  const q = (document.getElementById('omcBusca')?.value||'').toLowerCase().trim();
+  const todos = catLista().filter(x=>x.ativo!==false);
+  const chips = document.getElementById('omcChips');
+  if(chips){ const gs = catChipsDef(todos);
+    chips.style.cssText = 'margin-top:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px';
+    chips.innerHTML = gs.length>2 ? gs.map(g=>`<button type="button" class="chip ${window._omPG===g.v?'on':''}" style="flex-shrink:0;white-space:nowrap" onclick="window._omPG='${g.v}';omCatLista()">${g.l}</button>`).join('') : ''; }
+  if(!catLista().length){ box.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center">Seu catálogo está vazio.<br>Cadastre os serviços na aba <b>📚 Catálogo</b> do menu, ou digite os serviços direto no orçamento.</div>'; return; }
+  const itens = todos.filter(x=>catNoFiltro(x, window._omPG) && (!q || x.nome.toLowerCase().includes(q))).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  box.innerHTML = itens.map(it => {
+    let sel = '';
+    if(it.tipo === 'peso'){
+      const pre = catFaixaPorPeso(it, peso);
+      sel = `<select id="omcF_${it.id}" style="margin:8px 0 0;font-size:14px">${pre<0?'<option value="">Escolha a faixa de peso…</option>':''}${it.faixas.map((f,i)=>`<option value="${i}" ${i===pre?'selected':''}>${catFaixaLabel(it,i)} — ${f.venda>0?omBRL(f.venda):'sem preço'}</option>`).join('')}</select>`;
+    }
+    const n = window._omUsados[it.id] || 0;
+    return `<div class="card omcitem" data-catid="${it.id}" style="padding:12px 14px;margin:0 0 10px">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div style="min-width:0;flex:1"><div style="font-size:15px;font-weight:800;line-height:1.25;overflow-wrap:anywhere;color:var(--text,#1A2F5A)">${esc(it.nome)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"><span>${esc(it.grupo||'')}</span>${catTipoPill(it)}</div></div>
+        <button type="button" id="omcU_${it.id}" class="btn sm ${n?'feito':''}" style="flex-shrink:0" onclick="omCatUsar('${it.id}')">${n?'✓ Adicionado'+(n>1?' ×'+n:''):'➕ Usar'}</button></div>
+      <div style="margin-top:8px">${catPrecoBloco(it, peso)}</div>${sel}
+      ${it.tipo==='pacote' ? `<div style="margin-top:10px">${catPacDetalhe(it, peso)}</div>` : ''}</div>`;
+  }).join('') || '<div style="font-size:13px;color:var(--muted);padding:14px;text-align:center">Nada encontrado.</div>';
+  const r = document.getElementById('omcResumo'); const b = document.getElementById(window._omCatB);
+  if(r && b){ const n = [...b.querySelectorAll('.omrow')].filter(x=>x.querySelector('.omDesc').value.trim()||moedaVal(x.querySelector('.omVal'))).length; r.innerHTML = n ? `Neste animal: <b>${n} ${n===1?'serviço':'serviços'}</b>` : 'Nenhum serviço ainda'; }
+}
+function omCatUsar(id){
+  const it = catItem(id); if(!it) return;
+  const b = document.getElementById(window._omCatB); if(!b){ return; }
+  const pet = omCatPet(); let faixaI = null;
+  if(it.tipo === 'peso'){ const s = document.getElementById('omcF_'+id); if(!s || s.value === ''){ toast('⚠ Escolha a faixa de peso'); return; } faixaI = parseInt(s.value,10); }
+  const linhas = catResolver(it, pet && pet.weight, faixaI);
+  if(!linhas.length){ toast('⚠ Este item não tem linhas para lançar'); return; }
+  const box = b.querySelector('.omItens');
+  const rows = [...box.querySelectorAll('.omrow')];
+  rows.forEach(r => { if(!r.querySelector('.omDesc').value.trim() && !moedaVal(r.querySelector('.omVal'))) r.remove(); });
+  linhas.forEach(l => box.insertAdjacentHTML('beforeend', omRowHTML(l.desc, l.venda)));
+  omRecalc();
+  window._omUsados[id] = (window._omUsados[id]||0) + 1;
+  omCatLista();
+  if(linhas.some(l=>!(l.venda>0))) toast('⚠ Adicionado, mas há item sem preço no catálogo');
+}
+
 function printOrcamento(petId){
   const pet = DB.pets.find(p=>p.id===petId);
   if(!pet){ toast('⚠ Paciente não encontrado'); return; }
@@ -11449,7 +12850,39 @@ function printOrcamento(petId){
   if(!dias){ toast('⚠ Informe os dias de validade (de 1 a 365)'); document.getElementById('fPOrcDias')?.focus(); return; }
   DB.vet = DB.vet || {}; if(DB.vet.orcValidadeDias !== dias){ DB.vet.orcValidadeDias = dias; save(); }
   const hoje = todayISO();
+  orcSalvarNaFicha(pet, o, dias, hoje);
   printShell('Orçamento — ' + pet.name, orcamentoHTML(pet, o, hoje, dias), `Orcamento_${orcSlug(pet.name)||'Paciente'}_${hoje}`);
+}
+// v10.07 — impressão do navegador: o timbre ([data-timbre]) vira cabeçalho de tabela, que o
+// navegador repete no topo de TODAS as folhas. Em 1 folha o resultado é idêntico ao anterior.
+function vfcRepetirTimbre(d){
+  try{
+    // v10.07: a 2ª via da Receita de Controle Especial não força quebra depois dela (gerava uma folha extra só com o rodapé)
+    const _vs = d.querySelectorAll('.via'); if(_vs.length) _vs[_vs.length-1].style.pageBreakAfter = 'auto';
+    const body = d.body; if(!body || !body.querySelector('[data-timbre]')) return;
+    const css = d.createElement('style');
+    css.textContent = 'table.vfc-pg{width:100%;border-collapse:collapse;border-spacing:0}table.vfc-pg>thead{display:table-header-group}table.vfc-pg>thead>tr>td,table.vfc-pg>tbody>tr>td{padding:0;border:0;vertical-align:top}';
+    d.head.appendChild(css);
+    const wrap = cont => {
+      const kids = Array.from(cont.children);
+      const i = kids.findIndex(c => c.hasAttribute('data-timbre')); if(i < 0) return;
+      const t = kids[i];
+      const depois = kids.slice(i + 1).filter(c => !c.classList.contains('wmfree'));
+      // as margens não colapsam mais entre cabeçalho e corpo da tabela: compensa para manter o layout idêntico
+      try{ const cs = e => d.defaultView.getComputedStyle(e); const mb = parseFloat(cs(t).marginBottom) || 0;
+        const pr = depois[0]; if(pr){ const mt = parseFloat(cs(pr).marginTop) || 0; pr.style.marginTop = Math.max(0, mt - mb) + 'px'; } }catch(e){}
+      const ph = d.createComment('timbre'); cont.insertBefore(ph, t);
+      const table = d.createElement('table'); table.className = 'vfc-pg';
+      const th = d.createElement('thead'), trh = d.createElement('tr'), tdh = d.createElement('td');
+      tdh.appendChild(t); trh.appendChild(tdh); th.appendChild(trh);
+      const tb = d.createElement('tbody'), trb = d.createElement('tr'), tdb = d.createElement('td');
+      depois.forEach(k => tdb.appendChild(k)); trb.appendChild(tdb); tb.appendChild(trb);
+      table.appendChild(th); table.appendChild(tb);
+      cont.replaceChild(table, ph);
+    };
+    const vias = Array.from(body.querySelectorAll('.via')).filter(v => v.querySelector('[data-timbre]'));
+    if(vias.length) vias.forEach(wrap); else wrap(body);
+  }catch(e){ console.warn('timbre', e); }
 }
 function printShell(title, inner, fileName){
   const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileName||title}</title><style>
@@ -11462,6 +12895,7 @@ function printShell(title, inner, fileName){
     .box{border:1.5px solid #1A2F5A;border-radius:6px;padding:10px 12px;margin-bottom:12px;font-size:12px}
     .box b.bt{display:block;font-size:10px;letter-spacing:1px;color:#6B7A8D;margin-bottom:6px}
     .fill{display:inline-block;border-bottom:1px solid #999;min-width:180px}
+    .box,.sigbox,.rxinfo{break-inside:avoid;page-break-inside:avoid}
     .via{page-break-after:always}
     .via:last-child{page-break-after:auto}
     .vialbl{text-align:right;font-size:10px;font-weight:800;color:#6B7A8D;letter-spacing:1px;margin-bottom:8px}
@@ -11479,6 +12913,7 @@ function printShell(title, inner, fileName){
   document.body.appendChild(f);
   const d = f.contentDocument || f.contentWindow.document;
   d.open(); d.write(html); d.close();
+  vfcRepetirTimbre(d);
   setTimeout(() => {
     // v9.94: o nome sugerido ao "Salvar como PDF" vem do título da página — usa o nome organizado
     const oldTitle = document.title;
@@ -11642,26 +13077,80 @@ async function gerarReceitaPdfReal(innerHTML, fileNameBase, assinarInfo, modo){
     const pageScale = A4W / canvas.width;
     const pxPerPage = A4H / pageScale;
     const totalPx = canvas.height;
-    if(totalPx <= pxPerPage){
+    // v10.05: posições (em px do canvas) dos blocos que NÃO podem ser cortados ao meio
+    const kf = canvas.width / holder.offsetWidth, hTop = holder.getBoundingClientRect().top;
+    const blocos = [];
+    Array.from(holder.children).forEach(el => {
+      if(el.tagName === 'STYLE') return;
+      const r = el.getBoundingClientRect();
+      blocos.push({ t: Math.round((r.top - hTop) * kf), b: Math.round((r.bottom - hTop) * kf), box: !el.classList.contains('content') });
+      // linhas do texto da prescrição (pode quebrar entre linhas)
+      if(el.classList.contains('content')){
+        const lh = parseFloat(getComputedStyle(el).lineHeight) * kf;
+        const cT = blocos[blocos.length-1].t, cB = blocos[blocos.length-1].b; // v10.08: limites fixados ANTES do laço (bug: só 1 linha candidata)
+        if(lh > 0) for(let y = cT + lh; y < cB - 1; y += lh) blocos.push({ t: Math.round(y), b: Math.round(y), box: false, linha: true });
+      }
+    });
+    window._lastRxBlocks = blocos; window._lastRxBreaks = [];
+    window._lastRxTotal = totalPx; window._lastRxPxPage = pxPerPage;
+    const caberUma = totalPx <= pxPerPage;
+    if(caberUma){
       const png = await pdfDoc.embedPng(canvas.toDataURL('image/png'));
       const scaledH = totalPx * pageScale;
       const page = pdfDoc.addPage([A4W, A4H]);
       page.drawImage(png, { x:0, y:A4H-scaledH, width:A4W, height:scaledH });
+    } else if(totalPx <= pxPerPage * 1.3){
+      // Passa só um pouco de uma página: reduz para caber INTEIRA numa folha (sem cortar nada)
+      const fit = pxPerPage / totalPx;
+      const png = await pdfDoc.embedPng(canvas.toDataURL('image/png'));
+      const w = A4W * fit, h = A4H;
+      const page = pdfDoc.addPage([A4W, A4H]);
+      page.drawImage(png, { x:(A4W - w) / 2, y:0, width:w, height:h });
     } else {
-      // Conteúdo mais alto que uma página A4: fatia o canvas e gera 1 página por fatia
+      // Conteúdo bem mais alto que uma página: quebra ENTRE blocos (nunca no meio de um quadro)
+      // v10.06: o TIMBRE (data-timbre) é repetido no topo de todas as folhas a partir da 2ª
+      const tEl = holder.querySelector('[data-timbre]');
+      let timbreCv = null, H2 = 0;
+      if(tEl){
+        const tr = tEl.getBoundingClientRect();
+        const tT = Math.max(0, Math.round((tr.top - hTop) * kf)), tH = Math.round(tr.height * kf);
+        timbreCv = document.createElement('canvas'); timbreCv.width = canvas.width; timbreCv.height = tH;
+        timbreCv.getContext('2d').drawImage(canvas, 0, tT, canvas.width, tH, 0, 0, canvas.width, tH);
+        H2 = tT + tH + Math.round(22 * kf); // margem superior + timbre + respiro
+      }
+      const cap = i => (i === 0 || !timbreCv) ? pxPerPage : pxPerPage - H2;
+      const cortes = [];
       let y = 0;
-      while(y < totalPx){
-        const sliceH = Math.min(pxPerPage, totalPx - y);
+      while(totalPx - y > cap(cortes.length)){
+        const c = cap(cortes.length), limite = y + c;
+        let melhor = -1;
+        for(const bl of blocos){
+          if(bl.t > y + c * 0.35 && bl.t <= limite){
+            const cortaBox = blocos.some(o => o.box && !o.linha && o.t < bl.t && o.b > bl.t && (o.b - o.t) < pxPerPage);
+            if(!cortaBox && bl.t > melhor) melhor = bl.t;
+          }
+        }
+        const fim = melhor > 0 ? melhor : limite;
+        cortes.push(fim); y = fim;
+      }
+      window._lastRxBreaks = cortes.slice();
+      window._lastRxTimbrePages = 0;
+      let ini = 0, pgIdx = 0;
+      for(const fim of [...cortes, totalPx]){
+        const sliceH = fim - ini;
+        const comTimbre = pgIdx > 0 && !!timbreCv;
         const sliceCanvas = document.createElement('canvas');
         sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceH;
+        sliceCanvas.height = sliceH + (comTimbre ? H2 : 0);
         const ctx = sliceCanvas.getContext('2d');
         ctx.fillStyle = '#fff'; ctx.fillRect(0,0,sliceCanvas.width,sliceCanvas.height);
-        ctx.drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+        if(comTimbre){ ctx.drawImage(timbreCv, 0, H2 - timbreCv.height - Math.round(22 * kf)); window._lastRxTimbrePages++; }
+        ctx.drawImage(canvas, 0, ini, canvas.width, sliceH, 0, comTimbre ? H2 : 0, canvas.width, sliceH);
         const slicePng = await pdfDoc.embedPng(sliceCanvas.toDataURL('image/png'));
         const page = pdfDoc.addPage([A4W, A4H]);
-        page.drawImage(slicePng, { x:0, y:A4H-(sliceH*pageScale), width:A4W, height:sliceH*pageScale });
-        y += sliceH;
+        const dh = sliceCanvas.height * pageScale;
+        page.drawImage(slicePng, { x:0, y:A4H-dh, width:A4W, height:dh });
+        ini = fim; pgIdx++;
       }
     }
     let bytes;
@@ -11836,7 +13325,7 @@ function printRx(petId, rxId){
     // Receita de Controle Especial — 2 vias
     const via = lbl => `<div class="via">
       <div class="vialbl">${lbl}</div>
-      <div class="box"><b class="bt">IDENTIFICAÇÃO DO EMITENTE</b>
+      <div class="box" data-timbre="1"><b class="bt">IDENTIFICAÇÃO DO EMITENTE</b>
         <b>Nome:</b> ${esc(DB.vet.name||'')}<br>
         <b>CRMV:</b> ${crmvFull()||''} &nbsp;·&nbsp; <b>SIPEAGRO/MAPA:</b> ${esc(DB.vet.sipeagro||'')}<br>
         ${DB.vet.email?`<b>E-mail:</b> ${esc(DB.vet.email)}`:''}</div>
@@ -12145,8 +13634,40 @@ if('serviceWorker' in navigator){
 }
 
 // ═══════════ INIT ═══════════
+// v10.16: aviso ao abrir quando o backup está atrasado (1x por dia) — não roda em navegador automatizado (testes), salvo flag
+function avisoBackupAbertura(){
+  try{
+    if(navigator.webdriver && !window._vfcForceBkModal) return;
+    if(!DB.pets || !DB.pets.length) return;
+    if(nivelRisco() < 2) return;
+    if(testStorage.getItem('vfc_bk_modal') === todayISO()) return;
+    if(document.getElementById('modals2').innerHTML.trim() || document.querySelector('.access-screen') || document.querySelector('#modals .modal')) return;
+    const d = daysSinceBackup(), a = altsSemBackup();
+    vfcConfirm({icon:'💾', title:'Hora de fazer o backup',
+      msg: (d>999 ? 'Você ainda <b>não fez nenhum backup</b>.' : 'Seu último backup foi há <b>'+d+' dia'+(d===1?'':'s')+'</b>.') + (a?'<br><b>'+a+'</b> alterações ainda não estão protegidas.':'') + '<br>Se o celular for perdido ou o Chrome for limpo, é o backup que salva tudo.',
+      note:'Leva poucos segundos. Salve no Drive ou mande para você no WhatsApp.', noteColor:'var(--vac)',
+      noLabel:'Depois', yesLabel:'💾 Fazer backup agora', yesBg:'var(--success)', yes:"testStorage.setItem('vfc_bk_modal','"+todayISO()+"');exportJSON()", no:"testStorage.setItem('vfc_bk_modal','"+todayISO()+"')"});
+  }catch(e){ console.warn('avisoBackup', e); }
+}
+// v10.16: tenta de novo travar o armazenamento (Chrome só concede após uso/instalação) — num toque do usuário
+async function reforcarPersistencia(){
+  try{
+    if(navigator.storage && navigator.storage.persist){
+      window._persistOK = await navigator.storage.persisted() || await navigator.storage.persist();
+    }
+  }catch(e){}
+  return !!window._persistOK;
+}
+(function(){
+  let feito = false;
+  const f = () => { if(feito) return; feito = true; if(!window._persistOK) reforcarPersistencia(); document.removeEventListener('pointerdown', f, true); };
+  document.addEventListener('pointerdown', f, true);
+})();
 function bootApp(){
   applyDark();
+  setTimeout(nativeBackupAuto, 25000);
+  setTimeout(avisoBackupAbertura, 4000);
+  hidratarGrandes().then(n=>{ if(n && testStorage.getItem('vfc_entered')){ try{ render(); }catch(e){} } }).catch(()=>{});
   // Restaura em memória a senha do certificado A1, SE o veterinário optou por
   // salvá-la neste aparelho (DB.vet.cert.savePassword). Se ele escolheu não
   // salvar, savedPassword fica null e a senha precisa ser digitada de novo.
@@ -12164,6 +13685,7 @@ function bootApp(){
   migrateDocsToIDB();
   initDataProtection();
   setTimeout(localizarArquivosAuto, 2500);
+  setTimeout(aplicarAtalhoURL, 600);
   if(testStorage.getItem('vfc_entered')){
     document.getElementById('splash').classList.add('hidden');
     document.getElementById('appHeader').classList.remove('hidden');
@@ -12324,7 +13846,7 @@ function showEntryRegister(){
       </div>
     </div>
     <button class="reg-submit" onclick="doEntryRegister()">Criar acesso e entrar →</button>
-    <button class="reg-link" onclick="showLoginExistente()">Já tenho cadastro — entrar</button>
+    <button class="reg-link" onclick="showLoginExistente()">Já tenho cadastro — entrar ou restaurar backup</button>
     <div id="regErr" class="reg-err"></div>
   </div>
   <div class="reg-foot">B&G Systems · Gestão veterinária completa</div>`;
@@ -12339,7 +13861,7 @@ function showLoginExistente(){
  if(getAuth()){showLockScreen();return;}
  accessView('lgvOverlay','Já tenho cadastro','Acesse os dados salvos neste aparelho ou restaure um backup.',`
  <div class="access-notice"><b>Seu cadastro fica no aparelho</b><p>Digitar o e-mail e a senha em outro dispositivo não recupera seus dados automaticamente.</p></div>
- ${DB.userProfile?'<button onclick="fecharLgvOverlay();enterApp()">Acessar meus dados</button>':'<p class="access-note">Não há cadastro local disponível. Para trazer seus dados, use um backup JSON ou o pacote criptografado exportado pelo app.</p><button onclick="doLoginExistente()">Abrir opções de restauração →</button>'}
+ ${DB.userProfile?'<button onclick="fecharLgvOverlay();enterApp()">Acessar meus dados</button>':'<p class="access-note">Não há cadastro local disponível. Para trazer seus dados, use um backup JSON ou o pacote criptografado exportado pelo app.</p><button onclick="restaurarPreCadastro()">📥 Restaurar backup agora</button><button class="access-link" onclick="doLoginExistente()">Outras opções de restauração</button>'}
  <button class="access-link" onclick="fecharLgvOverlay()">← Voltar ao cadastro</button>`);
 }
 async function doLoginExistente(){
@@ -12442,6 +13964,7 @@ async function doEntryRegister(){
 }
 // Convida a pessoa a avisar a equipe B&G pelo WhatsApp que começou o teste (opcional)
 function avisarInicioTrial(){
+  if(isPlayStore()) return; // versão da loja: não aciona venda/contato comercial
   const p = DB.userProfile || {};
   const nome = (p.nome||'').split(' ')[0] || 'Veterinário(a)';
   const el = document.createElement('div');
@@ -12488,11 +14011,24 @@ function doAvisarInicioTrial(){
 }
 function afterLGPD(){
   if(window._LOCKED){showLockScreen();return;}
+  // v10.19: autocura — há pacientes salvos mas faltou o perfil (backup antigo restaurado): não pede cadastro de novo
+  try{
+    if(!getAuth() && !DB.userProfile && DB.pets && DB.pets.length){
+      DB.userProfile = perfilDeRestauracao(DB);
+      testStorage.setItem('vfc_entered','1');
+      persistDB();
+    }
+  }catch(e){ console.warn('autocura perfil', e); }
   if(getAuth() || DB.userProfile || testStorage.getItem('vfc_skip_lock')){bootApp();return;}
   showEntryRegister();
+  setTimeout(nativeOferecerRestauracao, 1200);
 }
 if(!testStorage.getItem('vfc_lgpd'))showLGPD();else afterLGPD();
 </script>
 
+<script>
+// v10.11: vibração leve ao tocar em botões/opções (quando o aparelho permite)
+document.addEventListener('click',function(e){try{var t=e.target&&e.target.closest&&e.target.closest('.btn,.chip,nav button,.ptabs button');if(t&&navigator.vibrate)navigator.vibrate(8)}catch(x){}},true);
+</script>
 </body>
 </html>
