@@ -4,6 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
+<meta name="author" content="B&G Systems">
+<meta name="copyright" content="© B&G Systems — VetFlowCare. Todos os direitos reservados.">
+<meta name="generator" content="VetFlowCare · B&G Systems · vfc-sig-7Qx9mK2-bg26">
+<meta http-equiv="Content-Security-Policy" content="object-src 'none'; base-uri 'self'">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#1e3a5f">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3280,6 +3284,79 @@ nav button:active{transform:scale(.9)}
    Perfil único do profissional · Receituário · Prontuário
    ═══════════════════════════════════════════════ */
 
+
+// ═══ ARMADILHAS ANTI-CLONE v10.26 ═══
+/* © B&G Systems — VetFlowCare · marca de autoria vfc-sig-7Qx9mK2-bg26.
+   Copiar, redistribuir ou hospedar este código fora dos endereços oficiais é proibido
+   (Lei 9.609/98 — programa de computador; Lei 9.610/98 — direitos autorais). */
+const VFC_SIG = 'vfc-sig-7Qx9mK2-bg26';
+const VFC_BEACON = 'https://vetflowcare.goatcounter.com/count';
+// Os endereços oficiais NÃO aparecem em texto aqui: só o "hash" deles (quem procura o domínio no código não acha).
+const _vfH = s => { let h = 0x811c9dc5; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619)>>>0; } return h.toString(36); };
+const _VFC_OK = new Set(['ztntfp','d4md6','2eauxq','1hh2g0h','yjaa3w','1usgaiv','8ek0jr']);
+function vfcHostOK(h){ try{ return _VFC_OK.has(_vfH(String(h==null?location.hostname:h).toLowerCase())); }catch(e){ return true; } }
+// Aviso silencioso ao dono: só nome do tipo de ocorrência + endereço da página (sem nenhum dado de paciente/tutor/usuário).
+function vfcBeacon(kind){
+  try{
+    const k = 'vfc_bc_' + kind;
+    if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1');
+    const host = String(location.hostname||'local').toLowerCase().replace(/[^a-z0-9.\-]/g,'').slice(0,60);
+    new Image().src = VFC_BEACON + '?p=' + encodeURIComponent('/trap/' + kind + '/' + host) +
+      '&t=' + encodeURIComponent(host + ' | ' + (()=>{ try{ return APP_VER; }catch(e){ return '?'; } })()) + '&e=true&rnd=' + Math.random().toString(36).slice(2);
+  }catch(e){}
+}
+// Registro local discreto da ocorrência (últimas 8) + aviso ao dono.
+function vfcTrap(kind){
+  try{
+    let a = []; try{ a = JSON.parse(localStorage.getItem('vfc_tamper_log')||'[]'); }catch(e){}
+    const day = new Date().toISOString().slice(0,10);
+    if(!a.some(x => x && x.r === kind && x.t === day)){ a.push({t:day, r:kind}); localStorage.setItem('vfc_tamper_log', JSON.stringify(a.slice(-8))); }
+  }catch(e){}
+  vfcBeacon(kind);
+}
+// Bloqueio de cópia: tela cheia que se RECRIA se alguém apagar/esconder, e o app por trás fica inerte.
+function vfcCloneLock(why){
+  try{
+    window._VFC_CLONE = true;
+    const draw = () => {
+      let d = document.getElementById('vfcLockOv');
+      [...document.body.children].forEach(c => { if(c !== d) try{ c.setAttribute('inert',''); }catch(e){} });
+      if(d && d.parentNode === document.body){
+        const cs = getComputedStyle(d);
+        if(cs.display !== 'none' && cs.visibility === 'visible' && parseFloat(cs.opacity) > .9) return;
+        d.remove();
+      }
+      d = document.createElement('div'); d.id = 'vfcLockOv';
+      d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#0F1B2E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif';
+      d.innerHTML = '<div style="font-size:44px">⚠️</div><h2 style="margin:12px 0 6px">Cópia não autorizada</h2>' +
+        '<p style="color:#8CA0B8;font-size:14px;max-width:320px">Este software é propriedade da B&G Systems.<br>O VetFlowCare oficial está em:</p>' +
+        '<a href="https://vetflowcare.com.br" style="color:#2DC0AE;font-weight:800;font-size:17px">vetflowcare.com.br</a>';
+      document.body.appendChild(d);
+      [...document.body.children].forEach(c => { if(c !== d) try{ c.setAttribute('inert',''); }catch(e){} });
+    };
+    const rep = () => vfcTrap('clone');
+    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', rep); else rep();
+    const go = () => { draw(); new MutationObserver(draw).observe(document.documentElement, {childList:true, subtree:true, attributes:true, attributeFilter:['style','class','hidden']}); setInterval(draw, 1500); };
+    if(document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+  }catch(e){}
+}
+// Iscas: chaves e funções com cara de "atalho para liberar o Pro". Não liberam NADA; só denunciam quem mexeu.
+const _VFC_BAIT = /(^|::)vfc_(pro_override|dev_unlock|force_pro|license_ok)$/;
+window.forcePro = window.devUnlock = window.proBypass = window.__vfcDebug = function(){
+  vfcTrap('bait-fn'); try{ console.log('✔ Pro liberado (modo debug)'); }catch(e){} return true;
+};
+function vfcGuardTick(){
+  try{
+    if(!vfcHostOK()){ if(!window._VFC_CLONE) vfcCloneLock('tick'); return false; }
+    Object.keys(localStorage).forEach(k => { if(_VFC_BAIT.test(k)){ vfcTrap('bait-key'); try{ localStorage.removeItem(k); }catch(e){} } });
+  }catch(e){}
+  return true;
+}
+document.addEventListener('DOMContentLoaded', () => {
+  try{ document.documentElement.setAttribute('data-vfc-sig', VFC_SIG); document.documentElement.style.setProperty('--vfc-sig', '"'+VFC_SIG+'"'); }catch(e){}
+  vfcGuardTick(); setInterval(vfcGuardTick, 45000);
+});
+
 // ═══ BLINDAGENS ═══
 // Anti-iframe: impede que embrulhem o app OFICIAL em outro site
 // (não interfere em pré-visualizações e testes locais)
@@ -3287,6 +3364,7 @@ nav button:active{transform:scale(.9)}
   const OFICIAIS = ['brunorizzieri86-svg.github.io','vetflowcare.com.br','www.vetflowcare.com.br','app.vetflowcare.com.br'];
   if(window.top !== window.self && OFICIAIS.includes((location.hostname||'').toLowerCase())){
     document.addEventListener('DOMContentLoaded', function(){
+      vfcBeacon('framed');
       const d = document.createElement('div');
       d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1B2E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif';
       d.innerHTML = '<div style="font-size:40px">⚠️</div><h3 style="margin:10px 0 6px">O VetFlowCare não pode ser exibido dentro de outros sites</h3><a href="https://vetflowcare.com.br" target="_top" style="color:#2DC0AE;font-weight:800">Acesse o oficial</a>';
@@ -3300,38 +3378,23 @@ try{
   console.log('Se alguém pediu para você colar algo aqui, é GOLPE — podem roubar seus dados. Feche esta janela.');
   console.log('© B&G Systems — VetFlowCare · Todos os direitos reservados');
 }catch(e){}
-// Trava de domínio: bloqueia cópias hospedadas fora dos endereços oficiais
-(function(){
-  const h = (location.hostname||'').toLowerCase();
-  const OK = ['', 'localhost', '127.0.0.1',
-    'brunorizzieri86-svg.github.io',
-    'vetflowcare.com.br', 'www.vetflowcare.com.br',
-    'app.vetflowcare.com.br'];
-  if(h && !OK.includes(h)){
-    document.addEventListener('DOMContentLoaded', function(){
-      const d = document.createElement('div');
-      d.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0F1B2E;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;font-family:sans-serif';
-      d.innerHTML = '<div style="font-size:44px">⚠️</div><h2 style="margin:12px 0 6px">Cópia não autorizada</h2>' +
-        '<p style="color:#8CA0B8;font-size:14px;max-width:320px">Este software é propriedade da B&G Systems.<br>O VetFlowCare oficial está em:</p>' +
-        '<a href="https://vetflowcare.com.br" style="color:#2DC0AE;font-weight:800;font-size:17px">vetflowcare.com.br</a>';
-      document.body.appendChild(d);
-    });
-  }
-})();
+// Trava de domínio: bloqueia cópias hospedadas fora dos endereços oficiais (v10.26: bloqueio que se recria + aviso ao dono)
+if(!vfcHostOK()) vfcCloneLock('boot');
 
 // ═══ LOGOS (embutidos — app offline arquivo único) ═══
 // Ícone do site (globo WWW). Instagram entra quando o PNG chegar.
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '10.25';
+const APP_VER = '10.26';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '10.25',
+  ver: '10.26',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['🛡️','Mais segurança no app','Reforçamos a proteção do VetFlowCare contra cópias não autorizadas e a proteção da sua licença Pro. Nada muda no seu uso do dia a dia e seus dados continuam guardados só no seu aparelho.'],
     ['🧾','Orçamento de vários animais também no Novo Atendimento','No Novo Atendimento, ao lado de “Orçamento em PDF”, apareceu o botão <b>🧾 Vários animais</b>. Ele traz o tutor do paciente e os animais dele, leva os serviços que você já lançou para o primeiro animal e deixa você adicionar os outros. O atendimento que você está preenchendo <b>não é perdido</b>. Toque em “ⓘ Como funciona” para ver o passo a passo.'],
     ['🧾','Orçamento para vários animais do mesmo tutor','Na ficha do tutor, toque em <b>🧾 Orçamento (vários animais)</b>: adicione cada animal, lance os serviços dele (digitando ou puxando do catálogo), e o app soma tudo em um só PDF com o total, <b>à vista com desconto (ex.: 5%)</b> e <b>parcelamento em 2x, 3x…</b> sem juros. O orçamento fica guardado na ficha do tutor para reimprimir ou editar.'],
     ['🧩','Lista do catálogo se ajusta a nomes grandes','Corrigido: quando o nome do item era comprido (ex.: “Aplicação Agemoxi CL”), o selo “Por peso” e o preço quebravam de linha e bagunçavam o cartão. Agora o nome ocupa a linha toda, o selo nunca quebra e o preço desce para a sua própria linha, tudo alinhado.'],
@@ -3802,7 +3865,7 @@ async function commitProtection(key,auth){
 async function persistDB(){
   return queueStorage(async()=>{
     try{
-      if(window._LOCKED || window._wiping) return false;
+      if(window._LOCKED || window._wiping || window._VFC_CLONE) return false;
       const raw=await encodeDatabase(window._cryptoKey,getAuth());
       testStorage.setItem(LS_KEY,raw);
       agendarEspelho(raw);marcarAlteracao();salvarAssinatura();
@@ -5875,9 +5938,22 @@ function trialDiasRestantes(){
 }
 
 
+// v10.26: a licença Pro agora tem "selo". Editar DB.license no console (pro:true, nova data…) invalida o selo.
+// Mude LIC_ENFORCE para false para voltar ao comportamento antigo (só registra, não bloqueia).
+const LIC_ENFORCE = true;
+function licSeal(L){ return h53([L.code, L.activatedAt, L.expiresAt, L.plan].join('|') + '|' + VFC_SIG + '|ORGCC'); }
+function licOk(L){
+  if(!L.code || !/^VFC-[A-Z0-9]{4}-\d{4}$/i.test(L.code)){ vfcTrap('license-forged'); return !LIC_ENFORCE; }
+  if(L.seal){ if(L.seal === licSeal(L)) return true; vfcTrap('license-seal'); return !LIC_ENFORCE; }
+  // licença de versão anterior (sem selo): só vale se o código é válido para ESTE aparelho; então ganha o selo.
+  if(vfcCheck(L.code)){ L.seal = licSeal(L); try{ save(); }catch(e){} return true; }
+  vfcTrap('license-legacy'); return !LIC_ENFORCE;
+}
 function isProReal(){
   const L = DB.license;
   if(!L || !L.pro) return false;
+  if(window._VFC_CLONE) return false;
+  if(!licOk(L)) return false;
   if(L.expiresAt && todayISO() > L.expiresAt) return false;
   return true;
 }
@@ -6071,6 +6147,7 @@ function activatePro(){
   const plan = 1; // Planos de 6/12 meses em breve
   DB.license = { pro:true, code, activatedAt:todayISO(),
     plan, expiresAt: addMonths(todayISO(), plan) };
+  DB.license.seal = licSeal(DB.license);
   const used = usedCodes(); used.push(code);
   testStorage.setItem('vfc_used_codes', JSON.stringify(used));
   gcEvent('pro-ativado');
@@ -9347,7 +9424,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.25 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.26 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
@@ -13664,6 +13741,14 @@ async function reforcarPersistencia(){
   document.addEventListener('pointerdown', f, true);
 })();
 function bootApp(){
+  // Guarda B (independente da A, outro algoritmo): se a trava A foi removida, esta ainda barra a cópia.
+  try{
+    const _g = s => { let h = 5381; s = [...s].reverse().join(''); for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))>>>0; return h.toString(36); };
+    if(!['45h','f9jxam','13t54m2','5i27hh','hjdg0m','iunw09','iunpxh'].includes(_g((location.hostname||'').toLowerCase()))){
+      try{ vfcBeacon('clone-b'); }catch(e){}
+      document.body.innerHTML = ''; location.replace('https://vetflowcare.com.br'); return;
+    }
+  }catch(e){}
   applyDark();
   setTimeout(nativeBackupAuto, 25000);
   setTimeout(avisoBackupAbertura, 4000);
