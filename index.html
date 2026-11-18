@@ -3386,14 +3386,15 @@ if(!vfcHostOK()) vfcCloneLock('boot');
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '10.26';
+const APP_VER = '10.27';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '10.26',
+  ver: '10.27',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['📱','Envio de fotos e exames mais seguro no iPhone','Se o envio de uma foto ou PDF falhar, o aviso agora diz o motivo (sem espaço no aparelho, armazenamento bloqueado pelo Safari, foto que não abre) e o que fazer. O app também tenta reabrir o armazenamento sozinho antes de desistir.'],
     ['🛡️','Mais segurança no app','Reforçamos a proteção do VetFlowCare contra cópias não autorizadas e a proteção da sua licença Pro. Nada muda no seu uso do dia a dia e seus dados continuam guardados só no seu aparelho.'],
     ['🧾','Orçamento de vários animais também no Novo Atendimento','No Novo Atendimento, ao lado de “Orçamento em PDF”, apareceu o botão <b>🧾 Vários animais</b>. Ele traz o tutor do paciente e os animais dele, leva os serviços que você já lançou para o primeiro animal e deixa você adicionar os outros. O atendimento que você está preenchendo <b>não é perdido</b>. Toque em “ⓘ Como funciona” para ver o passo a passo.'],
     ['🧾','Orçamento para vários animais do mesmo tutor','Na ficha do tutor, toque em <b>🧾 Orçamento (vários animais)</b>: adicione cada animal, lance os serviços dele (digitando ou puxando do catálogo), e o app soma tudo em um só PDF com o total, <b>à vista com desconto (ex.: 5%)</b> e <b>parcelamento em 2x, 3x…</b> sem juros. O orçamento fica guardado na ficha do tutor para reimprimir ou editar.'],
@@ -3887,8 +3888,15 @@ function idbOpen(){
       if(!db.objectStoreNames.contains('snap')) db.createObjectStore('snap');
       if(!db.objectStoreNames.contains('mirror')) db.createObjectStore('mirror');
     };
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
+    r.onsuccess = () => {
+      const db = r.result;
+      // v10.27: o Safari do iPhone pode fechar a conexão sozinho (pouca memória, app em segundo plano). Esquecemos a conexão velha para reabrir na próxima.
+      db.onclose = () => { if(_idb === db) _idb = null; };
+      db.onversionchange = () => { try{ db.close(); }catch(e){} if(_idb === db) _idb = null; };
+      res(db);
+    };
+    r.onerror = () => rej(r.error || new Error('idb-open'));
+    r.onblocked = () => rej(new Error('idb-blocked'));
   });
 }
 function idbStore(store, mode, fn){
@@ -3902,22 +3910,55 @@ function idbStore(store, mode, fn){
     });
   })();
 }
-async function idbPut(id, data){
+// v10.27 — erros que NÃO adianta tentar de novo (falta de espaço / dado inválido)
+function idbErroFinal(e){ const n = (e && e.name) || ''; return n === 'QuotaExceededError' || n === 'DataCloneError' || n === 'DataError'; }
+function idbReset(){ try{ _idb && _idb.close(); }catch(e){} _idb = null; }
+// roda a operação; se o navegador (Safari) derrubou a conexão, reabre o banco e tenta mais uma vez
+async function idbComRetry(fn){
+  try{ return await fn(); }
+  catch(e){
+    if(idbErroFinal(e)) throw e;
+    console.warn('idb: tentando de novo', e);
+    idbReset(); await new Promise(r => setTimeout(r, 200));
+    return await fn();
+  }
+}
+async function idbPutRaw(id, data){
   _idb = _idb || await idbOpen();
   return new Promise((res, rej) => {
     const t = _idb.transaction('docs', 'readwrite');
     t.objectStore('docs').put(data, id);
-    t.oncomplete = res; t.onerror = () => rej(t.error);
+    t.oncomplete = res;
+    t.onerror = () => rej(t.error || new Error('idb-put'));
+    t.onabort = () => rej(t.error || new Error('idb-abort'));
   });
 }
-async function idbGet(id){
+async function idbGetRaw(id){
   _idb = _idb || await idbOpen();
   return new Promise((res, rej) => {
     const t = _idb.transaction('docs', 'readonly');
     const q = t.objectStore('docs').get(id);
     q.onsuccess = () => res(q.result || null);
-    q.onerror = () => rej(q.error);
+    q.onerror = () => rej(q.error || new Error('idb-get'));
   });
+}
+function idbPut(id, data){ return idbComRetry(() => idbPutRaw(id, data)); }
+function idbGet(id){ return idbComRetry(() => idbGetRaw(id)); }
+// v10.27 — explica ao usuário POR QUE não salvou (antes: só "Erro ao salvar")
+function idbMotivo(err){
+  const n = (err && err.name) || ''; const m = String((err && err.message) || '');
+  const cod = (n || 'Erro') + (m && !n ? ': ' + m.slice(0, 40) : '');
+  if(/canvas-vazio/.test(m)) return { cod, txt: 'o iPhone ficou sem memória para tratar a foto. Feche outros apps e tente de novo (ou tire a foto em resolução menor).' };
+  if(n === 'QuotaExceededError' || /quota/i.test(m)) return { cod, txt: 'sem espaço no aparelho. Libere memória (apague fotos/apps) e tente de novo.' };
+  if(n === 'DataCloneError' || n === 'DataError') return { cod, txt: 'esse arquivo não pôde ser guardado. Tente outro arquivo.' };
+  if(n === 'SecurityError' || n === 'InvalidStateError' || n === 'UnknownError' || n === 'AbortError' || n === 'NotFoundError' || n === 'TransactionInactiveError' || /backing store|idb-|closing|blocked|denied/i.test(m) || !n)
+    return { cod, txt: 'o navegador bloqueou o armazenamento. Feche o Safari por completo, abra de novo e repita (fora de aba privada).' };
+  return { cod, txt: 'tente de novo. Se repetir, feche e abra o app.' };
+}
+function toastErroArquivo(oque, err){
+  try{ console.warn('arquivo não salvo:', oque, err); }catch(e){}
+  const r = idbMotivo(err);
+  toast('⚠ ' + oque + ': ' + r.txt + ' (' + r.cod + ')', 7000);
 }
 async function idbDel(id){
   _idb = _idb || await idbOpen();
@@ -4128,12 +4169,12 @@ function esc(s){ return String(s??'').replace(/[<>&"']/g, c=>({'<':'&lt;','>':'&
 // Para textos do usuário dentro de argumentos JS em onclick="f('...')":
 // escapa \ e ' para o contexto JS e depois aplica esc() para o contexto HTML.
 const escJS = s => esc(String(s??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
-function toast(msg){
+function toast(msg, ms){
   document.querySelectorAll('.toast').forEach(t=>t.remove());
   const t = document.createElement('div');
   t.className='toast'; t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(()=>t.remove(), 2600);
+  setTimeout(()=>t.remove(), ms || 2600);
 }
 function crmvFull(){
   const v = DB.vet;
@@ -7478,8 +7519,9 @@ async function uploadTutorFicha(tid, input){
       if(t.ficha) idbDel(t.ficha.id);
       t.ficha = {id, name:file.name, date:todayISO(), kind: file.type==='application/pdf'?'pdf':'img'};
       save(); render(); toast('📎 Ficha anexada!');
-    }catch(err){ toast('⚠ Erro ao salvar'); }
+    }catch(err){ toastErroArquivo('Não salvou a ficha', err); }
   };
+  r.onerror = () => toast('⚠ Não consegui ler esse arquivo. Tente de novo.', 5000);
   r.readAsDataURL(file);
 }
 async function viewTutorFicha(tid){
@@ -8597,7 +8639,7 @@ function anexarFotoTermo(petId, termId, input){
         if(rec.foto) idbDel(rec.foto.id);
         rec.foto = {id, name:'Termo assinado — '+TERMS[rec.type].name, date:todayISO(), kind:'img'};
         save(); toast('📷 Foto do termo assinado salva!'); render();
-      }catch(err){ toast('⚠ Erro ao salvar a foto'); }
+      }catch(err){ toastErroArquivo('Não salvou a foto', err); }
     };
     img.onerror = () => toast('⚠ Não consegui abrir essa imagem');
     img.src = e.target.result;
@@ -8868,7 +8910,7 @@ function linkTutorToPet(petId){
 function uploadDoc(petId, input){
   const file = input.files[0]; if(!file) return;
   if(file.size > 20_000_000){ toast('⚠ Arquivo muito grande (máx 20MB)'); return; }
-  const pet = DB.pets.find(p=>p.id===petId);
+  const pet = DB.pets.find(p=>p.id===petId); if(!pet) return;
   // PDF: salva direto no IndexedDB
   if(file.type === 'application/pdf'){
     const r = new FileReader();
@@ -8876,10 +8918,11 @@ function uploadDoc(petId, input){
       const id = uid();
       try{
         await idbPut(id, e.target.result);
-        pet.documents.unshift({id, name:file.name, date:todayISO(), kind:'pdf'});
+        (pet.documents = pet.documents || []).unshift({id, name:file.name, date:todayISO(), kind:'pdf'});
         save(); toast('📄 PDF salvo!'); render();
-      }catch(err){ toast('⚠ Erro ao salvar o PDF'); }
+      }catch(err){ toastErroArquivo('Não salvou o PDF', err); }
     };
+    r.onerror = () => toast('⚠ Não consegui ler esse PDF. Tente de novo.', 5000);
     r.readAsDataURL(file);
     return;
   }
@@ -8887,19 +8930,24 @@ function uploadDoc(petId, input){
   reader.onload = e => {
     const img = new Image();
     img.onload = async () => {
-      const cv = document.createElement('canvas');
-      const scale = Math.min(1, 1400/img.width);
-      cv.width = img.width*scale; cv.height = img.height*scale;
-      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       const id = uid();
       try{
-        await idbPut(id, cv.toDataURL('image/jpeg',.8));
-        pet.documents.unshift({id, name:file.name, date:todayISO()});
+        const cv = document.createElement('canvas');
+        const scale = Math.min(1, 1400/img.width);
+        cv.width = Math.max(1, Math.round(img.width*scale)); cv.height = Math.max(1, Math.round(img.height*scale));
+        cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+        const jpg = cv.toDataURL('image/jpeg',.8);
+        if(!jpg || jpg.length < 100) throw new Error('canvas-vazio'); // iPhone com pouca memória devolve imagem vazia
+        await idbPut(id, jpg);
+        (pet.documents = pet.documents || []).unshift({id, name:file.name, date:todayISO()});
         save(); toast('📄 Documento salvo!'); render();
-      }catch(err){ toast('⚠ Erro ao salvar a imagem'); }
+      }catch(err){ toastErroArquivo('Não salvou a imagem', err); }
     };
+    // v10.27: foto que o navegador não consegue abrir (ex.: formato HEIC de alguns iPhones) não ficava sem resposta
+    img.onerror = () => toast('⚠ Não consegui abrir essa foto. No iPhone, tente "Tirar Foto" ou escolha outra imagem (JPG/PNG).', 7000);
     img.src = e.target.result;
   };
+  reader.onerror = () => toast('⚠ Não consegui ler essa foto. Tente de novo.', 5000);
   reader.readAsDataURL(file);
 }
 // v10.01 — arquivo que aparece na lista mas não está guardado neste aparelho
@@ -9424,7 +9472,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.26 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.27 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
