@@ -2,7 +2,7 @@
 // Estratégia: Network-First (busca atualização na rede; cache só responde offline)
 // B&G Systems | Todos os direitos reservados | marca de autoria vfc-sig-7Qx9mK2-bg26
 
-const CACHE = 'vetflowcare-v10.27';
+const CACHE = 'vetflowcare-v10.28';
 
 // 9.74: cadastro em tela única, sem fotos de animais — register-data-art.png e
 // register-security-art.png não são mais usados nessa tela e saíram do pré-cache.

@@ -3386,14 +3386,15 @@ if(!vfcHostOK()) vfcCloneLock('boot');
 const IG_GLYPH = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0"><rect x="2.5" y="2.5" width="19" height="19" rx="5.5" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.4" stroke="#fff" stroke-width="2.2"/><circle cx="17.6" cy="6.4" r="1.4" fill="#fff"/></svg>';
 
 // ═══ AVISO DE NOVA VERSÃO ═══
-const APP_VER = '10.27';
+const APP_VER = '10.28';
 // Novidades desta versão — atualize este bloco a cada lançamento.
 // O aviso aparece automaticamente para TODO usuário que abrir o app numa
 // versão que ainda não viu (controle por APP_VER), uma única vez.
 const NOVIDADES = {
-  ver: '10.27',
+  ver: '10.28',
   titulo: 'Novidades da versão 🚀',
   itens: [
+    ['♾️','Plano Pro vitalício','Agora existe o código Pro sem prazo de validade, liberado para sempre no aparelho. Quem recebe esse código não precisa mais renovar.'],
     ['📱','Envio de fotos e exames mais seguro no iPhone','Se o envio de uma foto ou PDF falhar, o aviso agora diz o motivo (sem espaço no aparelho, armazenamento bloqueado pelo Safari, foto que não abre) e o que fazer. O app também tenta reabrir o armazenamento sozinho antes de desistir.'],
     ['🛡️','Mais segurança no app','Reforçamos a proteção do VetFlowCare contra cópias não autorizadas e a proteção da sua licença Pro. Nada muda no seu uso do dia a dia e seus dados continuam guardados só no seu aparelho.'],
     ['🧾','Orçamento de vários animais também no Novo Atendimento','No Novo Atendimento, ao lado de “Orçamento em PDF”, apareceu o botão <b>🧾 Vários animais</b>. Ele traz o tutor do paciente e os animais dele, leva os serviços que você já lançou para o primeiro animal e deixa você adicionar os outros. O atendimento que você está preenchendo <b>não é perdido</b>. Toque em “ⓘ Como funciona” para ver o passo a passo.'],
@@ -5985,9 +5986,11 @@ const LIC_ENFORCE = true;
 function licSeal(L){ return h53([L.code, L.activatedAt, L.expiresAt, L.plan].join('|') + '|' + VFC_SIG + '|ORGCC'); }
 function licOk(L){
   if(!L.code || !/^VFC-[A-Z0-9]{4}-\d{4}$/i.test(L.code)){ vfcTrap('license-forged'); return !LIC_ENFORCE; }
+  // v10.28: licença que se declara vitalícia (plano 0) exige código vitalício válido para ESTE aparelho (mesmo com selo certo)
+  if(L.plan === 0 && !vfcCheckVit(L.code)){ vfcTrap('license-forged'); return !LIC_ENFORCE; }
   if(L.seal){ if(L.seal === licSeal(L)) return true; vfcTrap('license-seal'); return !LIC_ENFORCE; }
   // licença de versão anterior (sem selo): só vale se o código é válido para ESTE aparelho; então ganha o selo.
-  if(vfcCheck(L.code)){ L.seal = licSeal(L); try{ save(); }catch(e){} return true; }
+  if(L.plan === 0 ? vfcCheckVit(L.code) : vfcCheck(L.code)){ L.seal = licSeal(L); try{ save(); }catch(e){} return true; }
   vfcTrap('license-legacy'); return !LIC_ENFORCE;
 }
 function isProReal(){
@@ -6010,13 +6013,24 @@ function addMonths(iso, m){
   d.setMonth(d.getMonth() + m);
   return d.toISOString().slice(0,10);
 }
-const PRO_PLANS = {1:'1 mês', 6:'6 meses', 12:'12 meses'};
+const PRO_PLANS = {0:'Vitalício', 1:'1 mês', 6:'6 meses', 12:'12 meses'};
 function vfcChecksum(seed, devId){
   // v9.9: código Pro VINCULADO ao aparelho — o mesmo código não ativa em outro celular.
   let h = 7;
   const s = seed + '|' + (devId||'') + 'ORGANIZACONECTACUIDA';
   for(let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 99991;
   return String(1000 + (h % 9000));
+}
+// v10.28 — código Pro VITALÍCIO: mesmo formato VFC-XXXX-0000, mas com outro cálculo (não vale como mensal e vice-versa) e também preso ao aparelho.
+function vfcChecksumVit(seed, devId){
+  let h = 11;
+  const s = seed + '|' + (devId||'') + 'VITALICIOORGANIZACONECTACUIDA';
+  for(let i=0;i<s.length;i++) h = (h*37 + s.charCodeAt(i)) % 99991;
+  return String(1000 + (h % 9000));
+}
+function vfcCheckVit(code){
+  const m = /^VFC-([A-Z0-9]{4})-(\d{4})$/.exec((code||'').toUpperCase().trim());
+  return !!m && vfcChecksumVit(m[1], myDevId()) === m[2];
 }
 function myDevId(){
   // Auto-reparo: se o ID estiver vazio ou inválido (ex: iPhone que abriu antes do
@@ -6179,6 +6193,15 @@ function openTrialExpirado(recurso){
 }
 function activatePro(){
   const code = val('proCode').toUpperCase().trim();
+  // v10.28: código VITALÍCIO (só se NÃO for um código mensal válido — mensal tem prioridade, então um mensal nunca vira vitalício por coincidência)
+  if(!vfcCheck(code) && vfcCheckVit(code)){
+    DB.license = { pro:true, code, activatedAt:todayISO(), plan:0, expiresAt:null };
+    DB.license.seal = licSeal(DB.license);
+    gcEvent('pro-ativado');
+    save(); closeSheet(); render();
+    toast('✨ Pro vitalício ativado! Sem vencimento 🐾');
+    return;
+  }
   if(!vfcCheck(code)){ toast('⚠ Código inválido para este aparelho — confira se ele foi gerado para o ID AP-'+myDevId()); return; }
   // Uso único por aparelho: cada renovação exige um código novo
   if(usedCodes().includes(code)){
@@ -9206,7 +9229,7 @@ function statusPlanoCard(){
         <span style="font-size:26px">✨</span>
         <div style="flex:1">
           <b style="font-size:15px;color:var(--rx)">Plano Pro ativo</b>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${dias!==null?`Renova em ${dias} ${dias===1?'dia':'dias'}`:'Tudo liberado 🐾'}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${dias!==null?`Renova em ${dias} ${dias===1?'dia':'dias'}`:(L.plan===0?'♾️ Vitalício · sem renovação':'Tudo liberado 🐾')}</div>
         </div>
       </div></div></div>`;
   }
@@ -9384,7 +9407,7 @@ function renderSettings(){
             <div style="flex:1"><b style="color:var(--rx)">Pro ativo · ${PRO_PLANS[DB.license.plan]||''}</b>
             <div style="color:var(--muted);font-size:12px">${DB.license.expiresAt
               ? `⏳ Restam <b style="color:var(--text)">${Math.max(0,daysUntil(DB.license.expiresAt))} dias</b> · expira ${fmtDate(DB.license.expiresAt)}`
-              : 'Ativado em '+fmtDate(DB.license.activatedAt)}</div></div></div>
+              : (DB.license.plan===0?'♾️ Sem vencimento · ativado em ':'Ativado em ')+fmtDate(DB.license.activatedAt)}</div></div></div>
           ${DB.license.expiresAt && daysUntil(DB.license.expiresAt)<=15
             ? `<button class="btn" style="background:var(--rx);margin-top:10px" onclick="openProModal('Seu plano expira em breve — renove para não perder os recursos Pro.')">🔄 Renovar plano</button>`:''}
           `
@@ -9472,7 +9495,7 @@ function renderSettings(){
     <div style="font-weight:900;font-size:20px;margin-top:10px">Vet<span style="color:var(--primary)">Flow</span></div>
     <div style="font-family:Georgia,serif;font-style:italic;color:var(--primary);font-size:14px">Care</div>
     <div style="color:var(--muted);font-size:10px;letter-spacing:2px;font-weight:600;margin-top:6px">ORGANIZA · CONECTA · CUIDA</div>
-    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.27 · Gestão Veterinária</div>
+    <div style="color:var(--muted);font-size:11px;margin-top:8px">v10.28 · Gestão Veterinária</div>
     <div style="margin-top:26px;padding-top:16px;border-top:1px solid var(--border);text-align:center">
       <button style="background:none;border:none;color:var(--muted);font-size:11px;text-decoration:underline;padding:0;margin-bottom:12px" onclick="viewTermsAgain()">📜 Termos de Uso e Privacidade</button>
       <div style="font-size:12px;font-weight:800;color:var(--text);letter-spacing:.5px">B&amp;G Systems</div>
